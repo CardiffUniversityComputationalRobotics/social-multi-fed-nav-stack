@@ -92,20 +92,16 @@ void SocialCostmap::addNewAgentStates(pedsim_msgs::AgentStates *agentStates)
 
     for (int i = 0; i < agentStates->agent_states.size(); i++)
     {
-        if (!this->agentStatesRecord.count(agentStates->agent_states[i].id))
-        {
 
-            smf_move_base_msgs::RelevantAgentState relevantAgentState;
+        smf_move_base_msgs::RelevantAgentState relevantAgentState;
 
-            relevantAgentState.header = agentStates->header;
+        relevantAgentState.header = agentStates->header;
 
-            relevantAgentState.agent_state = agentStates->agent_states[i];
+        relevantAgentState.agent_state = agentStates->agent_states[i];
 
-            relevantAgentState.relevance = 100;
+        relevantAgentState.relevance = 100;
 
-            agentStatesRecord.insert(std::pair<unsigned int, smf_move_base_msgs::RelevantAgentState>(relevantAgentState.agent_state.id, relevantAgentState));
-        }
-        // TODO: UPDATE AGENT VALUES IF IT DOES EXIST
+        agentStatesRecord[agentStates->agent_states[i].id] = relevantAgentState;
     }
 }
 
