@@ -32,6 +32,9 @@ public:
     SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, float resolution);
 
     //! FUNCTIONS
+
+    unsigned int calculateSocialCost(float x, float y);
+
     void updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates *agentStates);
 
     void initSocialCostmap();
@@ -56,4 +59,21 @@ public:
     void setTimeDecayFactor(unsigned int timeDecayFactor);
 
     void setFrameId(std::string);
+
+    // ! EXTERNAL FUNCTIONS
+
+    int mapIndex(unsigned int width, unsigned int i, unsigned int j)
+    {
+        return i + j * width;
+    }
+
+    float mapWx(float origin_x, unsigned int width, float resolution, int i)
+    {
+        return origin_x + (i - width / 2) * resolution;
+    }
+
+    float mapWy(float origin_y, unsigned int height, float resolution, int i)
+    {
+        return origin_y + (i - height / 2) * resolution;
+    }
 };

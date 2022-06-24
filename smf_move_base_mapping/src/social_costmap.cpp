@@ -21,6 +21,40 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
     updateAgentStatesRelevance(agentStates);
 
     addNewAgentStates(agentStates);
+
+    // header
+    this->socialCostmap.header.stamp = ros::Time::now();
+    this->socialCostmap.header.frame_id = this->frameId;
+
+    // info
+    this->socialCostmap.info.resolution = this->resolution;
+    this->socialCostmap.info.width = this->width;
+    this->socialCostmap.info.height = this->height;
+    this->socialCostmap.info.origin = this->origin;
+
+    int dataArraySize = (this->width * this->height) / this->resolution;
+
+    this->socialCostmap.data.resize(dataArraySize);
+
+    float mapOriginX = this->origin.position.x + (this->width / 2) * this->resolution;
+
+    float mapOriginY = this->origin.position.y + (this->height / 2) * this->resolution;
+
+    for (int i = 0; i < this->height; i++)
+    {
+        for (int j = 0; j < this->width; j++)
+        {
+            float wX = mapWx(mapOriginX, this->width, this->resolution, i);
+            float wY = mapWy(mapOriginY, this->height, this->resolution, i);
+
+            this->socialCostmap.data[mapIndex(this->width, i, j)] = this->calculateSocialCost(wX, wY);
+        }
+    }
+}
+
+unsigned int SocialCostmap::calculateSocialCost(float x, float y)
+{
+    return 1;
 }
 
 void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates)
