@@ -11,6 +11,8 @@
 #include <map>
 #include <smf_move_base_msgs/RelevantAgentState.h>
 
+#include <tf/tf.h>
+
 class SocialCostmap
 {
 private:
@@ -62,18 +64,57 @@ public:
 
     // ! EXTERNAL FUNCTIONS
 
-    int mapIndex(unsigned int width, unsigned int i, unsigned int j)
+    unsigned int mapIndex(unsigned int width, unsigned int i, unsigned int j)
     {
         return i + j * width;
     }
 
-    float mapWx(float origin_x, unsigned int width, float resolution, int i)
+    float mapWx(float origin_x, unsigned int width, float resolution, unsigned int i)
     {
         return origin_x + (i - width / 2) * resolution;
     }
 
-    float mapWy(float origin_y, unsigned int height, float resolution, int i)
+    float mapWy(float origin_y, unsigned int height, float resolution, unsigned int i)
     {
         return origin_y + (i - height / 2) * resolution;
+    }
+
+    unsigned int socialComfortCost(float x, float y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
+    {
+        float distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
+                                   std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
+
+        float tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
+                                      (x - relevantAgentState.agent_state.pose.position.x));
+
+        double tethaOrientation;
+        if (abs(relevantAgentState.agent_state.twist.linear.x) > 0 || abs(relevantAgentState.agent_state.twist.linear.y) > 0)
+        {
+            tethaOrientation = atan2(relevantAgentState.agent_state.twist.linear.y, relevantAgentState.agent_state.twist.linear.x);
+        }
+        else
+        {
+            tf::Quaternion q(relevantAgentState.agent_state.pose.orientation.x, relevantAgentState.agent_state.pose.orientation.y,
+                             relevantAgentState.agent_state.pose.orientation.z, relevantAgentState.agent_state.pose.orientation.w);
+
+            tf::Matrix3x3 m(q);
+            double roll, pitch, yaw;
+            m.getRPY(roll, pitch, yaw);
+
+            tethaOrientation = yaw;
+        }
+
+        if (tethaOrientation < 0)
+        {
+            tethaOrientation = 2 * M_PI + tethaOrientation;
+        }
+
+        unsigned int basicPersonalSpaceVal =
+            relevantAgentState.relevance *
+            std::exp(-(
+                std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
+                         2) +
+                std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
+                         2)));
     }
 };

@@ -54,7 +54,21 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
 
 unsigned int SocialCostmap::calculateSocialCost(float x, float y)
 {
-    return 1;
+
+    int socialCost = 0;
+
+    for (auto &agentItem : this->agentStatesRecord)
+    {
+        auto &relevantAgentState = agentItem.second;
+        socialCost += socialComfortCost(x, y, relevantAgentState);
+    }
+
+    if (socialCost > 100)
+    {
+        socialCost = 100;
+    }
+
+    return socialCost;
 }
 
 void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates)
@@ -91,6 +105,7 @@ void SocialCostmap::addNewAgentStates(pedsim_msgs::AgentStates *agentStates)
 
             agentStatesRecord.insert(std::pair<unsigned int, smf_move_base_msgs::RelevantAgentState>(relevantAgentState.agent_state.id, relevantAgentState));
         }
+        // TODO: UPDATE AGENT VALUES IF IT DOES EXIST
     }
 }
 
