@@ -6,7 +6,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   nav_msgs
-  smf_move_base_planning
+  smf_move_base_msgs
+  pedsim_msgs
 )
 
 catkin_package(
@@ -23,7 +24,7 @@ include_directories(
 
 add_executable(smf_move_base_mapper
 src/social_costmap.cpp
-# src/world_modeler.cpp
+src/world_modeler.cpp
 )
 target_link_libraries(smf_move_base_mapper ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 # add_dependencies(smf_move_base_mapper ${catkin_EXPORTED_TARGETS} smf_move_base_msgs_generate_messages_cpp ${smf_move_base_msgs_EXPORTED_TARGETS})

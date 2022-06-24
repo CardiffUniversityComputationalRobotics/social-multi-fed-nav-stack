@@ -4,21 +4,21 @@
 //! Main function
 int main(int argc, char **argv)
 {
-  //=======================================================================
-  // Override SIGINT handler
-  //=======================================================================
-//   signal(SIGINT, stopNode);
+    //=======================================================================
+    // Override SIGINT handler
+    //=======================================================================
+    //   signal(SIGINT, stopNode);
 
-  // Init ROS node
-//   ros::init(argc, argv, "octomap_laser_scan");
-//   ros::NodeHandle private_nh("~");
+    // Init ROS node
+    //   ros::init(argc, argv, "octomap_laser_scan");
+    //   ros::NodeHandle private_nh("~");
 
-//   // Constructor
-//   LaserOctomap mapper;
+    //   // Constructor
+    //   LaserOctomap mapper;
 
-//   // Spin
-//   ros::spin();
+    //   // Spin
+    //   ros::spin();
 
-  // Exit main function without errors
-  return 0;
+    // Exit main function without errors
+    return 0;
 }
