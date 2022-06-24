@@ -1,0 +1,3 @@
+Header header
+pedsim_msgs/AgentState agent_state
+int8 relevance

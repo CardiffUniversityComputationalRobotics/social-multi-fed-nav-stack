@@ -22,6 +22,12 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
+  <!-- more msgs deps -->
+  <depend>nav_msgs</depend>
+  <depend>smf_move_base_msgs</depend>
+
+  <depend>tf</depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
