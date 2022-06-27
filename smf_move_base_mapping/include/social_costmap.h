@@ -31,6 +31,9 @@ private:
 
 public:
     //! CONSTRUCTOR
+
+    SocialCostmap();
+
     SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, float resolution);
 
     //! FUNCTIONS
@@ -116,5 +119,6 @@ public:
                          2) +
                 std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
                          2)));
+        return basicPersonalSpaceVal;
     }
 };

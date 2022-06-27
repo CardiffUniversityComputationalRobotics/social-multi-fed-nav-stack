@@ -2,6 +2,15 @@
 #include <social_costmap.h>
 
 //! CONSTRUCTOR
+SocialCostmap::SocialCostmap()
+{
+    setDimensions(1, 1);
+    setOrigin(geometry_msgs::Pose());
+    setResolution(0.5);
+    setFrameId("world");
+    initSocialCostmap();
+}
+
 SocialCostmap::SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, float resolution)
 {
 
