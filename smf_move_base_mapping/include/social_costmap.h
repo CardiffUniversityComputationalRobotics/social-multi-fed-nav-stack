@@ -74,18 +74,37 @@ public:
 
     float mapWx(float origin_x, unsigned int width, float resolution, unsigned int i)
     {
-        return origin_x + (i - width / 2) * resolution;
+
+        ROS_INFO_STREAM("origin x: " << origin_x);
+        ROS_INFO_STREAM("width: " << width);
+        ROS_INFO_STREAM("resolution: " << resolution);
+
+        float a = float(i) - float(width) / 2;
+
+        // float data = origin_x + (float(i - width / 2)) * resolution;
+        ROS_INFO_STREAM("a: " << a);
+        float data = float(origin_x) + a * float(resolution);
+
+        ROS_INFO_STREAM("data: " << data);
+
+        return data;
     }
 
-    float mapWy(float origin_y, unsigned int height, float resolution, unsigned int i)
+    float mapWy(float origin_y, unsigned int height, float resolution, unsigned int j)
     {
-        return origin_y + (i - height / 2) * resolution;
+        return float(origin_y) + (float(j) - float(height) / 2) * float(resolution);
     }
 
     unsigned int socialComfortCost(float x, float y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
     {
         float distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
                                    std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
+
+        if (distance < 1)
+        {
+            return 100;
+        }
+        return 0;
 
         float tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
                                       (x - relevantAgentState.agent_state.pose.position.x));
