@@ -23,3 +23,4 @@ global_2d_map_topic: "/projected_map"
 robot_distance_view: 8
 robot_velocity_thres: 0.22
 robot_fov: 1.57
+social_costmap_decay_factor: 1

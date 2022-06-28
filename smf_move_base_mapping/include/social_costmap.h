@@ -25,7 +25,7 @@ private:
     geometry_msgs::Pose origin;
     std::string frameId;
 
-    unsigned int timeDecayFactor = 1;
+    double timeDecayFactor = 1;
 
     unsigned int resolutionFactor = 5;
 
@@ -63,7 +63,7 @@ public:
 
     void setOrigin(geometry_msgs::Pose origin);
 
-    void setTimeDecayFactor(unsigned int timeDecayFactor);
+    void setTimeDecayFactor(double timeDecayFactor);
 
     void setFrameId(std::string);
 

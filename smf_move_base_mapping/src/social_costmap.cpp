@@ -152,7 +152,7 @@ void SocialCostmap::setOrigin(geometry_msgs::Pose origin)
     this->origin = origin;
 }
 
-void SocialCostmap::setTimeDecayFactor(unsigned int timeDecayFactor)
+void SocialCostmap::setTimeDecayFactor(double timeDecayFactor)
 {
     this->timeDecayFactor = timeDecayFactor;
 }
