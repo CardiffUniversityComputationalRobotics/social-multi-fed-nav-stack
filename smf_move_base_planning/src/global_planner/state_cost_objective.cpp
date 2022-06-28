@@ -18,17 +18,11 @@ ob::OptimizationObjectivePtr getRiskZonesObjective(const ob::SpaceInformationPtr
     return ob::OptimizationObjectivePtr(new RiskZonesObjective(si, motion_cost_interpolation));
 }
 
-ob::OptimizationObjectivePtr getSocialComfortObjective(const ob::SpaceInformationPtr &si,
+// !SOCIAL COSTMAP
+ob::OptimizationObjectivePtr getSocialCostmapObjective(const ob::SpaceInformationPtr &si,
                                                        bool motion_cost_interpolation)
 {
-    return ob::OptimizationObjectivePtr(new SocialComfortObjective(si, motion_cost_interpolation));
-}
-
-ob::OptimizationObjectivePtr getExtendedSocialComfortObjective(const ob::SpaceInformationPtr &si,
-                                                               bool motion_cost_interpolation)
-{
-    // ROS_INFO_STREAM("Sending extended social comfort objective");
-    return ob::OptimizationObjectivePtr(new ExtendedSocialComfortObjective(si, motion_cost_interpolation));
+    return ob::OptimizationObjectivePtr(new SocialCostmapObjective(si, motion_cost_interpolation));
 }
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr &si)

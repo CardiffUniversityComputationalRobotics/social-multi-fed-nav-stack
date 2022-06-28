@@ -4,7 +4,6 @@
 
     <arg name="output" default="screen" />
 
-    <!-- Start octomap_laser_scan node -->
     <node name="esc_move_base_planner" pkg="smf_move_base_planning" type="smf_move_base_global_planner" required="true" output="screen">
         <rosparam command="load" file="$(find smf_move_base_planning)/config/smf_move_base_global_planning.yaml" />
     </node>

@@ -29,10 +29,10 @@ OmFclStateValidityCheckerR2::OmFclStateValidityCheckerR2(const ob::SpaceInformat
     local_nh_.param("robot_base_radius", robot_base_radius_, robot_base_radius_);
     local_nh_.param("robot_base_height", robot_base_height_, robot_base_height_);
     local_nh_.param("octomap_service", octomap_service_, octomap_service_);
-    local_nh_.param("sim_agents_topic", sim_agents_topic, sim_agents_topic);
     local_nh_.param("odometry_topic", odometry_topic, odometry_topic);
     local_nh_.param("main_frame", main_frame, main_frame);
     local_nh_.param("optimization_objective", optimization_objective, optimization_objective);
+    local_nh_.param("social_costmap_topic", social_costmap_topic, social_costmap_topic);
 
     octree_ = NULL;
 
@@ -70,17 +70,11 @@ OmFclStateValidityCheckerR2::OmFclStateValidityCheckerR2(const ob::SpaceInformat
             ROS_ERROR("Error reading OcTree from stream");
     }
 
-    ROS_INFO_STREAM("Retrieving data from social agents.");
-    agentStates = ros::topic::waitForMessage<pedsim_msgs::AgentStates>(sim_agents_topic);
-    // ROS_INFO_STREAM("Data from social agents: " << agentStates->agent_states[0].pose.position.x);
-
     ROS_INFO_STREAM("Retrieving robot odometry.");
     odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic);
 
-    // ROS_INFO_STREAM("Retrieving robot odometry.");
-    // odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic);
-
-    // tl.transformPose(main_frame, msg_hand, rel_hand_pos);
+    ROS_INFO_STREAM("Retrieving social costmap.");
+    socialCostmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(social_costmap_topic);
 }
 
 bool OmFclStateValidityCheckerR2::isValid(const ob::State *state) const
@@ -110,9 +104,6 @@ bool OmFclStateValidityCheckerR2::isValid(const ob::State *state) const
     fcl::Transform3f robot_tf;
     robot_tf.setIdentity();
     robot_tf.translate(fcl::Vector3f(state_r2->values[0], state_r2->values[1], robot_base_height_ / 2.0));
-    // fcl::Quaternion3f qt0;
-    // qt0.fromEuler(0.0, 0.0, 0.0);
-    // robot_tf.setQuatRotation(qt0);
 
     fcl::CollisionObjectf vehicle_co(robot_collision_solid_, robot_tf);
 
@@ -127,71 +118,6 @@ bool OmFclStateValidityCheckerR2::isValid(const ob::State *state) const
     {
         // ompl::tools::Profiler::End("collision");
         return false;
-    }
-
-    //  agents collision checking
-
-    double robotVelocity =
-        std::sqrt(std::pow(odomData->twist.twist.linear.x, 2) + std::pow(odomData->twist.twist.linear.y, 2));
-
-    double actualFOVDistance = robotDistanceView / robotVelocityThreshold * robotVelocity;
-
-    if (actualFOVDistance < 1.5)
-    {
-        actualFOVDistance = 1.5;
-    }
-
-    // ROS_INFO_STREAM("distance of robot view " << actualFOVDistance);
-
-    for (int i = 0; i < agentStates->agent_states.size(); i++)
-    {
-        pedsim_msgs::AgentState agentState = agentStates->agent_states[i];
-
-        if (optimization_objective == "SocialComfort")
-        {
-            double dRobotAgent =
-                std::sqrt(std::pow(agentState.pose.position.x - odomData->pose.pose.position.x, 2) +
-                          std::pow(agentState.pose.position.y - odomData->pose.pose.position.y, 2));
-
-            if (dRobotAgent < actualFOVDistance)
-            {
-                // FCL
-                fcl::Transform3f agent_tf;
-                agent_tf.setIdentity();
-                agent_tf.translate(fcl::Vector3f(agentState.pose.position.x, agentState.pose.position.y,
-                                                 robot_base_height_ / 2.0));
-                // fcl::Quaternion3f qt0;
-                // qt0.fromEuler(0.0, 0.0, 0.0);
-                // agent_tf.setQuatRotation(qt0);
-
-                fcl::CollisionObjectf agent_co(agent_collision_solid_, agent_tf);
-                fcl::collide(&agent_co, &vehicle_co, collision_request, collision_result);
-
-                if (collision_result.isCollision())
-                {
-                    return false;
-                }
-            }
-        }
-        else
-        {
-            // FCL
-            fcl::Transform3f agent_tf;
-            agent_tf.setIdentity();
-            agent_tf.translate(
-                fcl::Vector3f(agentState.pose.position.x, agentState.pose.position.y, robot_base_height_ / 2.0));
-            // fcl::Quaternion3f qt0;
-            // qt0.fromEuler(0.0, 0.0, 0.0);
-            // agent_tf.setQuatRotation(qt0);
-
-            fcl::CollisionObjectf agent_co(agent_collision_solid_, agent_tf);
-            fcl::collide(&agent_co, &vehicle_co, collision_request, collision_result);
-
-            if (collision_result.isCollision())
-            {
-                return false;
-            }
-        }
     }
 
     return true;
@@ -290,323 +216,49 @@ double OmFclStateValidityCheckerR2::checkRiskZones(const ob::State *state) const
     return state_risk;
 }
 
-/*
- * Checks and returns the cost value of the robot according to the equation of social comfort.
- */
-double OmFclStateValidityCheckerR2::checkSocialComfort(const ob::State *state,
+double OmFclStateValidityCheckerR2::checkSocialCostmap(const ob::State *state,
                                                        const ob::SpaceInformationPtr space) const
 {
-    // ROS_INFO_STREAM("Running social comfort model");
+    ROS_INFO_STREAM("Running social costmap cost objective");
 
-    // const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-    double state_risk = 0.0;
+    double nearestDist = 1000000000;
 
-    for (int i = 0; i < agentStates->agent_states.size(); i++)
+    double nearI;
+    double nearJ;
+
+    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+    double state_risk = 1.0;
+
+    double mapOriginX = this->socialCostmap->info.origin.position.x + (this->socialCostmap->info.width / 2) * this->socialCostmap->info.resolution;
+
+    double mapOriginY = this->socialCostmap->info.origin.position.y + (this->socialCostmap->info.height / 2) * this->socialCostmap->info.resolution;
+
+    for (int j = 0; j < this->socialCostmap->info.height; j++)
     {
-        state_risk += this->basicPersonalSpaceFnc(state, agentStates->agent_states[i], space);
-    }
-
-    if (state_risk <= 1)
-        state_risk = 1;
-
-    // ROS_INFO_STREAM("The current state risk: " << state_risk);
-
-    return state_risk;
-}
-
-double OmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
-                                                               const ob::SpaceInformationPtr space) const
-{
-    // const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-    double state_risk = 0.0;
-    double current_state_risk = 0.0;
-
-    // ROS_INFO_STREAM("Running extended social comfort model function");
-
-    for (int i = 0; i < agentStates->agent_states.size(); i++)
-    {
-        if (this->isAgentInRFOV(state, agentStates->agent_states[i], space))
+        for (int i = 0; i < this->socialCostmap->info.width; i++)
         {
-            // ROS_INFO_STREAM("Agent in fov: " << agentStates->agent_states[i].id);
-            current_state_risk = this->extendedPersonalSpaceFnc(state, agentStates->agent_states[i], space);
-            // ROS_INFO_STREAM("agent risk: " << current_state_risk);
+            double wX = mapWx(mapOriginX, this->socialCostmap->info.width, this->socialCostmap->info.resolution, i);
+            double wY = mapWy(mapOriginY, this->socialCostmap->info.height, this->socialCostmap->info.resolution, j);
+
+            double newDist = std::sqrt(std::pow(state_r2->values[0] - wX, 2) + std::pow(state_r2->values[1] - wY, 2));
+
+            if (newDist < nearestDist)
+            {
+                nearestDist = newDist;
+                nearI = i;
+                nearJ = j;
+            }
+
+            state_risk = socialCostmap->data[mapIndex(this->socialCostmap->info.width, i, j)];
         }
-        if (current_state_risk > state_risk)
-            state_risk = current_state_risk;
     }
 
-    if (state_risk <= 1)
+    if (state_risk < 0)
+    {
         state_risk = 1;
-
-    // ROS_INFO_STREAM("The current state risk: " << state_risk);
-
-    // ROS_INFO_STREAM("agent risk: " << state_risk);
+    }
 
     return state_risk;
-}
-
-double OmFclStateValidityCheckerR2::basicPersonalSpaceFnc(const ob::State *state,
-                                                          const pedsim_msgs::AgentState agentState,
-                                                          const ob::SpaceInformationPtr space) const
-{
-    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-
-    ob::ScopedState<> agentTf(space);
-    agentTf[0] = double(agentState.pose.position.x); // x
-    agentTf[1] = double(agentState.pose.position.y); // y
-
-    double dRobotAgent = space->distance(state, agentTf->as<ob::State>());
-
-    // double tethaRobotAgent = atan2((state_r2->values[1] - agentState.pose.position.y),
-    //                                (state_r2->values[0] - agentState.pose.position.x));
-
-    // double tethaOrientation;
-    // if (abs(agentState.twist.linear.x) > 0 || abs(agentState.twist.linear.y) > 0)
-    //     tethaOrientation = angleMotionDir;
-    // else
-    //     tethaOrientation = angleGazeDir;
-
-    double tethaRobotAgent = atan2((state_r2->values[1] - agentState.pose.position.y),
-                                   (state_r2->values[0] - agentState.pose.position.x));
-
-    if (tethaRobotAgent < 0)
-    {
-        tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
-    }
-
-    double tethaOrientation;
-    if (abs(agentState.twist.linear.x) > 0 || abs(agentState.twist.linear.y) > 0)
-    {
-        tethaOrientation = atan2(agentState.twist.linear.y, agentState.twist.linear.x);
-
-        // tethaOrientation = angleMotionDir;
-    }
-    else
-    {
-        tf::Quaternion q(agentState.pose.orientation.x, agentState.pose.orientation.y,
-                         agentState.pose.orientation.z, agentState.pose.orientation.w);
-
-        tf::Matrix3x3 m(q);
-        double roll, pitch, yaw;
-        m.getRPY(roll, pitch, yaw);
-
-        tethaOrientation = yaw;
-    }
-
-    if (tethaOrientation < 0)
-    {
-        tethaOrientation = 2 * M_PI + tethaOrientation;
-    }
-
-    double basicPersonalSpaceVal =
-        Ap *
-        std::exp(
-            -(std::pow(dRobotAgent * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * sigmaX),
-                       2) +
-              std::pow(dRobotAgent * std::sin(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * sigmaY),
-                       2)));
-
-    return basicPersonalSpaceVal;
-}
-
-double OmFclStateValidityCheckerR2::extendedPersonalSpaceFnc(const ob::State *state,
-                                                             const pedsim_msgs::AgentState agentState,
-                                                             const ob::SpaceInformationPtr space) const
-{
-    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-
-    // ob::ScopedState<> agentTf(space);
-    // agentTf[0] = double(agentState.pose.position.x);  // x
-    // agentTf[1] = double(agentState.pose.position.y);  // y
-
-    // double dRobotAgent = space->distance(state, agentTf->as<ob::State>());
-
-    double dRobotAgent = std::sqrt(std::pow(agentState.pose.position.x - state_r2->values[0], 2) +
-                                   std::pow(agentState.pose.position.y - state_r2->values[1], 2));
-
-    double tethaRobotAgent = atan2((state_r2->values[1] - agentState.pose.position.y),
-                                   (state_r2->values[0] - agentState.pose.position.x));
-
-    if (tethaRobotAgent < 0)
-    {
-        tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
-    }
-
-    double tethaOrientation;
-    if (abs(agentState.twist.linear.x) > 0 || abs(agentState.twist.linear.y) > 0)
-    {
-        tethaOrientation = atan2(agentState.twist.linear.y, agentState.twist.linear.x);
-
-        // tethaOrientation = angleMotionDir;
-    }
-    else
-    {
-        tf::Quaternion q(agentState.pose.orientation.x, agentState.pose.orientation.y,
-                         agentState.pose.orientation.z, agentState.pose.orientation.w);
-
-        tf::Matrix3x3 m(q);
-        double roll, pitch, yaw;
-        m.getRPY(roll, pitch, yaw);
-
-        tethaOrientation = yaw;
-    }
-
-    if (tethaOrientation < 0)
-    {
-        tethaOrientation = 2 * M_PI + tethaOrientation;
-    }
-
-    bool robotInFront = false;
-    bool robotInFOV = false;
-    double modSigmaY;
-    double agentVelocity;
-
-    agentVelocity =
-        std::sqrt(std::pow(agentState.twist.linear.x, 2) + std::pow(agentState.twist.linear.y, 2));
-
-    robotInFront = this->isRobotInFront(state, agentState, space);
-
-    if (robotInFront)
-    {
-        if (robotInFOV)
-            modSigmaY = (1 + agentVelocity * fv + fFront + fFieldOfView) * sigmaY;
-        else
-            modSigmaY = (1 + agentVelocity * fv + fFront) * sigmaY;
-    }
-    else
-    {
-        modSigmaY = sigmaY;
-    }
-
-    double basicPersonalSpaceVal =
-        Ap *
-        std::exp(-(
-            std::pow(dRobotAgent * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * sigmaX),
-                     2) +
-            std::pow(dRobotAgent * std::sin(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * modSigmaY),
-                     2)));
-
-    return basicPersonalSpaceVal;
-}
-
-bool OmFclStateValidityCheckerR2::isRobotInFront(const ob::State *state,
-                                                 const pedsim_msgs::AgentState agentState,
-                                                 const ob::SpaceInformationPtr space) const
-
-{
-    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-
-    double tethaAgentRobot = atan2((state_r2->values[1] - agentState.pose.position.y),
-                                   (state_r2->values[0] - agentState.pose.position.x));
-
-    if (tethaAgentRobot < 0)
-    {
-        tethaAgentRobot = 2 * M_PI + tethaAgentRobot;
-    }
-
-    tf::Quaternion q(agentState.pose.orientation.x, agentState.pose.orientation.y,
-                     agentState.pose.orientation.z, agentState.pose.orientation.w);
-
-    tf::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-    double agentAngle = yaw;
-
-    if (agentAngle < 0)
-    {
-        agentAngle = 2 * M_PI + agentAngle;
-    }
-
-    if (tethaAgentRobot > (agentAngle + M_PI))
-        tethaAgentRobot = abs(agentAngle + 2 * M_PI - tethaAgentRobot);
-    else if (agentAngle > (tethaAgentRobot + M_PI))
-        tethaAgentRobot = abs(tethaAgentRobot + 2 * M_PI - agentAngle);
-    else
-        tethaAgentRobot = abs(tethaAgentRobot - agentAngle);
-
-    if (abs(tethaAgentRobot) < 0.5 * M_PI)
-        return true;
-
-    return false;
-}
-
-bool OmFclStateValidityCheckerR2::isAgentInRFOV(const ob::State *state,
-                                                const pedsim_msgs::AgentState agentState,
-                                                const ob::SpaceInformationPtr space) const
-
-{
-    // ROS_INFO_STREAM("running agent fov fnc");
-
-    double dRobotAgent = std::sqrt(std::pow(agentState.pose.position.x - odomData->pose.pose.position.x, 2) +
-                                   std::pow(agentState.pose.position.y - odomData->pose.pose.position.y, 2));
-
-    double robotVelocity =
-        std::sqrt(std::pow(odomData->twist.twist.linear.x, 2) + std::pow(odomData->twist.twist.linear.y, 2));
-
-    double actualFOVDistance = robotDistanceView / robotVelocityThreshold * robotVelocity;
-
-    if (actualFOVDistance < 1.5)
-    {
-        actualFOVDistance = 1.5;
-    }
-
-    // ROS_INFO_STREAM("distance of robot view " << actualFOVDistance);
-
-    if (dRobotAgent > actualFOVDistance)
-    {
-        return false;
-    }
-
-    // ROS_INFO_STREAM("Agents in radius");
-
-    double tethaRobotAgent = atan2((agentState.pose.position.y - odomData->pose.pose.position.y),
-                                   (agentState.pose.position.x - odomData->pose.pose.position.x));
-
-    if (tethaRobotAgent < 0)
-    {
-        tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
-    }
-
-    // ROS_INFO_STREAM("Angle robot agent: " << tethaRobotAgent);
-
-    tf::Quaternion q(odomData->pose.pose.orientation.x, odomData->pose.pose.orientation.y,
-                     odomData->pose.pose.orientation.z, odomData->pose.pose.orientation.w);
-
-    tf::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-    double robotAngle = yaw;
-
-    if (robotAngle < 0)
-    {
-        robotAngle = 2 * M_PI + robotAngle;
-    }
-
-    // ROS_INFO_STREAM("robot pure angle: " << robotAngle);
-
-    // if (tethaRobotAgent < robotAngle)
-    //     tethaRobotAgent = robotAngle - tethaRobotAgent;
-    // else if (tethaRobotAgent > robotAngle)
-    //     tethaRobotAgent = tethaRobotAgent - robotAngle;
-    // else
-    //     return true;
-
-    if (tethaRobotAgent > (robotAngle + M_PI))
-        tethaRobotAgent = abs(robotAngle + 2 * M_PI - tethaRobotAgent);
-    else if (robotAngle > (tethaRobotAgent + M_PI))
-        tethaRobotAgent = abs(tethaRobotAgent + 2 * M_PI - robotAngle);
-    else
-        tethaRobotAgent = abs(tethaRobotAgent - robotAngle);
-
-    // ROS_INFO_STREAM("diff angle: " << tethaRobotAgent);
-    // ROS_INFO_STREAM("perm angle: " << fRobotView);
-
-    if (abs(tethaRobotAgent) < fRobotView)
-        return true;
-
-    return false;
 }
 
 bool OmFclStateValidityCheckerR2::isValidPoint(const ob::State *state) const
