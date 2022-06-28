@@ -23,6 +23,10 @@
 
   <depend>pedsim_ros</depend>
 
+  <depend>geometry_msgs</depend>
+  <depend>roslib</depend>
+  <depend>actionlib_msgs</depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
