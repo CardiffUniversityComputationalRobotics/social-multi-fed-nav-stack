@@ -30,7 +30,7 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/config.h>
 
-#include <planner/RRTstarMod.h>
+#include <global_planner/planner/RRTstarMod.h>
 
 // ROS
 #include <ros/ros.h>
@@ -51,14 +51,14 @@
 #include <actionlib/server/simple_action_server.h>
 
 // Planner
-#include <new_state_sampler.h>
-#include <state_cost_objective.h>
-#include <state_validity_checker_octomap_fcl_R2.h>
+#include <global_planner/new_state_sampler.h>
+#include <global_planner/state_cost_objective.h>
+#include <global_planner/state_validity_checker_octomap_fcl_R2.h>
 
 // Esc base controller
-#include <esc_move_base_msgs/Path2D.h>
-#include <esc_move_base_msgs/Goto2DAction.h>
-#include <esc_move_base_msgs/GotoRegion2DAction.h>
+#include <smf_move_base_msgs/Path2D.h>
+#include <smf_move_base_msgs/Goto2DAction.h>
+#include <smf_move_base_msgs/GotoRegion2DAction.h>
 
 // pedsim msgs
 #include <pedsim_msgs/AgentStates.h>
@@ -67,8 +67,8 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-typedef actionlib::SimpleActionServer<esc_move_base_msgs::Goto2DAction> EscBaseGoToActionServer;
-typedef actionlib::SimpleActionServer<esc_move_base_msgs::GotoRegion2DAction>
+typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> EscBaseGoToActionServer;
+typedef actionlib::SimpleActionServer<smf_move_base_msgs::GotoRegion2DAction>
     EscBaseGoToRegionActionServer;
 
 //!  OnlinePlannFramework class.
@@ -92,9 +92,9 @@ public:
     //! Callback for getting the 2D navigation goal
     void queryGoalCallback(const geometry_msgs::PoseStampedConstPtr &nav_goal_msg);
     //! Callback for getting the 2D navigation goal
-    void goToActionCallback(const esc_move_base_msgs::Goto2DGoalConstPtr &goto_req);
+    void goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req);
     //! Callback for getting the 2D navigation goal region
-    void goToRegionActionCallback(const esc_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req);
+    void goToRegionActionCallback(const smf_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req);
     //! Procedure to visualize the resulting path
     void visualizeRRT(og::PathGeometric &geopath);
     //! Callback for getting the state of the Esc base controller.
@@ -111,13 +111,13 @@ private:
     // ROS action server
     EscBaseGoToActionServer *goto_action_server_;
     std::string goto_action_;
-    esc_move_base_msgs::Goto2DAction goto_action_feedback_;
-    esc_move_base_msgs::Goto2DAction goto_action_result_;
+    smf_move_base_msgs::Goto2DAction goto_action_feedback_;
+    smf_move_base_msgs::Goto2DAction goto_action_result_;
 
     EscBaseGoToRegionActionServer *goto_region_action_server_;
     std::string goto_region_action_;
-    esc_move_base_msgs::GotoRegion2DAction goto_region_action_feedback_;
-    esc_move_base_msgs::GotoRegion2DAction goto_region_action_result_;
+    smf_move_base_msgs::GotoRegion2DAction goto_region_action_feedback_;
+    smf_move_base_msgs::GotoRegion2DAction goto_region_action_result_;
 
     // ROS TF
     tf::Pose last_robot_pose_;
@@ -143,11 +143,7 @@ private:
  * Publishers to visualize the resulting path.
  */
 OnlinePlannFramework::OnlinePlannFramework()
-  : local_nh_("~")
-  , dynamic_bounds_(false)
-  , start_prev_path_proj_(true)
-  , goto_action_server_(NULL)
-  , control_active_(false)
+    : local_nh_("~"), dynamic_bounds_(false), start_prev_path_proj_(true), goto_action_server_(NULL), control_active_(false)
 {
     //=======================================================================
     // Get parameters
@@ -207,7 +203,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     //=======================================================================
     solution_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("solution_path", 1, true);
     solution_path_control_pub_ =
-        local_nh_.advertise<esc_move_base_msgs::Path2D>("esc_move_base_solution_path", 1, true);
+        local_nh_.advertise<smf_move_base_msgs::Path2D>("smf_move_base_solution_path", 1, true);
     query_goal_pose_rviz_pub_ =
         local_nh_.advertise<geometry_msgs::PoseStamped>("query_goal_pose_rviz", 1, true);
     query_goal_radius_rviz_pub_ =
@@ -243,7 +239,7 @@ OnlinePlannFramework::OnlinePlannFramework()
 /*!
  * Callback for getting the 2D navigation goal
  */
-void OnlinePlannFramework::goToActionCallback(const esc_move_base_msgs::Goto2DGoalConstPtr &goto_req)
+void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req)
 {
     goal_map_frame_[0] = goto_req->goal.x;
     goal_map_frame_[1] = goto_req->goal.y;
@@ -309,10 +305,10 @@ void OnlinePlannFramework::goToActionCallback(const esc_move_base_msgs::Goto2DGo
     std_srvs::Empty::Response resp;
 
     // ! COMMENTED TO AVOID UNNEEDED PROCESSING
-    // while (nh_.ok() && !ros::service::call("/esc_move_base_mapper/clean_merge_octomap", req, resp))  //
+    // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
     // {
     //     ROS_WARN("Request to %s failed; trying again...",
-    //              nh_.resolveName("/esc_move_base_mapper/clean_merge_octomap").c_str());
+    //              nh_.resolveName("/smf_move_base_mapper/clean_merge_octomap").c_str());
     //     usleep(1000000);
     // }
     solution_path_states_.clear();
@@ -322,7 +318,7 @@ void OnlinePlannFramework::goToActionCallback(const esc_move_base_msgs::Goto2DGo
     while (ros::ok() && (goal_available_ || control_active_))
         loop_rate.sleep();
 
-    esc_move_base_msgs::Goto2DResult result;
+    smf_move_base_msgs::Goto2DResult result;
     result.success = true;
 
     goto_action_server_->setSucceeded(result);
@@ -333,7 +329,7 @@ void OnlinePlannFramework::goToActionCallback(const esc_move_base_msgs::Goto2DGo
  * Callback for getting the 2D navigation goal region
  */
 void OnlinePlannFramework::goToRegionActionCallback(
-    const esc_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req)
+    const smf_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req)
 {
     goal_map_frame_[0] = goto_region_req->goal.x;
     goal_map_frame_[1] = goto_region_req->goal.y;
@@ -386,11 +382,11 @@ void OnlinePlannFramework::goToRegionActionCallback(
     std_srvs::Empty::Request req;
     std_srvs::Empty::Response resp;
     // ! COMMENTED TO AVOID UNNEEDED PROCESSING
-    // while (nh_.ok() && !ros::service::call("/esc_move_base_mapper/clean_merge_octomap", req, resp))  //
+    // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
     // TODO
     // {
     //     ROS_WARN("Request to %s failed; trying again...",
-    //              nh_.resolveName("/esc_move_base_mapper/clean_merge_octomap").c_str());
+    //              nh_.resolveName("/smf_move_base_mapper/clean_merge_octomap").c_str());
     //     usleep(1000000);
     // }
     solution_path_states_.clear();
@@ -400,7 +396,7 @@ void OnlinePlannFramework::goToRegionActionCallback(
     while (ros::ok() && (goal_region_available_ || control_active_))
         loop_rate.sleep();
 
-    esc_move_base_msgs::GotoRegion2DResult result;
+    smf_move_base_msgs::GotoRegion2DResult result;
     result.success = true;
 
     goto_region_action_server_->setSucceeded(result);
@@ -447,8 +443,8 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::PoseStampedCon
     yaw = tf::getYaw(tf::Quaternion(query_goal_msg->pose.orientation.x, query_goal_msg->pose.orientation.y,
                                     query_goal_msg->pose.orientation.z, query_goal_msg->pose.orientation.w));
 
-    goal_map_frame_[0] = query_goal_msg->pose.position.x;  // x
-    goal_map_frame_[1] = query_goal_msg->pose.position.y;  // y
+    goal_map_frame_[0] = query_goal_msg->pose.position.x; // x
+    goal_map_frame_[1] = query_goal_msg->pose.position.y; // y
     goal_map_frame_[2] = yaw;
 
     //=======================================================================
@@ -473,11 +469,11 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::PoseStampedCon
     std_srvs::Empty::Request req;
     std_srvs::Empty::Response resp;
     // ! COMMENTED TO AVOID UNNEEDED PROCESSING
-    // while (nh_.ok() && !ros::service::call("/esc_move_base_mapper/clean_merge_octomap", req, resp))  //
+    // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
     // TODO
     // {
     //     ROS_WARN("Request to %s failed; trying again...",
-    //              nh_.resolveName("/esc_move_base_mapper/clean_merge_octomap").c_str());
+    //              nh_.resolveName("/smf_move_base_mapper/clean_merge_octomap").c_str());
     //     usleep(1000000);
     // }
     solution_path_states_.clear();
@@ -560,20 +556,20 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     double useless_pitch, useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-    start_state_[0] = double(last_robot_pose_.getOrigin().getX());  // x
-    start_state_[1] = double(last_robot_pose_.getOrigin().getY());  // y
+    start_state_[0] = double(last_robot_pose_.getOrigin().getX()); // x
+    start_state_[1] = double(last_robot_pose_.getOrigin().getY()); // y
 
     // create a start state
     ob::ScopedState<> start(space);
 
-    start[0] = double(start_state_[0]);  // x
-    start[1] = double(start_state_[1]);  // y
+    start[0] = double(start_state_[0]); // x
+    start[1] = double(start_state_[1]); // y
 
     // create a goal state
     ob::ScopedState<> goal(space);
 
-    goal[0] = double(goal_map_frame_[0]);  // x
-    goal[1] = double(goal_map_frame_[1]);  // y
+    goal[0] = double(goal_map_frame_[0]); // x
+    goal[1] = double(goal_map_frame_[1]); // y
     //=======================================================================
     // Set the start and goal states
     //=======================================================================
@@ -593,19 +589,19 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     // Set optimization objective
     //=======================================================================
-    if (optimization_objective_.compare("PathLength") == 0)  // path length Objective
+    if (optimization_objective_.compare("PathLength") == 0) // path length Objective
         simple_setup_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si));
-    else if (optimization_objective_.compare("PathLengthGoalRegion") == 0)  // path length Objective
+    else if (optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
         simple_setup_->getProblemDefinition()->setOptimizationObjective(
             getPathLengthGoalRegionObjective(si, goal.get(), goal_radius_));
-    else if (optimization_objective_.compare("RiskZones") == 0)  // Risk Zones
+    else if (optimization_objective_.compare("RiskZones") == 0) // Risk Zones
         simple_setup_->getProblemDefinition()->setOptimizationObjective(
             getRiskZonesObjective(si, motion_cost_interpolation_));
-    else if (optimization_objective_.compare("SocialComfort") == 0)  // Social Comfort
+    else if (optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
         simple_setup_->getProblemDefinition()->setOptimizationObjective(
             getSocialComfortObjective(si, motion_cost_interpolation_));
     else if (optimization_objective_.compare("ExtendedSocialComfort") == 0)
-    {  // Extended Social Comfort
+    { // Extended Social Comfort
         // ROS_INFO_STREAM("initializing extended social comfort");
         simple_setup_->getProblemDefinition()->setOptimizationObjective(
             getExtendedSocialComfortObjective(si, motion_cost_interpolation_));
@@ -631,7 +627,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     // this);
     //
     //	ros::spin();
-    ros::Rate loop_rate(1 / (timer_period_ - solving_time_));  // 10 hz
+    ros::Rate loop_rate(1 / (timer_period_ - solving_time_)); // 10 hz
     // goal_available_ = true;
 
     //	ros::AsyncSpinner spinner(4); // Use 4 threads
@@ -742,16 +738,16 @@ void OnlinePlannFramework::planningTimerCallback()
 
         last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-        start[0] = double(last_robot_pose_.getOrigin().getX());  // x
-        start[1] = double(last_robot_pose_.getOrigin().getY());  // y
+        start[0] = double(last_robot_pose_.getOrigin().getX()); // x
+        start[1] = double(last_robot_pose_.getOrigin().getY()); // y
 
         //        if (!simple_setup_->getStateValidityChecker()->isValid(start->as<ob::State>()))
         //        {
         //            std::cout << "start in collision!!!***** " << std::endl;
         //        }
 
-        goal[0] = double(goal_odom_frame_[0]);  // x
-        goal[1] = double(goal_odom_frame_[1]);  // y
+        goal[0] = double(goal_odom_frame_[0]); // x
+        goal[1] = double(goal_odom_frame_[1]); // y
         //======================================================================
         // Set the start and goal states
         //=======================================================================
@@ -759,7 +755,7 @@ void OnlinePlannFramework::planningTimerCallback()
         simple_setup_->clearStartStates();
         simple_setup_->setStartState(start);
         simple_setup_->setGoalState(goal, goal_radius_);
-        // 
+        //
         simple_setup_->getStateSpace()->setValidSegmentCountFactor(15.0);
 
         //=======================================================================
@@ -782,16 +778,16 @@ void OnlinePlannFramework::planningTimerCallback()
         //=======================================================================
         // Set optimization objective
         //=======================================================================
-        if (optimization_objective_.compare("PathLength") == 0)  // path length Objective
+        if (optimization_objective_.compare("PathLength") == 0) // path length Objective
             simple_setup_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_->getSpaceInformation()));
-        else if (optimization_objective_.compare("PathLengthGoalRegion") == 0)  // path length Objective
+        else if (optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
             simple_setup_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
                 simple_setup_->getSpaceInformation(), goal.get(), goal_radius_));
-        else if (optimization_objective_.compare("RiskZones") == 0)  // Risk Zones
+        else if (optimization_objective_.compare("RiskZones") == 0) // Risk Zones
             simple_setup_->getProblemDefinition()->setOptimizationObjective(
                 getRiskZonesObjective(simple_setup_->getSpaceInformation(), motion_cost_interpolation_));
-        else if (optimization_objective_.compare("SocialComfort") == 0)  // Social Comfort
+        else if (optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
             simple_setup_->getProblemDefinition()->setOptimizationObjective(
                 getSocialComfortObjective(simple_setup_->getSpaceInformation(), motion_cost_interpolation_));
         else
@@ -811,7 +807,7 @@ void OnlinePlannFramework::planningTimerCallback()
             og::PathGeometric path = simple_setup_->getSolutionPath();
 
             // generates varios little segments for the waypoints obtained from the planner
-            path.interpolate(int(path.length() / 0.2)); 
+            path.interpolate(int(path.length() / 0.2));
 
             // path_planning_msgs::PathConstSpeed solution_path;
             ROS_INFO("%s:\n\tpath with cost %f has been found with simple_setup\n",
@@ -854,7 +850,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 //=======================================================================
                 if (path_states.size() > 0)
                 {
-                    esc_move_base_msgs::Path2D solution_path_for_control;
+                    smf_move_base_msgs::Path2D solution_path_for_control;
                     for (unsigned int i = 0; i < path_states.size(); i++)
                     {
                         geometry_msgs::Pose2D p;
@@ -903,7 +899,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 std::reverse(solution_path_states_copy_.begin(), solution_path_states_copy_.end());
                 ROS_INFO("%s:\n\tsending partial last possible path\n", ros::this_node::getName().c_str());
-                esc_move_base_msgs::Path2D solution_path_for_control;
+                smf_move_base_msgs::Path2D solution_path_for_control;
                 og::PathGeometric path_visualize = og::PathGeometric(simple_setup_->getSpaceInformation());
 
                 // adding first waypoint
@@ -1004,11 +1000,11 @@ void OnlinePlannFramework::planningTimerCallback()
                             posEv[0] = double(solution_path_states_copy_[i]
                                                   ->as<ob::RealVectorStateSpace::StateType>()
                                                   ->values[0] +
-                                              counter * robot_base_radius * std::cos(angle));  // x
+                                              counter * robot_base_radius * std::cos(angle)); // x
                             posEv[1] = double(solution_path_states_copy_[i]
                                                   ->as<ob::RealVectorStateSpace::StateType>()
                                                   ->values[1] +
-                                              counter * robot_base_radius * std::sin(angle));  // y
+                                              counter * robot_base_radius * std::sin(angle)); // y
 
                             if (!simple_setup_->getSpaceInformation()->checkMotion(
                                     solution_path_states_copy_[i], posEv->as<ob::State>()))
@@ -1019,7 +1015,7 @@ void OnlinePlannFramework::planningTimerCallback()
                                 posEv[0] = double(solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[0] +
-                                                  (counter - 1) * robot_base_radius * std::cos(angle));  // x
+                                                  (counter - 1) * robot_base_radius * std::cos(angle)); // x
                                 posEv[1] = double(solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[1] +
@@ -1070,7 +1066,7 @@ void OnlinePlannFramework::planningTimerCallback()
         if ((abs(goal_odom_frame_[0] - odomData->pose.pose.position.x) < (xy_goal_tolerance_ * 2)) &
             (abs(goal_odom_frame_[1] - odomData->pose.pose.position.y) < (xy_goal_tolerance_ * 2)))
         {
-            esc_move_base_msgs::Goto2DResult result;
+            smf_move_base_msgs::Goto2DResult result;
             result.success = true;
             goto_action_server_->setSucceeded(result);
         }
@@ -1183,7 +1179,7 @@ void OnlinePlannFramework::visualizeRRT(og::PathGeometric &geopath)
 //! Main function
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "esc_move_base_planner");
+    ros::init(argc, argv, "smf_move_base_planner");
 
     ROS_INFO("%s:\n\toonline planner (C++), using OMPL version %s\n", ros::this_node::getName().c_str(),
              OMPL_VERSION);

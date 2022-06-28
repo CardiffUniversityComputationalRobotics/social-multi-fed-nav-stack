@@ -37,7 +37,7 @@
 
 /* Author: Javier V. Gómez*/
 
-#include <new_state_sampler.h>
+#include <global_planner/new_state_sampler.h>
 #include <ompl/base/spaces/ReedsSheppStateSpace.h>
 
 ob::StateSamplerPtr newAllocStateSampler(const ob::StateSpace *space, const ob::PlannerPtr &planner,
@@ -69,12 +69,12 @@ void NewStateSampler::sampleUniform(ob::State *state)
         // planner_->as<og::RRTstar>()->getGoalBias() << std::endl;
     }
     else
-    {  // if(!reusing_){
+    { // if(!reusing_){
         // simple_setup_->get()->getPlanner()->as<og::RRTstar>();//->setGoalBias(0.05);
         planner_->as<og::RRTstar>()->setGoalBias(0.05);
         sampler_->sampleUniform(state);
         //		std::cout << "state: " << state->as<ob::ReedsSheppStateSpace::StateType>()->getX() << ", " <<
-        //state->as<ob::ReedsSheppStateSpace::StateType>()->getY() << std::endl; std::cout << "bias: " <<
+        // state->as<ob::ReedsSheppStateSpace::StateType>()->getY() << std::endl; std::cout << "bias: " <<
         // planner_->as<og::RRTstar>()->getGoalBias() << std::endl;
     }
     //	else

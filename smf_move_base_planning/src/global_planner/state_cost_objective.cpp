@@ -10,7 +10,7 @@
  * http://hdl.handle.net/10803/457592, http://www.tdx.cat/handle/10803/457592
  */
 
-#include <state_cost_objective.h>
+#include <global_planner/state_cost_objective.h>
 
 ob::OptimizationObjectivePtr getRiskZonesObjective(const ob::SpaceInformationPtr &si,
                                                    bool motion_cost_interpolation)

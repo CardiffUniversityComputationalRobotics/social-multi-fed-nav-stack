@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>smf_move_base_planning</name>
   <version>0.0.0</version>
   <description>The smf_move_base_planning package</description>
@@ -21,6 +21,37 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
+
+  <build_depend condition="$ROS_DISTRO != noetic">libfcl-dev</build_depend>
+  <exec_depend condition="$ROS_DISTRO != noetic">libfcl-dev</exec_depend>
+  <build_depend condition="$ROS_DISTRO == noetic">fcl</build_depend>
+  <exec_depend condition="$ROS_DISTRO == noetic">fcl</exec_depend>
+
+  <depend>actionlib</depend>
+  <depend>actionlib_msgs</depend>
+
+  <depend>roslib</depend>
+
+  <!-- msgs -->
+  <depend>sensor_msgs</depend>
+
+  <!-- tf/tf2 -->
+  <depend>tf</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+
+
+  <!-- smf nav stack -->
+  <depend>smf_move_base_msgs</depend>
+  <depend>smf_move_base_control</depend>
+  <depend>smf_move_base_mapping</depend>
+
+
+  <!-- pedsim messages dependency -->
+  <depend>pedsim_ros</depend>
+
+  <!-- OMPL -->
+  <depend>ompl</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -37,7 +37,7 @@
 
 /* Modified by: Juan D. Hernandez */
 
-#include <planner/RRTstarMod.h>
+#include <global_planner/planner/RRTstarMod.h>
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
@@ -52,27 +52,7 @@
 #include <vector>
 
 ompl::geometric::RRTstarMod::RRTstarMod(const base::SpaceInformationPtr &si)
-  : base::Planner(si, "RRTstarMod")
-  , goalBias_(0.05)
-  , maxDistance_(0.0)
-  , useKNearest_(true)
-  , rewireFactor_(1.1)
-  , k_rrg_(0u)
-  , r_rrg_(0.0)
-  , delayCC_(true)
-  , lastGoalMotion_(nullptr)
-  , useTreePruning_(false)
-  , pruneThreshold_(0.05)
-  , usePrunedMeasure_(false)
-  , useInformedSampling_(false)
-  , useRejectionSampling_(false)
-  , useNewStateRejection_(false)
-  , useAdmissibleCostToCome_(true)
-  , numSampleAttempts_(100u)
-  , bestCost_(std::numeric_limits<double>::quiet_NaN())
-  , prunedCost_(std::numeric_limits<double>::quiet_NaN())
-  , prunedMeasure_(0.0)
-  , iterations_(0u)
+    : base::Planner(si, "RRTstarMod"), goalBias_(0.05), maxDistance_(0.0), useKNearest_(true), rewireFactor_(1.1), k_rrg_(0u), r_rrg_(0.0), delayCC_(true), lastGoalMotion_(nullptr), useTreePruning_(false), pruneThreshold_(0.05), usePrunedMeasure_(false), useInformedSampling_(false), useRejectionSampling_(false), useNewStateRejection_(false), useAdmissibleCostToCome_(true), numSampleAttempts_(100u), bestCost_(std::numeric_limits<double>::quiet_NaN()), prunedCost_(std::numeric_limits<double>::quiet_NaN()), prunedMeasure_(0.0), iterations_(0u)
 {
     specs_.approximateSolutions = true;
     specs_.optimizingPaths = true;
@@ -387,7 +367,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                         valid[*i] = -1;
                 }
             }
-            else  // if not delayCC
+            else // if not delayCC
             {
                 motion->incCost = opt_->motionCost(nmotion->state, motion->state);
                 motion->cost = opt_->combineCosts(nmotion->cost, motion->incCost);
@@ -427,7 +407,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                     nn_->add(motion);
                     motion->parent->children.push_back(motion);
                 }
-                else  // If the new motion does not improve the best cost it is ignored.
+                else // If the new motion does not improve the best cost it is ignored.
                 {
                     si_->freeState(motion->state);
                     delete motion;
@@ -506,7 +486,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                 {
                     goal->isSatisfied(goalMotions_[i]->state, &distanceFromGoal);
                     base::Cost goalMotionCost(goalMotions_[i]->cost.value() +
-                                              distanceFromGoal);  // TODO: use terminal cost
+                                              distanceFromGoal); // TODO: use terminal cost
 
                     //                    OMPL_INFORM("%s: Alternative solution with a path length of % .2f
                     //                    and distanceFromGoal "
@@ -527,7 +507,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                         }
                         solution = goalMotions_[i];
                         bestCost_ =
-                            base::Cost(solution->cost.value() + distanceFromGoal);  // TODO: use terminal cost
+                            base::Cost(solution->cost.value() + distanceFromGoal); // TODO: use terminal cost
                         bestDistFromGoal_ = distanceFromGoal;
                         updatedSolution = true;
                     }
@@ -560,7 +540,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                     {
                         std::vector<const base::State *> spath;
                         Motion *intermediate_solution =
-                            solution->parent;  // Do not include goal state to simplify code.
+                            solution->parent; // Do not include goal state to simplify code.
 
                         // Push back until we find the start, but not the start itself
                         while (intermediate_solution->parent != nullptr)
@@ -930,19 +910,19 @@ ompl::base::Cost ompl::geometric::RRTstarMod::solutionHeuristic(const Motion *mo
         for (unsigned int i = 0u; i < startMotions_.size(); ++i)
         {
             costToCome = opt_->betterCost(costToCome, opt_->motionCost(startMotions_.at(i)->state,
-                                                                       motion->state));  // lower-bounding
-                                                                                         // cost from the
-                                                                                         // start to the state
+                                                                       motion->state)); // lower-bounding
+                                                                                        // cost from the
+                                                                                        // start to the state
         }
     }
     else
     {
-        costToCome = motion->cost;  // current cost from the state to the goal
+        costToCome = motion->cost; // current cost from the state to the goal
     }
 
     const base::Cost costToGo = opt_->costToGo(
-        motion->state, pdef_->getGoal().get());       // lower-bounding cost from the state to the goal
-    return opt_->combineCosts(costToCome, costToGo);  // add the two costs
+        motion->state, pdef_->getGoal().get());      // lower-bounding cost from the state to the goal
+    return opt_->combineCosts(costToCome, costToGo); // add the two costs
 }
 
 void ompl::geometric::RRTstarMod::setTreePruning(const bool prune)
