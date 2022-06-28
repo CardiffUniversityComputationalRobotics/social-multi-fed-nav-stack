@@ -21,7 +21,7 @@ private:
     unsigned int lastUpdateTime;
     unsigned int width;
     unsigned int height;
-    float resolution;
+    double resolution;
     geometry_msgs::Pose origin;
     std::string frameId;
 
@@ -36,11 +36,11 @@ public:
 
     SocialCostmap();
 
-    SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, float resolution);
+    SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, double resolution);
 
     //! FUNCTIONS
 
-    unsigned int calculateSocialCost(float x, float y);
+    unsigned int calculateSocialCost(double x, double y);
 
     void updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates *agentStates);
 
@@ -59,7 +59,7 @@ public:
     //! SETTERS
     void setDimensions(unsigned int width, unsigned int height);
 
-    void setResolution(float resolution);
+    void setResolution(double resolution);
 
     void setOrigin(geometry_msgs::Pose origin);
 
@@ -74,24 +74,29 @@ public:
         return i + j * width;
     }
 
-    float mapWx(float origin_x, unsigned int width, float resolution, unsigned int i)
+    double mapWx(double origin_x, unsigned int width, double resolution, unsigned int i)
     {
 
-        return float(origin_x) + (float(i) - float(width) / 2) * float(resolution);
+        return double(origin_x) + (double(i) - double(width) / 2) * double(resolution);
     }
 
-    float mapWy(float origin_y, unsigned int height, float resolution, unsigned int j)
+    double mapWy(double origin_y, unsigned int height, double resolution, unsigned int j)
     {
-        return float(origin_y) + (float(j) - float(height) / 2) * float(resolution);
+        return double(origin_y) + (double(j) - double(height) / 2) * double(resolution);
     }
 
-    float socialComfortCost(float x, float y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
+    double socialComfortCost(double x, double y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
     {
-        float distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
-                                   std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
+        double distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
+                                    std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
 
-        float tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
-                                      (x - relevantAgentState.agent_state.pose.position.x));
+        double tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
+                                       (x - relevantAgentState.agent_state.pose.position.x));
+
+        if (tethaRobotAgent < 0)
+        {
+            tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
+        }
 
         double tethaOrientation;
         if (abs(relevantAgentState.agent_state.twist.linear.x) > 0 || abs(relevantAgentState.agent_state.twist.linear.y) > 0)
@@ -115,21 +120,13 @@ public:
             tethaOrientation = 2 * M_PI + tethaOrientation;
         }
 
-        float basicPersonalSpaceVal =
+        double basicPersonalSpaceVal =
             relevantAgentState.relevance *
             std::exp(-(
                 std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
                          2) +
                 std::pow(distance * std::sin(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
                          2)));
-
-        // float basicPersonalSpaceVal =
-        //     relevantAgentState.relevance *
-        //     std::exp(-(
-        //         std::pow((distance * std::cos(tethaRobotAgent - tethaOrientation)) / ((std::sqrt(2) * 0.45)),
-        //                  2) +
-        //         std::pow((distance * std::sin(tethaRobotAgent - tethaOrientation)) / ((std::sqrt(2) * 0.45)),
-        //                  2)));
 
         return basicPersonalSpaceVal;
     }

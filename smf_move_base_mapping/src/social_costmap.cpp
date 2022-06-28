@@ -11,7 +11,7 @@ SocialCostmap::SocialCostmap()
     initSocialCostmap();
 }
 
-SocialCostmap::SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, float resolution)
+SocialCostmap::SocialCostmap(std::string frameId, unsigned int width, unsigned int height, geometry_msgs::Pose origin, double resolution)
 {
 
     setDimensions(width, height);
@@ -45,26 +45,26 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
 
     this->socialCostmap.data.resize(dataArraySize);
 
-    float mapOriginX = this->origin.position.x + (float(this->width / 2) * this->resolution);
+    double mapOriginX = this->origin.position.x + (double(this->width / 2) * this->resolution);
 
-    float mapOriginY = this->origin.position.y + (this->height / 2) * this->resolution;
+    double mapOriginY = this->origin.position.y + (this->height / 2) * this->resolution;
 
     for (int j = 0; j < this->height; j++)
     {
         for (int i = 0; i < this->width; i++)
         {
-            float wX = mapWx(mapOriginX, this->width, this->resolution, i);
-            float wY = mapWy(mapOriginY, this->height, this->resolution, j);
+            double wX = mapWx(mapOriginX, this->width, this->resolution, i);
+            double wY = mapWy(mapOriginY, this->height, this->resolution, j);
 
             this->socialCostmap.data[mapIndex(this->width, i, j)] = this->calculateSocialCost(wX, wY);
         }
     }
 }
 
-unsigned int SocialCostmap::calculateSocialCost(float x, float y)
+unsigned int SocialCostmap::calculateSocialCost(double x, double y)
 {
 
-    float socialCost = 0;
+    double socialCost = 0;
 
     for (auto &agentItem : this->agentStatesRecord)
     {
@@ -157,7 +157,7 @@ void SocialCostmap::setTimeDecayFactor(unsigned int timeDecayFactor)
     this->timeDecayFactor = timeDecayFactor;
 }
 
-void SocialCostmap::setResolution(float resolution)
+void SocialCostmap::setResolution(double resolution)
 {
     this->resolution = resolution * this->resolutionFactor;
 }

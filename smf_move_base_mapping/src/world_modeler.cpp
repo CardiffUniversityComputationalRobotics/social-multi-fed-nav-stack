@@ -133,6 +133,9 @@ WorldModeler::WorldModeler()
         loop_rate.sleep();
     }
 
+    ROS_WARN("%s:\n\tGot global 2D map\n",
+             ros::this_node::getName().c_str());
+
     socialCostmap->setDimensions(global_2d_map.info.width, global_2d_map.info.height);
     socialCostmap->setFrameId(global_2d_map.header.frame_id);
     socialCostmap->setOrigin(global_2d_map.info.origin);
