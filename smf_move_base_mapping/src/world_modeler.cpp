@@ -129,39 +129,22 @@ WorldModeler::WorldModeler()
                  ros::this_node::getName().c_str());
     while (ros::ok() && !global_map_available_)
     {
-        // ROS_INFO_STREAM("inside while");
         ros::spinOnce();
         loop_rate.sleep();
     }
 
-    // ROS_INFO_STREAM("got global map");
-
     socialCostmap->setDimensions(global_2d_map.info.width, global_2d_map.info.height);
-    // ROS_INFO_STREAM("social costmap ready");
     socialCostmap->setFrameId(global_2d_map.header.frame_id);
-    // ROS_INFO_STREAM("social costmap ready");
     socialCostmap->setOrigin(global_2d_map.info.origin);
-    // ROS_INFO_STREAM("social costmap ready");
     socialCostmap->setResolution(global_2d_map.info.resolution);
-
-    // ROS_INFO_STREAM("social costmap ready");
 
     while (ros::ok())
     {
-        // ROS_INFO_STREAM("could get social agents in fov");
         pedsim_msgs::AgentStates social_agents_in_fov = socialAgentsInFOV();
-
-        // ROS_INFO_STREAM("could get social agents in fov");
 
         socialCostmap->updateSocialCostmap(global_2d_map.info.width, global_2d_map.info.height, global_2d_map.info.origin, &social_agents_in_fov);
 
-        // ROS_INFO_STREAM("social costmap updated");
-
         current_social_costmap = socialCostmap->getSocialCostmap();
-
-        // ROS_INFO_STREAM("data size normal costmap" << global_2d_map.data.size());
-
-        // ROS_INFO_STREAM("data size social costmap" << current_social_costmap.data.size());
 
         social_costmap_pub_.publish(current_social_costmap);
 
@@ -200,8 +183,6 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
     }
 
-    // // ROS_INFO_STREAM("Angle robot agent: " << tethaRobotAgent);
-
     tf::Quaternion q(robot_odometry.pose.pose.orientation.x, robot_odometry.pose.pose.orientation.y,
                      robot_odometry.pose.pose.orientation.z, robot_odometry.pose.pose.orientation.w);
 
@@ -234,52 +215,41 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
 
     pedsim_msgs::AgentStates agentStatesInFOV;
     std::vector<pedsim_msgs::AgentState> agentStatesVector;
-    // ROS_INFO_STREAM("running for agents in fov");
+
     for (int i = 0; i < agent_states.agent_states.size(); i++)
     {
         if (agentInFOV(agent_states.agent_states[i]))
         {
-            // ROS_INFO_STREAM("could gesocial agents in fov");
             agentStatesVector.push_back(agent_states.agent_states[i]);
         }
     }
 
-    // ROS_INFO_STREAM("agents in fov gotten");
-
     agentStatesInFOV.header = agent_states.header;
     agentStatesInFOV.agent_states = agentStatesVector;
-
-    // ROS_INFO_STREAM("about to return agents in fov");
 
     return agentStatesInFOV;
 }
 
 void WorldModeler::global2DMapCallback(const nav_msgs::OccupancyGridConstPtr &map)
 {
-    // ROS_INFO_STREAM("en callback");
     global_map_available_ = true;
     global_2d_map.header = map->header;
     global_2d_map.data = map->data;
     global_2d_map.info = map->info;
-    // ROS_INFO_STREAM("ya con mapa");
 }
 
 void WorldModeler::odometryCallback(const nav_msgs::OdometryConstPtr &odometry)
 {
-    // ROS_INFO_STREAM("in odom cb");
     robot_odometry.child_frame_id = odometry->child_frame_id;
     robot_odometry.header = odometry->header;
     robot_odometry.pose = odometry->pose;
     robot_odometry.twist = odometry->twist;
-    // ROS_INFO_STREAM("in odom cb finish");
 }
 
 void WorldModeler::agentStatesCallback(const pedsim_msgs::AgentStatesPtr &social_agents)
 {
-    // ROS_INFO_STREAM("in agent state cb");
     agent_states.agent_states = social_agents->agent_states;
     agent_states.header = social_agents->header;
-    // ROS_INFO_STREAM("in agent state cb finish");
 }
 
 //! Main function

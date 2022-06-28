@@ -24,15 +24,12 @@ SocialCostmap::SocialCostmap(std::string frameId, unsigned int width, unsigned i
 //! FUNCTIONS
 void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates *agentStates)
 {
-    // ROS_INFO_STREAM("updating social costmap");
     setDimensions(width, height);
     setOrigin(origin);
 
     updateAgentStatesRelevance(agentStates);
 
     addNewAgentStates(agentStates);
-
-    // ROS_INFO_STREAM("new agents added");
 
     // header
     this->socialCostmap.header.stamp = ros::Time::now();
@@ -45,8 +42,6 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
     this->socialCostmap.info.origin = this->origin;
 
     int dataArraySize = this->width * this->height;
-
-    // ROS_INFO_STREAM("data array size" << dataArraySize);
 
     this->socialCostmap.data.resize(dataArraySize);
 
@@ -140,8 +135,6 @@ void SocialCostmap::initSocialCostmap()
 
     int dataArraySize = this->width * this->height;
 
-    // ROS_INFO_STREAM("data array size" << dataArraySize);
-
     this->socialCostmap.data.resize(dataArraySize);
 
     this->lastUpdateTime = ros::Time::now().sec;
@@ -150,10 +143,8 @@ void SocialCostmap::initSocialCostmap()
 // ! SETTERS
 void SocialCostmap::setDimensions(unsigned int width, unsigned int height)
 {
-    // ROS_INFO_STREAM("dimensions 1");
     this->width = int(width / this->resolutionFactor);
     this->height = int(height / this->resolutionFactor);
-    // ROS_INFO_STREAM("dimensions 2");
 }
 
 void SocialCostmap::setOrigin(geometry_msgs::Pose origin)
