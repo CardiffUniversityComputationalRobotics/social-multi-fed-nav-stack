@@ -62,13 +62,6 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
             float wY = mapWy(mapOriginY, this->height, this->resolution, j);
 
             this->socialCostmap.data[mapIndex(this->width, i, j)] = this->calculateSocialCost(wX, wY);
-            // this->socialCostmap.data.push_back(this->calculateSocialCost(wX, wY));
-
-            // this->socialCostmap.data[mapIndex(this->width, i, j)] = 50;
-            // if (wX < 0)
-            // {
-            //     ROS_INFO_STREAM("wx: " << wX);
-            // }
         }
     }
 }
@@ -76,7 +69,7 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
 unsigned int SocialCostmap::calculateSocialCost(float x, float y)
 {
 
-    int socialCost = 0;
+    float socialCost = 0;
 
     for (auto &agentItem : this->agentStatesRecord)
     {
@@ -89,7 +82,7 @@ unsigned int SocialCostmap::calculateSocialCost(float x, float y)
         socialCost = 100;
     }
 
-    return socialCost;
+    return int(socialCost);
 }
 
 void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates)
@@ -158,8 +151,8 @@ void SocialCostmap::initSocialCostmap()
 void SocialCostmap::setDimensions(unsigned int width, unsigned int height)
 {
     // ROS_INFO_STREAM("dimensions 1");
-    this->width = width;
-    this->height = height;
+    this->width = int(width / this->resolutionFactor);
+    this->height = int(height / this->resolutionFactor);
     // ROS_INFO_STREAM("dimensions 2");
 }
 
@@ -175,7 +168,7 @@ void SocialCostmap::setTimeDecayFactor(unsigned int timeDecayFactor)
 
 void SocialCostmap::setResolution(float resolution)
 {
-    this->resolution = resolution;
+    this->resolution = resolution * this->resolutionFactor;
 }
 
 void SocialCostmap::setFrameId(std::string frameId)

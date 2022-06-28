@@ -27,6 +27,8 @@ private:
 
     unsigned int timeDecayFactor = 1;
 
+    unsigned int resolutionFactor = 5;
+
     std::map<unsigned int, smf_move_base_msgs::RelevantAgentState> agentStatesRecord;
 
 public:
@@ -75,19 +77,7 @@ public:
     float mapWx(float origin_x, unsigned int width, float resolution, unsigned int i)
     {
 
-        ROS_INFO_STREAM("origin x: " << origin_x);
-        ROS_INFO_STREAM("width: " << width);
-        ROS_INFO_STREAM("resolution: " << resolution);
-
-        float a = float(i) - float(width) / 2;
-
-        // float data = origin_x + (float(i - width / 2)) * resolution;
-        ROS_INFO_STREAM("a: " << a);
-        float data = float(origin_x) + a * float(resolution);
-
-        ROS_INFO_STREAM("data: " << data);
-
-        return data;
+        return float(origin_x) + (float(i) - float(width) / 2) * float(resolution);
     }
 
     float mapWy(float origin_y, unsigned int height, float resolution, unsigned int j)
@@ -95,16 +85,10 @@ public:
         return float(origin_y) + (float(j) - float(height) / 2) * float(resolution);
     }
 
-    unsigned int socialComfortCost(float x, float y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
+    float socialComfortCost(float x, float y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
     {
         float distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
                                    std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
-
-        if (distance < 1)
-        {
-            return 100;
-        }
-        return 0;
 
         float tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
                                       (x - relevantAgentState.agent_state.pose.position.x));
@@ -131,13 +115,22 @@ public:
             tethaOrientation = 2 * M_PI + tethaOrientation;
         }
 
-        unsigned int basicPersonalSpaceVal =
+        float basicPersonalSpaceVal =
             relevantAgentState.relevance *
             std::exp(-(
                 std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
                          2) +
-                std::pow(distance * std::cos(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
+                std::pow(distance * std::sin(tethaRobotAgent - tethaOrientation) / (std::sqrt(2) * 0.45),
                          2)));
+
+        // float basicPersonalSpaceVal =
+        //     relevantAgentState.relevance *
+        //     std::exp(-(
+        //         std::pow((distance * std::cos(tethaRobotAgent - tethaOrientation)) / ((std::sqrt(2) * 0.45)),
+        //                  2) +
+        //         std::pow((distance * std::sin(tethaRobotAgent - tethaOrientation)) / ((std::sqrt(2) * 0.45)),
+        //                  2)));
+
         return basicPersonalSpaceVal;
     }
 };
