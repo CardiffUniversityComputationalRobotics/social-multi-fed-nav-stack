@@ -45,7 +45,7 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
 
     this->socialCostmap.data.resize(dataArraySize);
 
-    double mapOriginX = this->origin.position.x + (double(this->width / 2) * this->resolution);
+    double mapOriginX = this->origin.position.x + (this->width / 2) * this->resolution;
 
     double mapOriginY = this->origin.position.y + (this->height / 2) * this->resolution;
 
