@@ -6,18 +6,25 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  geometry_msgs
+  laser_geometry
+  tf
+  roslib
+  smf_move_base_msgs
 )
+
+find_package(Boost REQUIRED COMPONENTS system)
 
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES smf_move_base_control
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
+  CATKIN_DEPENDS roscpp rospy std_msgs
+  DEPENDS Eigen
 )
-
 
 include_directories(
-# include
   ${catkin_INCLUDE_DIRS}
+  ${Eigen_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
+add_definitions(${EIGEN_DEFINITIONS})
 

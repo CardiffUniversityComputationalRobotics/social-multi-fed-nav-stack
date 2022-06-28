@@ -4,11 +4,10 @@
   <version>0.0.0</version>
   <description>The smf_move_base_control package</description>
 
-  
+
   <maintainer email="sasm@todo.todo">sasm</maintainer>
 
 
-  
   <license>MIT</license>
 
 
@@ -22,6 +21,14 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>tf</depend>
+  <depend>laser_geometry</depend>
+  <depend>roslib</depend>
+
+  <!-- esc -->
+  <depend>smf_move_base_msgs</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
