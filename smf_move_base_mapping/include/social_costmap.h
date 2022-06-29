@@ -67,6 +67,8 @@ public:
 
     void setFrameId(std::string);
 
+    void setResolutionFactor(unsigned int resolutionFactor);
+
     // ! EXTERNAL FUNCTIONS
 
     unsigned int mapIndex(unsigned int width, unsigned int i, unsigned int j)

@@ -197,7 +197,7 @@ public:
 
     ob::Cost stateCost(const ob::State *s) const
     {
-        ROS_INFO_STREAM("Running social costmap model");
+        // ROS_INFO_STREAM("Running social costmap model");
         std::shared_ptr<OmFclStateValidityCheckerR2> state_vality_checker =
             std::static_pointer_cast<OmFclStateValidityCheckerR2>(si_->getStateValidityChecker());
         return ob::Cost(state_vality_checker->checkSocialCostmap(s, si_));

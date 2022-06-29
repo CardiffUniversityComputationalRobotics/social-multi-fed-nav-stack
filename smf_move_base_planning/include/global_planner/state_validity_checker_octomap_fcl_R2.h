@@ -147,6 +147,16 @@ public:
     return double(origin_y) + (double(j) - double(height) / 2) * double(resolution);
   }
 
+  unsigned int IMapIndex(double origin_x, double width, double resolution, double x_position) const
+  {
+    return (double(width) / 2) + ((double(x_position) - double(origin_x)) / double(resolution));
+  }
+
+  unsigned int JMapIndex(double origin_y, double height, double resolution, double y_position) const
+  {
+    return (double(height) / 2) + ((double(y_position) - double(origin_y)) / double(resolution));
+  }
+
 private:
   // ROS
   ros::NodeHandle nh_, local_nh_;

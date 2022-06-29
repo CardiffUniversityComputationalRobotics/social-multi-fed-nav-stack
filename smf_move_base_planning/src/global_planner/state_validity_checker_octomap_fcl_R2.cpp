@@ -75,6 +75,7 @@ OmFclStateValidityCheckerR2::OmFclStateValidityCheckerR2(const ob::SpaceInformat
 
     ROS_INFO_STREAM("Retrieving social costmap.");
     socialCostmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(social_costmap_topic);
+    // ROS_INFO_STREAM("social costmap values: " << this->socialCostmap->data);
 }
 
 bool OmFclStateValidityCheckerR2::isValid(const ob::State *state) const
@@ -219,41 +220,51 @@ double OmFclStateValidityCheckerR2::checkRiskZones(const ob::State *state) const
 double OmFclStateValidityCheckerR2::checkSocialCostmap(const ob::State *state,
                                                        const ob::SpaceInformationPtr space) const
 {
-    ROS_INFO_STREAM("Running social costmap cost objective");
+    // ROS_INFO_STREAM("Running social costmap cost objective");
+
+    double state_risk = 1.0;
 
     double nearestDist = 1000000000;
 
-    double nearI;
-    double nearJ;
-
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-    double state_risk = 1.0;
 
     double mapOriginX = this->socialCostmap->info.origin.position.x + (this->socialCostmap->info.width / 2) * this->socialCostmap->info.resolution;
 
     double mapOriginY = this->socialCostmap->info.origin.position.y + (this->socialCostmap->info.height / 2) * this->socialCostmap->info.resolution;
 
-    for (int j = 0; j < this->socialCostmap->info.height; j++)
-    {
-        for (int i = 0; i < this->socialCostmap->info.width; i++)
-        {
-            double wX = mapWx(mapOriginX, this->socialCostmap->info.width, this->socialCostmap->info.resolution, i);
-            double wY = mapWy(mapOriginY, this->socialCostmap->info.height, this->socialCostmap->info.resolution, j);
+    unsigned int nearI = IMapIndex(mapOriginX, this->socialCostmap->info.width, this->socialCostmap->info.resolution, state_r2->values[0]);
 
-            double newDist = std::sqrt(std::pow(state_r2->values[0] - wX, 2) + std::pow(state_r2->values[1] - wY, 2));
+    unsigned int nearJ = JMapIndex(mapOriginY, this->socialCostmap->info.height, this->socialCostmap->info.resolution, state_r2->values[1]);
 
-            if (newDist < nearestDist)
-            {
-                nearestDist = newDist;
-                nearI = i;
-                nearJ = j;
-            }
+    // for (int j = 0; j < this->socialCostmap->info.height; j++)
+    // {
+    //     for (int i = 0; i < this->socialCostmap->info.width; i++)
+    //     {
+    //         double wX = mapWx(mapOriginX, this->socialCostmap->info.width, this->socialCostmap->info.resolution, i);
+    //         double wY = mapWy(mapOriginY, this->socialCostmap->info.height, this->socialCostmap->info.resolution, j);
 
-            state_risk = socialCostmap->data[mapIndex(this->socialCostmap->info.width, i, j)];
-        }
-    }
+    //         double newDist = std::sqrt(std::pow(state_r2->values[0] - wX, 2) + std::pow(state_r2->values[1] - wY, 2));
 
-    if (state_risk < 0)
+    //         if (newDist < nearestDist)
+    //         {
+    //             nearestDist = newDist;
+    //             nearI = i;
+    //             nearJ = j;
+    //         }
+
+    //         state_risk = socialCostmap->data[mapIndex(this->socialCostmap->info.width, i, j)];
+    //     }
+    // }
+
+    ROS_INFO_STREAM("got indexes");
+    ROS_INFO_STREAM("near I: " << nearI);
+    ROS_INFO_STREAM("near J: " << nearJ);
+
+    state_risk = socialCostmap->data[mapIndex(this->socialCostmap->info.width, nearI, nearJ)];
+
+    ROS_INFO_STREAM("state risk: " << state_risk);
+
+    if (state_risk < 1)
     {
         state_risk = 1;
     }

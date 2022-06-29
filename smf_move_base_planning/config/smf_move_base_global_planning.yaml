@@ -35,3 +35,5 @@ sim_agents_topic: /pedsim_simulator/simulated_agents_overwritten
 
 # extra frame option
 main_frame: world
+
+social_costmap_topic: "/social_costmap"

@@ -170,3 +170,8 @@ void SocialCostmap::setFrameId(std::string frameId)
 {
     this->frameId = frameId;
 }
+
+void SocialCostmap::setResolutionFactor(unsigned int resolutionFactor)
+{
+    this->resolutionFactor = resolutionFactor;
+}

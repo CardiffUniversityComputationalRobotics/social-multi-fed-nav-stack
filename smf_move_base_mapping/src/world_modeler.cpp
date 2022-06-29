@@ -44,6 +44,8 @@ private:
 
     double octree_resol_, minimum_range_, rviz_timer_, robot_distance_view_, robot_velocity_thres_, robot_fov_, social_costmap_decay_factor_;
 
+    int social_costmap_resolution_factor_;
+
     // Point Clouds
     std::vector<std::string> point_cloud_topics_, point_cloud_frames_;
 
@@ -107,6 +109,8 @@ WorldModeler::WorldModeler()
                     social_costmap_topic_);
     local_nh_.param("social_costmap_decay_factor", social_costmap_decay_factor_,
                     social_costmap_decay_factor_);
+    local_nh_.param("social_costmap_resolution_factor", social_costmap_resolution_factor_,
+                    social_costmap_resolution_factor_);
 
     ros::Rate loop_rate(10);
 
@@ -138,6 +142,7 @@ WorldModeler::WorldModeler()
     ROS_WARN("%s:\n\tGot global 2D map\n",
              ros::this_node::getName().c_str());
 
+    socialCostmap->setResolutionFactor(social_costmap_resolution_factor_);
     socialCostmap->setDimensions(global_2d_map.info.width, global_2d_map.info.height);
     socialCostmap->setFrameId(global_2d_map.header.frame_id);
     socialCostmap->setOrigin(global_2d_map.info.origin);
