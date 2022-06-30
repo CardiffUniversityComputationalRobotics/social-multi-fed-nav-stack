@@ -8,6 +8,36 @@
 #include <pedsim_msgs/AgentStates.h>
 #include <pedsim_msgs/AgentState.h>
 
+// Octomap
+#include <octomap/octomap.h>
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
+
+#include <tf2/LinearMath/Quaternion.h>
+
+// FCL
+#include <fcl/fcl.h>
+#include <fcl/collision.h>
+#include <fcl/geometry/octree/octree.h>
+#include <fcl/narrowphase/collision_object.h>
+#include <fcl/narrowphase/distance.h>
+#include <fcl/broadphase/broadphase_dynamic_AABB_tree.h>
+#include <fcl/broadphase/default_broadphase_callbacks.h>
+#include <fcl/broadphase/broadphase_spatialhash.h>
+#include <fcl/common/types.h>
+#include <fcl/config.h>
+#include <fcl/geometry/shape/box.h>
+#include <fcl/math/geometry-inl.h>
+#include <fcl/narrowphase/collision_object.h>
+#include <fcl/narrowphase/collision_request.h>
+#include <fcl/narrowphase/collision_result.h>
+
+using octomap_msgs::GetOctomap;
+// Standard namespace
+using namespace std;
+// Octomap namespace
+using namespace octomap;
+
 class WorldModeler
 {
 public:
@@ -38,7 +68,7 @@ private:
 
     // ! FRAMES/TOPICS
     std::string map_frame_,
-        fixed_frame_, robot_frame_, odometry_topic_, global_2d_map_topic_, social_agents_topic_, social_costmap_topic_;
+        fixed_frame_, robot_frame_, odometry_topic_, global_2d_map_topic_, social_agents_topic_, social_costmap_topic_, octomap_service_;
 
     bool add_rays_, apply_filter_, add_max_range_measures_, projection_2d_, global_map_available_;
 
@@ -61,6 +91,23 @@ private:
     // social costmap
     SocialCostmap *socialCostmap = new SocialCostmap();
     nav_msgs::OccupancyGrid current_social_costmap;
+
+    // OCTOMAP VARIABLES
+
+    GetOctomap::Request req;
+    GetOctomap::Response resp;
+
+    octomap::AbstractOcTree *abs_octree_;
+    octomap::OcTree *octree_;
+    double octree_min_x_, octree_min_y_, octree_min_z_;
+    double octree_max_x_, octree_max_y_, octree_max_z_;
+
+    double octree_res_;
+
+    // FCL
+    fcl::OcTreef *tree_;
+    fcl::CollisionObjectf *tree_obj_;
+    std::shared_ptr<fcl::Boxf> robot_agent_solid_;
 };
 
 WorldModeler::WorldModeler()
@@ -111,6 +158,8 @@ WorldModeler::WorldModeler()
                     social_costmap_decay_factor_);
     local_nh_.param("social_costmap_resolution_factor", social_costmap_resolution_factor_,
                     social_costmap_resolution_factor_);
+    local_nh_.param("octomap_service", octomap_service_,
+                    octomap_service_);
 
     ros::Rate loop_rate(10);
 
@@ -208,17 +257,42 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         robotAngle = 2 * M_PI + robotAngle;
     }
 
+    double tethaRobotAgentFov;
+
     if (tethaRobotAgent > (robotAngle + M_PI))
-        tethaRobotAgent = abs(robotAngle + 2 * M_PI - tethaRobotAgent);
+        tethaRobotAgentFov = abs(robotAngle + 2 * M_PI - tethaRobotAgent);
     else if (robotAngle > (tethaRobotAgent + M_PI))
-        tethaRobotAgent = abs(tethaRobotAgent + 2 * M_PI - robotAngle);
+        tethaRobotAgentFov = abs(tethaRobotAgent + 2 * M_PI - robotAngle);
     else
-        tethaRobotAgent = abs(tethaRobotAgent - robotAngle);
+        tethaRobotAgentFov = abs(tethaRobotAgent - robotAngle);
 
-    if (abs(tethaRobotAgent) < robot_fov_)
+    if (abs(tethaRobotAgentFov) < robot_fov_)
+    {
+
+        fcl::CollisionRequestf collision_request;
+        fcl::CollisionResultf collision_result;
+
+        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 2));
+
+        fcl::Transform3f robot_agent_solid_tf;
+        robot_agent_solid_tf.setIdentity();
+        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x - robot_odometry.pose.pose.position.x) / 2, (social_agent.pose.position.y - robot_odometry.pose.pose.position.y) / 2, 1));
+
+        tf2::Quaternion myQuaternion;
+        myQuaternion.setRPY(0, 0, tethaRobotAgent);
+
+        robot_agent_solid_tf.rotate(fcl::Quaternionf(myQuaternion.getX(), myQuaternion.getY(), myQuaternion.getZ(), myQuaternion.getW()));
+
+        fcl::CollisionObjectf robot_agent_co(robot_agent_solid_, robot_agent_solid_tf);
+
+        fcl::collide(tree_obj_, &robot_agent_co, collision_request, collision_result);
+
+        if (collision_result.isCollision())
+        {
+            return false;
+        }
         return true;
-
-    return false;
+    }
 }
 
 pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
@@ -226,6 +300,23 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
 
     pedsim_msgs::AgentStates agentStatesInFOV;
     std::vector<pedsim_msgs::AgentState> agentStatesVector;
+
+    while ((nh_.ok() && !ros::service::call(octomap_service_, req, resp)) || resp.map.data.size() == 0)
+    {
+        ROS_WARN("Requestt to %s failed; trying again...", nh_.resolveName(octomap_service_).c_str());
+        usleep(1000000);
+    }
+    if (nh_.ok())
+    { // skip when CTRL-C
+        abs_octree_ = octomap_msgs::msgToMap(resp.map);
+        std::cout << std::endl;
+        if (abs_octree_)
+        {
+            octree_ = dynamic_cast<octomap::OcTree *>(abs_octree_);
+            tree_ = new fcl::OcTreef(std::shared_ptr<const octomap::OcTree>(octree_));
+            tree_obj_ = new fcl::CollisionObjectf((std::shared_ptr<fcl::CollisionGeometryf>(tree_)));
+        }
+    }
 
     for (int i = 0; i < agent_states.agent_states.size(); i++)
     {

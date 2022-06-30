@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>smf_move_base_mapping</name>
   <version>0.0.0</version>
   <description>The smf_move_base_mapping package</description>
@@ -7,7 +7,6 @@
   <maintainer email="sasm@todo.todo">sasm</maintainer>
 
 
-  
   <license>TODO</license>
 
 
@@ -27,7 +26,14 @@
   <depend>smf_move_base_msgs</depend>
   <depend>pedsim_ros</depend>
 
+  <build_depend condition="$ROS_DISTRO != noetic">libfcl-dev</build_depend>
+  <exec_depend condition="$ROS_DISTRO != noetic">libfcl-dev</exec_depend>
+  <build_depend condition="$ROS_DISTRO == noetic">fcl</build_depend>
+  <exec_depend condition="$ROS_DISTRO == noetic">fcl</exec_depend>
+
   <depend>tf</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
