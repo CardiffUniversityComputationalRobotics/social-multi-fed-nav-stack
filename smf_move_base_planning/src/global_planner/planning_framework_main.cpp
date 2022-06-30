@@ -410,9 +410,17 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 {
     if (!odom_available_)
         odom_available_ = true;
-    tf::poseMsgToTF(odom_msg->pose.pose, last_robot_pose_);
 
-    double useless_pitch, useless_roll, yaw;
+    geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
+
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.1));
+
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.1));
+
+    tf::poseMsgToTF(predictedPose, last_robot_pose_);
+
+    double useless_pitch,
+        useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
     if ((goal_available_ || goal_region_available_) &&
