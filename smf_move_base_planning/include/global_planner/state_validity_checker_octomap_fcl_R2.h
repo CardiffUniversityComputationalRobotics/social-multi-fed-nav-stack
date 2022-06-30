@@ -194,6 +194,7 @@ private:
 
   // social costmap data
   nav_msgs::OccupancyGridConstPtr socialCostmap;
+  std::vector<int8_t> socialCostmapValues;
 };
 
 #endif
