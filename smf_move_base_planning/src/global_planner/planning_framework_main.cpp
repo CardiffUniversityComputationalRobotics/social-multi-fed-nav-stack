@@ -133,7 +133,7 @@ private:
         goal_odom_frame_;
     double goal_radius_;
     std::string planner_name_, optimization_objective_, odometry_topic_, query_goal_topic_,
-        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic;
+        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
     std::vector<const ob::State *> solution_path_states_;
 };
 
@@ -179,6 +179,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("visualize_tree", visualize_tree_, false);
     local_nh_.param("sim_agents_topic", sim_agents_topic, sim_agents_topic);
     local_nh_.param("robot_base_radius", robot_base_radius, robot_base_radius);
+    local_nh_.param("local_path_topic", local_path_topic_, local_path_topic_);
 
     goal_radius_ = xy_goal_tolerance_;
     goal_available_ = false;
@@ -796,6 +797,56 @@ void OnlinePlannFramework::planningTimerCallback()
             simple_setup_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_->getSpaceInformation()));
 
+        // !INTEGRATION OF LOCAL PATH INTO THE LAST BEST GLOBAL PATH
+
+        // if (reuse_last_best_solution_)
+        // {
+
+        //     smf_move_base_msgs::Path2DConstPtr last_local_path = ros::topic::waitForMessage<smf_move_base_msgs::Path2D>(local_path_topic_);
+
+        //     double last_node_pos_x = last_local_path->waypoints[last_local_path->waypoints.size()].x;
+
+        //     double last_node_pos_y = last_local_path->waypoints[last_local_path->waypoints.size()].y;
+
+        //     double x_dif = 1000000000;
+        //     double y_dif = 1000000000;
+        //     unsigned int trim_node_index;
+
+        //     for (int i = 0; i < path_states.size(); i++)
+        //     {
+        //         double node_x = path_states[i]
+        //                             ->as<ob::RealVectorStateSpace::StateType>()
+        //                             ->values[0];
+
+        //         double node_y = path_states[i]
+        //                             ->as<ob::RealVectorStateSpace::StateType>()
+        //                             ->values[1];
+        //         if (abs(last_node_pos_x - node_x) < x_dif || abs(last_node_pos_y - node_y) < y_dif)
+        //         {
+        //             x_dif = abs(last_node_pos_x - node_x);
+        //             y_dif = abs(last_node_pos_y - node_y);
+        //             trim_node_index = i;
+        //         }
+        //     }
+        // }
+
+        // if (reuse_last_best_solution_)
+        // {
+        //     ob::StateSpacePtr space = simple_setup_->getStateSpace();
+        //     solution_path_states_.clear();
+        //     // solution_path_states_.reserve(path_states.size());
+        //     for (int i = path_states.size() - 1; i >= 0; i--)
+        //     {
+        //         ob::State *s = space->allocState();
+        //         space->copyState(s, path_states[i]);
+        //         solution_path_states_.push_back(s);
+        //         // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+        //         // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+        //     }
+        // }
+
+        // !==================================
+
         //=======================================================================
         // Attempt to solve the problem within one second of planning time
         //=======================================================================
@@ -844,6 +895,8 @@ void OnlinePlannFramework::planningTimerCallback()
                         ob::State *s = space->allocState();
                         space->copyState(s, path_states[i]);
                         solution_path_states_.push_back(s);
+                        // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
                     }
                 }
 
