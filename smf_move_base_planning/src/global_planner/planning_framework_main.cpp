@@ -55,7 +55,7 @@
 #include <global_planner/state_cost_objective.h>
 #include <global_planner/state_validity_checker_octomap_fcl_R2.h>
 
-// Esc base controller
+// smf base controller
 #include <smf_move_base_msgs/Path2D.h>
 #include <smf_move_base_msgs/Goto2DAction.h>
 #include <smf_move_base_msgs/GotoRegion2DAction.h>
@@ -106,7 +106,7 @@ private:
     ros::Timer timer_;
     ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
     ros::Publisher solution_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_,
-        query_goal_radius_rviz_pub_;
+        query_goal_radius_rviz_pub_, merged_path_rviz_pub_;
 
     // ROS action server
     EscBaseGoToActionServer *goto_action_server_;
@@ -209,6 +209,7 @@ OnlinePlannFramework::OnlinePlannFramework()
         local_nh_.advertise<geometry_msgs::PoseStamped>("query_goal_pose_rviz", 1, true);
     query_goal_radius_rviz_pub_ =
         local_nh_.advertise<visualization_msgs::Marker>("query_goal_radius_rviz", 1, true);
+    merged_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("merged_path", 1, true);
 
     //=======================================================================
     // Action server
@@ -765,28 +766,31 @@ void OnlinePlannFramework::planningTimerCallback()
 
         if (reuse_last_best_solution_)
         {
-            // smf_move_base_msgs::Path2DConstPtr last_local_path;
-            // last_local_path = ros::topic::waitForMessage<smf_move_base_msgs::Path2D>(local_path_topic_, ros::Duration(0.1));
 
-            smf_move_base_msgs::Path2DPtr last_local_path;
+            smf_move_base_msgs::Path2D last_local_path;
 
-            last_local_path->waypoints.resize(3);
+            geometry_msgs::Pose2D pose_2d;
+            pose_2d.x = -11.58;
+            pose_2d.y = 3.76;
+            last_local_path.waypoints.push_back(pose_2d);
 
-            last_local_path->waypoints[0].x = -2.14;
-            last_local_path->waypoints[0].y = -3.69;
+            pose_2d.x = -5.05;
+            pose_2d.y = 2.94;
+            last_local_path.waypoints.push_back(pose_2d);
 
-            last_local_path->waypoints[1].x = -5.05;
-            last_local_path->waypoints[1].y = 2.94;
+            pose_2d.x = -2.14;
+            pose_2d.y = -3.69;
+            last_local_path.waypoints.push_back(pose_2d);
 
-            last_local_path->waypoints[2].x = -11.58;
-            last_local_path->waypoints[2].y = 3.76;
+            // geometry_msgs::Pose2D pose_2d;
 
-            if (last_local_path)
+            // geometry_msgs::Pose2D pose_2d;
+
+            if (last_local_path.waypoints.size() > 0)
             {
-                // ROS_INFO_STREAM("ITERATING LOCAL PATH");
-                double last_node_pos_x = last_local_path->waypoints[last_local_path->waypoints.size()].x;
+                double last_node_pos_x = last_local_path.waypoints[last_local_path.waypoints.size() - 1].x;
 
-                double last_node_pos_y = last_local_path->waypoints[last_local_path->waypoints.size()].y;
+                double last_node_pos_y = last_local_path.waypoints[last_local_path.waypoints.size() - 1].y;
 
                 double x_dif = 1000000000;
                 double y_dif = 1000000000;
@@ -808,26 +812,64 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 std::vector<const ob::State *> temp_solution_path_states_;
-                for (int i = 0; i < trim_node_index; i++)
+
+                if (solution_path_states_.size() > 0)
                 {
-                    temp_solution_path_states_.push_back(solution_path_states_[i]);
+
+                    for (int i = 0; i < trim_node_index; i++)
+                    {
+                        temp_solution_path_states_.push_back(solution_path_states_[i]);
+                    }
                 }
 
                 ob::StateSpacePtr space = simple_setup_->getStateSpace();
 
-                for (int i = last_local_path->waypoints.size() - 1; i > -1; i--)
+                for (int i = 0; i < last_local_path.waypoints.size(); i++)
                 {
 
                     ob::State *s = space->allocState();
-                    s->as<ob::RealVectorStateSpace::StateType>()->values[0] = last_local_path->waypoints[i].x;
-                    s->as<ob::RealVectorStateSpace::StateType>()->values[1] = last_local_path->waypoints[i].y;
+                    s->as<ob::RealVectorStateSpace::StateType>()->values[0] = last_local_path.waypoints[i].x;
+                    s->as<ob::RealVectorStateSpace::StateType>()->values[1] = last_local_path.waypoints[i].y;
 
                     temp_solution_path_states_.push_back(s);
                 }
 
                 solution_path_states_ = temp_solution_path_states_;
+
+                // visualization_msgs::Marker merged_visual_result_path;
+                // merged_visual_result_path.header.frame_id = world_frame_;
+                // merged_visual_result_path.header.stamp = ros::Time::now();
+                // merged_visual_result_path.ns = "online_planner_rrt";
+                // merged_visual_result_path.ns = "online_planner_result_path";
+                // merged_visual_result_path.action = visualization_msgs::Marker::ADD;
+
+                // merged_visual_result_path.pose.orientation.w = 1.0;
+
+                // merged_visual_result_path.id = 4;
+
+                // merged_visual_result_path.type = visualization_msgs::Marker::LINE_LIST;
+
+                // merged_visual_result_path.scale.x = 0.05;
+
+                // merged_visual_result_path.color.r = 1.0;
+                // merged_visual_result_path.color.a = 1.0;
+
+                // geometry_msgs::Point sol_points;
+
+                // for (int i = 0; i < solution_path_states_.size(); i++)
+                // {
+
+                //     sol_points.x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                //     sol_points.y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                //     sol_points.z = 0.1;
+
+                //     merged_visual_result_path.points.push_back(sol_points);
+                // }
+
+                // ROS_INFO_STREAM("merged points: " << merged_visual_result_path.points.size());
+
+                // merged_path_rviz_pub_.publish(merged_visual_result_path);
             }
-            // ROS_INFO_STREAM("THERE WAS NO LOCAL PATH");
         }
 
         // !==================================
@@ -836,9 +878,11 @@ void OnlinePlannFramework::planningTimerCallback()
         // Set a modified sampler
         //=======================================================================
         if (reuse_last_best_solution_)
-            simple_setup_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
-                std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_->getPlanner(),
-                          solution_path_states_));
+            simple_setup_->getSpaceInformation()
+                ->getStateSpace()
+                ->setStateSamplerAllocator(
+                    std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_->getPlanner(),
+                              solution_path_states_));
 
         //=======================================================================
         // Set state validity checking for this space
