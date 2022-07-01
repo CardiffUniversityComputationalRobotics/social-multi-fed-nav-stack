@@ -223,11 +223,15 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
     double robotVelocity =
         std::sqrt(std::pow(robot_odometry.twist.twist.linear.x, 2) + std::pow(robot_odometry.twist.twist.linear.y, 2));
 
-    double actualFOVDistance = robot_distance_view_ / robot_velocity_thres_ * robotVelocity;
+    double actualFOVDistance = (robot_distance_view_ / robot_velocity_thres_) * robotVelocity;
 
     if (actualFOVDistance < 1.5)
     {
         actualFOVDistance = 1.5;
+    }
+    else if (actualFOVDistance > robot_distance_view_)
+    {
+        actualFOVDistance = robot_distance_view_;
     }
 
     if (dRobotAgent > actualFOVDistance)
@@ -272,14 +276,14 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         fcl::CollisionRequestf collision_request;
         fcl::CollisionResultf collision_result;
 
-        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 2));
+        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 3));
 
         fcl::Transform3f robot_agent_solid_tf;
         robot_agent_solid_tf.setIdentity();
-        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x - robot_odometry.pose.pose.position.x) / 2, (social_agent.pose.position.y - robot_odometry.pose.pose.position.y) / 2, 1));
+        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry.pose.pose.position.y) / 2, 1));
 
         tf2::Quaternion myQuaternion;
-        myQuaternion.setRPY(0, 0, tethaRobotAgent);
+        myQuaternion.setRPY(0, tethaRobotAgent, 0);
 
         robot_agent_solid_tf.rotate(fcl::Quaternionf(myQuaternion.getX(), myQuaternion.getY(), myQuaternion.getZ(), myQuaternion.getW()));
 
@@ -293,6 +297,7 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         }
         return true;
     }
+    return false;
 }
 
 pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
