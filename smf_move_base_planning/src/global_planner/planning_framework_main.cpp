@@ -765,12 +765,25 @@ void OnlinePlannFramework::planningTimerCallback()
 
         if (reuse_last_best_solution_)
         {
-            smf_move_base_msgs::Path2DConstPtr last_local_path;
-            last_local_path = ros::topic::waitForMessage<smf_move_base_msgs::Path2D>(local_path_topic_, ros::Duration(0.1));
+            // smf_move_base_msgs::Path2DConstPtr last_local_path;
+            // last_local_path = ros::topic::waitForMessage<smf_move_base_msgs::Path2D>(local_path_topic_, ros::Duration(0.1));
 
-            if (last_local_path->waypoints.size() > 0)
+            smf_move_base_msgs::Path2DPtr last_local_path;
+
+            last_local_path->waypoints.resize(3);
+
+            last_local_path->waypoints[0].x = -2.14;
+            last_local_path->waypoints[0].y = -3.69;
+
+            last_local_path->waypoints[1].x = -5.05;
+            last_local_path->waypoints[1].y = 2.94;
+
+            last_local_path->waypoints[2].x = -11.58;
+            last_local_path->waypoints[2].y = 3.76;
+
+            if (last_local_path)
             {
-
+                // ROS_INFO_STREAM("ITERATING LOCAL PATH");
                 double last_node_pos_x = last_local_path->waypoints[last_local_path->waypoints.size()].x;
 
                 double last_node_pos_y = last_local_path->waypoints[last_local_path->waypoints.size()].y;
@@ -781,6 +794,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 for (int i = 0; i < solution_path_states_.size(); i++)
                 {
+
                     double node_x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
                     double node_y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
@@ -801,7 +815,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 ob::StateSpacePtr space = simple_setup_->getStateSpace();
 
-                for (int i = 0; i < last_local_path->waypoints.size(); i++)
+                for (int i = last_local_path->waypoints.size() - 1; i > -1; i--)
                 {
 
                     ob::State *s = space->allocState();
@@ -813,6 +827,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 solution_path_states_ = temp_solution_path_states_;
             }
+            // ROS_INFO_STREAM("THERE WAS NO LOCAL PATH");
         }
 
         // !==================================
