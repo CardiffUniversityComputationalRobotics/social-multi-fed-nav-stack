@@ -51,12 +51,12 @@ include_directories(
 link_directories(${OCTOMAP_LIBRARY_DIRS} ${ompl_LIBRARY_DIRS} ${FCL_LIBRARY_DIRS} ${CCD_LIBRARY_DIRS})
 
 
-add_executable(smf_move_base_global_planner
-src/global_planner/planner/RRTstarMod.cpp
-src/global_planner/planning_framework_main.cpp
-src/global_planner/state_validity_checker_octomap_fcl_R2.cpp
-src/global_planner/new_state_sampler.cpp
-src/global_planner/state_cost_objective.cpp
+add_executable(smf_move_base_planner
+src/planner/RRTstarMod.cpp
+src/planning_framework_main.cpp
+src/state_validity_checker_octomap_fcl_R2.cpp
+src/new_state_sampler.cpp
+src/state_cost_objective.cpp
 )
-target_link_libraries(smf_move_base_global_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${LIBFCL_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
-add_dependencies(smf_move_base_global_planner ${catkin_EXPORTED_TARGETS} smf_move_base_msgs_generate_messages_cpp ${smf_move_base_msgs_EXPORTED_TARGETS})
+target_link_libraries(smf_move_base_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${LIBFCL_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
+add_dependencies(smf_move_base_planner ${catkin_EXPORTED_TARGETS} smf_move_base_msgs_generate_messages_cpp ${smf_move_base_msgs_EXPORTED_TARGETS})

@@ -30,7 +30,7 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/config.h>
 
-#include <global_planner/planner/RRTstarMod.h>
+#include <planner/RRTstarMod.h>
 
 // ROS
 #include <ros/ros.h>
@@ -51,9 +51,9 @@
 #include <actionlib/server/simple_action_server.h>
 
 // Planner
-#include <global_planner/new_state_sampler.h>
-#include <global_planner/state_cost_objective.h>
-#include <global_planner/state_validity_checker_octomap_fcl_R2.h>
+#include <new_state_sampler.h>
+#include <state_cost_objective.h>
+#include <state_validity_checker_octomap_fcl_R2.h>
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -835,40 +835,6 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 solution_path_states_ = temp_solution_path_states_;
-
-                // visualization_msgs::Marker merged_visual_result_path;
-                // merged_visual_result_path.header.frame_id = world_frame_;
-                // merged_visual_result_path.header.stamp = ros::Time::now();
-                // merged_visual_result_path.ns = "online_planner_rrt";
-                // merged_visual_result_path.ns = "online_planner_result_path";
-                // merged_visual_result_path.action = visualization_msgs::Marker::ADD;
-
-                // merged_visual_result_path.pose.orientation.w = 1.0;
-
-                // merged_visual_result_path.id = 4;
-
-                // merged_visual_result_path.type = visualization_msgs::Marker::LINE_LIST;
-
-                // merged_visual_result_path.scale.x = 0.05;
-
-                // merged_visual_result_path.color.r = 1.0;
-                // merged_visual_result_path.color.a = 1.0;
-
-                // geometry_msgs::Point sol_points;
-
-                // for (int i = 0; i < solution_path_states_.size(); i++)
-                // {
-
-                //     sol_points.x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
-                //     sol_points.y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
-                //     sol_points.z = 0.1;
-
-                //     merged_visual_result_path.points.push_back(sol_points);
-                // }
-
-                // ROS_INFO_STREAM("merged points: " << merged_visual_result_path.points.size());
-
-                // merged_path_rviz_pub_.publish(merged_visual_result_path);
             }
         }
 

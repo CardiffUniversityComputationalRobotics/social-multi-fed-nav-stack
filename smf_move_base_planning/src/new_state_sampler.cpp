@@ -37,7 +37,7 @@
 
 /* Author: Javier V. Gómez*/
 
-#include <global_planner/new_state_sampler.h>
+#include <new_state_sampler.h>
 #include <ompl/base/spaces/ReedsSheppStateSpace.h>
 
 ob::StateSamplerPtr newAllocStateSampler(const ob::StateSpace *space, const ob::PlannerPtr &planner,

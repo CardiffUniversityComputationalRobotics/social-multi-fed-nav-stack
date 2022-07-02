@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="output" default="screen" />
+
+    <node name="smf_move_base_planner" pkg="smf_move_base_planning" type="smf_move_base_planner" required="true" output="screen">
+        <rosparam command="load" file="$(find smf_move_base_planning)/config/smf_move_base_planning.yaml" />
+    </node>
+
+</launch>

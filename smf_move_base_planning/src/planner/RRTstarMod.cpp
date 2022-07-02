@@ -37,7 +37,7 @@
 
 /* Modified by: Juan D. Hernandez */
 
-#include <global_planner/planner/RRTstarMod.h>
+#include <planner/RRTstarMod.h>
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
