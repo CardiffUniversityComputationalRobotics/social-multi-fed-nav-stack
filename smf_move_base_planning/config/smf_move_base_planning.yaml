@@ -1,6 +1,7 @@
 # Path planning parameters
 world_frame: world
 planner_name: RRTstar # RRT, RRTstar
+local_planner_name: InformedRRTstar
 planning_bounds_x: [-50.0, 50.0] # [x_min, x_max]
 planning_bounds_y: [-50.0, 50.0] # [y_min, y_max]
 dynamic_bounds: True # the bounds of the planner will change according to the start and goal configurations
@@ -15,6 +16,7 @@ optimization_objective: SocialCostmap #PathLength, RiskZones, SocialComfort, Ext
 motion_cost_interpolation: False
 start_prev_path_proj: False
 xy_goal_tolerance: 0.25
+local_xy_goal_tolerance: 1.0
 visualize_tree: False
 
 # Collision checking

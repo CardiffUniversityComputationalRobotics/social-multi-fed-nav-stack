@@ -24,6 +24,7 @@
 #include <ompl/base/objectives/PathLengthOptimizationObjective.h>
 #include <ompl/base/objectives/StateCostIntegralObjective.h>
 #include <ompl/base/objectives/MaximizeMinClearanceObjective.h>
+#include <ompl/geometric/planners/rrt/InformedRRTstar.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/prm/PRMstar.h>
@@ -125,16 +126,18 @@ private:
 
     // OMPL, online planner
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
-    double timer_period_, solving_time_, xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
+    double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
     bool opport_collision_check_, reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
         goal_available_, goal_region_available_, dynamic_bounds_, start_prev_path_proj_, visualize_tree_,
         control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
-    double goal_radius_;
-    std::string planner_name_, optimization_objective_, odometry_topic_, query_goal_topic_,
+    double goal_radius_, local_goal_radius_;
+    std::string planner_name_, local_planner_name_, optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
     std::vector<const ob::State *> solution_path_states_;
+
+    geometry_msgs::Twist current_robot_velocity;
 };
 
 //!  Constructor.
@@ -180,8 +183,11 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("sim_agents_topic", sim_agents_topic, sim_agents_topic);
     local_nh_.param("robot_base_radius", robot_base_radius, robot_base_radius);
     local_nh_.param("local_path_topic", local_path_topic_, local_path_topic_);
+    local_nh_.param("local_planner_name", local_planner_name_, local_planner_name_);
+    local_nh_.param("local_xy_goal_tolerance", local_xy_goal_tolerance_, local_xy_goal_tolerance_);
 
     goal_radius_ = xy_goal_tolerance_;
+    local_goal_radius_ = local_xy_goal_tolerance_;
     goal_available_ = false;
     goal_region_available_ = false;
 
@@ -415,9 +421,9 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
 
-    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.1));
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ * 0.1 + 0.1));
 
-    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.1));
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ * 0.1 + 0.1));
 
     tf::poseMsgToTF(predictedPose, last_robot_pose_);
 
@@ -432,6 +438,8 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
         goal_available_ = false;
         goal_region_available_ = false;
     }
+
+    current_robot_velocity = odom_msg->twist;
 }
 
 //! Control active callback.
@@ -542,8 +550,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::SpaceInformationPtr si_global = simple_setup_global_->getSpaceInformation();
 
     // !defining simple setup for local planner
-    // simple_setup_local_ = og::SimpleSetupPtr(new og::SimpleSetup(space));
-    // ob::SpaceInformationPtr si = simple_setup_local_->getSpaceInformation();
+    simple_setup_local_ = og::SimpleSetupPtr(new og::SimpleSetup(space));
+    ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
 
     //=======================================================================
     // Create a planner for the defined space
@@ -560,10 +568,27 @@ void OnlinePlannFramework::planWithSimpleSetup()
     else
         planner = ob::PlannerPtr(new og::RRTstar(si_global));
 
+    // !LOCAL PLANNER SETUP
+    ob::PlannerPtr local_planner;
+    if (local_planner_name_.compare("RRT") == 0)
+        local_planner = ob::PlannerPtr(new og::RRT(si_local));
+    if (local_planner_name_.compare("PRMstar") == 0)
+        local_planner = ob::PlannerPtr(new og::PRMstar(si_local));
+    else if (local_planner_name_.compare("RRTstar") == 0)
+        local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
+    else if (local_planner_name_.compare("RRTstarMod") == 0)
+        local_planner = ob::PlannerPtr(new og::RRTstarMod(si_local));
+    else if (local_planner_name_.compare("InformedRRTstar") == 0)
+        local_planner = ob::PlannerPtr(new og::InformedRRTstar(si_local));
+    else
+        local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
+
     //=======================================================================
     // Set the setup planner
     //=======================================================================
     simple_setup_global_->setPlanner(planner);
+
+    simple_setup_local_->setPlanner(local_planner);
 
     //=======================================================================
     // Create a start and goal states
@@ -579,6 +604,12 @@ void OnlinePlannFramework::planWithSimpleSetup()
     start[0] = double(start_state_[0]); // x
     start[1] = double(start_state_[1]); // y
 
+    // !LOCAL PLANNER START STATE
+    ob::ScopedState<> local_start(space);
+
+    local_start[0] = double(start_state_[0] + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
+    local_start[1] = double(start_state_[1] + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
+
     // create a goal state
     ob::ScopedState<> goal(space);
 
@@ -591,9 +622,20 @@ void OnlinePlannFramework::planWithSimpleSetup()
     simple_setup_global_->setGoalState(goal, goal_radius_);
     // simple_setup_->getStateSpace()->setValidSegmentCountFactor(5.0);
 
+    // !LOCAL GOAL SETUP
+    simple_setup_local_->setStartState(local_start);
+    simple_setup_local_->setGoalState(goal, local_goal_radius_);
+
     //=======================================================================
     // Set state validity checking for this space
     //=======================================================================
+    ob::StateValidityCheckerPtr om_stat_val_check;
+    om_stat_val_check = ob::StateValidityCheckerPtr(
+        new OmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
+                                        planning_bounds_x_, planning_bounds_y_));
+    simple_setup_global_->setStateValidityChecker(om_stat_val_check);
+
+    // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr om_stat_val_check;
     om_stat_val_check = ob::StateValidityCheckerPtr(
         new OmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
