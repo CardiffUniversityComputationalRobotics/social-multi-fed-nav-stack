@@ -8,7 +8,7 @@ dynamic_bounds: True # the bounds of the planner will change according to the st
 start_state: [0.0, 0.0, 0.0] # [X, Y, Yaw]
 goal_state: [5.0, -1.0, 0.0] # [X, Y, Yaw]
 timer_period: 1.0
-solving_time: 0.9
+solving_time: 0.4
 opport_collision_check: True
 reuse_last_best_solution: True
 optimization_objective: SocialCostmap #PathLength, RiskZones, SocialComfort, ExtendedSocialComfort, SocialCostmap
@@ -40,3 +40,5 @@ sim_agents_topic: /pedsim_simulator/simulated_agents_overwritten
 main_frame: world
 
 social_costmap_topic: "/social_costmap"
+
+local_path_range: 4

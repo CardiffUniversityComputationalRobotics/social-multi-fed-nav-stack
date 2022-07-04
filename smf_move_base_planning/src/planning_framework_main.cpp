@@ -133,12 +133,13 @@ private:
         control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
-    double goal_radius_, local_goal_radius_;
+    double goal_radius_, local_goal_radius_, local_path_range_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
-    std::vector<const ob::State *> solution_path_states_;
+    std::vector<const ob::State *> solution_path_states_, local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
+    smf_move_base_msgs::Path2D last_local_path;
 };
 
 //!  Constructor.
@@ -187,6 +188,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("local_planner_name", local_planner_name_, local_planner_name_);
     local_nh_.param("local_xy_goal_tolerance", local_xy_goal_tolerance_, local_xy_goal_tolerance_);
     local_nh_.param("local_optimization_objective", local_optimization_objective_, local_optimization_objective_);
+    local_nh_.param("local_path_range", local_path_range_, local_path_range_);
 
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
@@ -640,9 +642,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
     // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr local_om_stat_val_check;
     local_om_stat_val_check = ob::StateValidityCheckerPtr(
-        new LocalOmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
+        new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
                                              planning_bounds_x_, planning_bounds_y_));
-    // simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
+    simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
     //=======================================================================
     // Set optimization objective
@@ -681,6 +683,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     // Perform setup steps for the planner
     //=======================================================================
     simple_setup_global_->setup();
+
+    simple_setup_local_->setup();
 
     //=======================================================================
     // Print information
@@ -796,6 +800,8 @@ void OnlinePlannFramework::planningTimerCallback()
             }
 
             simple_setup_global_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
+
+            simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
         }
         //=======================================================================
         // Set new start state
@@ -816,6 +822,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
         goal[0] = double(goal_odom_frame_[0]); // x
         goal[1] = double(goal_odom_frame_[1]); // y
+
         //======================================================================
         // Set the start and goal states
         //=======================================================================
@@ -830,25 +837,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
         if (reuse_last_best_solution_)
         {
-
-            smf_move_base_msgs::Path2D last_local_path;
-
-            geometry_msgs::Pose2D pose_2d;
-            pose_2d.x = -11.58;
-            pose_2d.y = 3.76;
-            last_local_path.waypoints.push_back(pose_2d);
-
-            pose_2d.x = -5.05;
-            pose_2d.y = 2.94;
-            last_local_path.waypoints.push_back(pose_2d);
-
-            pose_2d.x = -2.14;
-            pose_2d.y = -3.69;
-            last_local_path.waypoints.push_back(pose_2d);
-
-            // geometry_msgs::Pose2D pose_2d;
-
-            // geometry_msgs::Pose2D pose_2d;
 
             if (last_local_path.waypoints.size() > 0)
             {
@@ -945,7 +933,7 @@ void OnlinePlannFramework::planningTimerCallback()
         //=======================================================================
         // Attempt to solve the problem within one second of planning time
         //=======================================================================
-        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_);
+        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_ * 0.1);
 
         if (solved && simple_setup_global_->haveExactSolutionPath())
         {
@@ -990,78 +978,213 @@ void OnlinePlannFramework::planningTimerCallback()
                         ob::State *s = space->allocState();
                         space->copyState(s, path_states[i]);
                         solution_path_states_.push_back(s);
-                        // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        // ROS_INFO_STREAM("LAST BEST SOLUTION X: " << path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
                     }
                 }
 
                 //=======================================================================
-                // Controller
+                // ! LOCAL PLANNER SOLVE
                 //=======================================================================
-                if (path_states.size() > 0)
+
+                //=======================================================================
+                // Set new start state
+                //=======================================================================
+                simple_setup_local_->clearStartStates();
+                ob::ScopedState<> start_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
+                ob::ScopedState<> goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
+
+                last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
+
+                start_local[0] = double(last_robot_pose_.getOrigin().getX() + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
+                start_local[1] = double(last_robot_pose_.getOrigin().getY() + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
+
+                //        if (!simple_setup_->getStateValidityChecker()->isValid(start->as<ob::State>()))
+                //        {
+                //            std::cout << "start in collision!!!***** " << std::endl;
+                //        }
+
+                for (int i = 0; i < path_states.size(); i++)
                 {
-                    smf_move_base_msgs::Path2D solution_path_for_control;
-                    for (unsigned int i = 0; i < path_states.size(); i++)
+                    double local_path_distance = std::sqrt(std::pow(start_local[0] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start_local[1] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
+
+                    if (local_path_distance >= local_path_range_)
                     {
-                        geometry_msgs::Pose2D p;
-                        p.x = path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
-                        p.y = path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                        goal_local[0] = double(path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        goal_local[1] = double(path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                        break;
+                    }
+                }
 
-                        if (i == (path_states.size() - 1))
+                //======================================================================
+                // Set the start and goal states
+                //=======================================================================
+                simple_setup_local_->clear();
+                simple_setup_local_->clearStartStates();
+                simple_setup_local_->setStartState(start_local);
+                simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
+                //
+                simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
+
+                //=======================================================================
+                // Set a modified sampler
+                //=======================================================================
+                if (reuse_last_best_solution_)
+                    simple_setup_local_->getSpaceInformation()
+                        ->getStateSpace()
+                        ->setStateSamplerAllocator(
+                            std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
+                                      solution_path_states_));
+
+                //=======================================================================
+                // Set state validity checking for this space
+                //=======================================================================
+                ob::StateValidityCheckerPtr local_om_stat_val_check;
+                local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                    new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                         planning_bounds_x_, planning_bounds_y_));
+                simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
+
+                //=======================================================================
+                // Set optimization objective
+                //=======================================================================
+                if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                        getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
+                else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
+                        simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
+                else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                        getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
+                else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                        getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+                else
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                        getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
+
+                //=======================================================================
+                // Attempt to solve the problem within one second of planning time
+                //=======================================================================
+                ob::PlannerStatus solved_local = simple_setup_local_->solve(solving_time_ * 0.9);
+
+                if (solved_local && simple_setup_local_->haveExactSolutionPath())
+                {
+                    // get the goal representation from the problem definition (not the same as the goal state)
+                    // and inquire about the found path
+
+                    og::PathGeometric path_local = simple_setup_global_->getSolutionPath();
+
+                    // generates varios little segments for the waypoints obtained from the planner
+                    path_local.interpolate(int(path_local.length() / 0.2));
+
+                    // path_planning_msgs::PathConstSpeed solution_path;
+                    ROS_INFO("%s:\n\tlocal path with cost %f has been found with simple_setup\n",
+                             ros::this_node::getName().c_str(),
+                             path_local.cost(simple_setup_global_->getProblemDefinition()->getOptimizationObjective()).value());
+
+                    std::vector<ob::State *> local_path_states;
+                    local_path_states = path_local.getStates();
+
+                    double distance_to_goal =
+                        sqrt(pow(goal_odom_frame_[0] - local_path_states[local_path_states.size() - 1]
+                                                           ->as<ob::RealVectorStateSpace::StateType>()
+                                                           ->values[0],
+                                 2.0) +
+                             pow(goal_odom_frame_[1] - local_path_states[local_path_states.size() - 1]
+                                                           ->as<ob::RealVectorStateSpace::StateType>()
+                                                           ->values[1],
+                                 2.0));
+
+                    if (simple_setup_local_->haveExactSolutionPath() || distance_to_goal <= local_goal_radius_)
+                    {
+                        // path.interpolate(int(path.length() / 1.0));
+                        visualizeRRT(path_local);
+
+                        if (reuse_last_best_solution_)
                         {
-                            if (goal_available_)
+                            ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
+                            local_solution_path_states_.clear();
+                            // solution_path_states_.reserve(path_states.size());
+                            for (int i = local_path_states.size() - 1; i >= 0; i--)
                             {
-                                ros::Time t;
-                                std::string err = "";
-                                tf::StampedTransform tf_map_to_fixed;
-                                tf_listener_.getLatestCommonTime("map", "odom", t, &err);
-                                tf_listener_.lookupTransform("map", "odom", t, tf_map_to_fixed);
-
-                                tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-
-                                p.theta = goal_map_frame_[2] - yaw;
-                            }
-                            else if (goal_region_available_)
-                            {
-                                goal_odom_frame_[2] =
-                                    atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
-                                p.theta = goal_odom_frame_[2];
+                                ob::State *s = space->allocState();
+                                space->copyState(s, local_path_states[i]);
+                                local_solution_path_states_.push_back(s);
                             }
                         }
-                        solution_path_for_control.waypoints.push_back(p);
                     }
-                    // ROS_INFO_STREAM("complete path: " << solution_path_for_control);
-                    solution_path_control_pub_.publish(solution_path_for_control);
+
+                    // !end of local planner solve
+
+                    //=======================================================================
+                    // Controller
+                    //=======================================================================
+                    if (local_path_states.size() > 0)
+                    {
+                        smf_move_base_msgs::Path2D solution_path_for_control;
+                        for (unsigned int i = 0; i < local_path_states.size(); i++)
+                        {
+                            geometry_msgs::Pose2D p;
+                            p.x = local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                            p.y = local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+
+                            if (i == (local_path_states.size() - 1))
+                            {
+                                if (goal_available_)
+                                {
+                                    ros::Time t;
+                                    std::string err = "";
+                                    tf::StampedTransform tf_map_to_fixed;
+                                    tf_listener_.getLatestCommonTime("map", "odom", t, &err);
+                                    tf_listener_.lookupTransform("map", "odom", t, tf_map_to_fixed);
+
+                                    tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
+
+                                    p.theta = goal_map_frame_[2] - yaw;
+                                }
+                                else if (goal_region_available_)
+                                {
+                                    goal_odom_frame_[2] =
+                                        atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
+                                    p.theta = goal_odom_frame_[2];
+                                }
+                            }
+                            last_local_path = solution_path_for_control;
+                            solution_path_for_control.waypoints.push_back(p);
+                        }
+                        // ROS_INFO_STREAM("complete path: " << solution_path_for_control);
+                        solution_path_control_pub_.publish(solution_path_for_control);
+                    }
                 }
+                //=======================================================================
+                // Clear previous solution path
+                //=======================================================================
+                simple_setup_global_->clear();
             }
-            //=======================================================================
-            // Clear previous solution path
-            //=======================================================================
-            simple_setup_global_->clear();
         }
         else
         {
             ROS_INFO("%s:\n\tpath has not been found\n", ros::this_node::getName().c_str());
 
-            if (solution_path_states_.size() > 0)
+            if (local_solution_path_states_.size() > 0)
             {
-                std::vector<const ob::State *> solution_path_states_copy_ = solution_path_states_;
+                std::vector<const ob::State *> local_solution_path_states_copy_ = local_solution_path_states_;
 
-                std::reverse(solution_path_states_copy_.begin(), solution_path_states_copy_.end());
+                std::reverse(local_solution_path_states_copy_.begin(), local_solution_path_states_copy_.end());
                 ROS_INFO("%s:\n\tsending partial last possible path\n", ros::this_node::getName().c_str());
                 smf_move_base_msgs::Path2D solution_path_for_control;
-                og::PathGeometric path_visualize = og::PathGeometric(simple_setup_global_->getSpaceInformation());
+                og::PathGeometric path_visualize = og::PathGeometric(simple_setup_local_->getSpaceInformation());
 
                 // adding first waypoint
-                if (simple_setup_global_->getStateValidityChecker()->isValid(solution_path_states_copy_[0]))
+                if (simple_setup_local_->getStateValidityChecker()->isValid(local_solution_path_states_copy_[0]))
                 {
                     // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
 
                     geometry_msgs::Pose2D p;
-                    p.x = solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0];
-                    p.y = solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                    p.x = local_solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                    p.y = local_solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
-                    if (0 == (solution_path_states_copy_.size() - 1))
+                    if (0 == (local_solution_path_states_copy_.size() - 1))
                     {
                         if (goal_available_)
                         {
@@ -1082,28 +1205,28 @@ void OnlinePlannFramework::planningTimerCallback()
                         }
                     }
                     solution_path_for_control.waypoints.push_back(p);
-                    path_visualize.append(solution_path_states_copy_[0]);
+                    path_visualize.append(local_solution_path_states_copy_[0]);
                 }
 
                 // adding rest of nodes
                 bool lastNode = false;
 
-                for (unsigned int i = 0; (i < solution_path_states_copy_.size() - 1) && (!lastNode); i++)
+                for (unsigned int i = 0; (i < local_solution_path_states_copy_.size() - 1) && (!lastNode); i++)
                 {
-                    if (simple_setup_global_->getSpaceInformation()->checkMotion(solution_path_states_copy_[i],
-                                                                                 solution_path_states_copy_[i + 1]))
+                    if (simple_setup_local_->getSpaceInformation()->checkMotion(local_solution_path_states_copy_[i],
+                                                                                local_solution_path_states_copy_[i + 1]))
                     {
                         // ROS_INFO("%s:\n\tadding possible waypoint\n", ros::this_node::getName().c_str());
 
                         geometry_msgs::Pose2D p;
-                        p.x = solution_path_states_copy_[i + 1]
+                        p.x = local_solution_path_states_copy_[i + 1]
                                   ->as<ob::RealVectorStateSpace::StateType>()
                                   ->values[0];
-                        p.y = solution_path_states_copy_[i + 1]
+                        p.y = local_solution_path_states_copy_[i + 1]
                                   ->as<ob::RealVectorStateSpace::StateType>()
                                   ->values[1];
 
-                        if (i == (solution_path_states_copy_.size() - 1))
+                        if (i == (local_solution_path_states_copy_.size() - 1))
                         {
                             if (goal_available_)
                             {
@@ -1125,48 +1248,48 @@ void OnlinePlannFramework::planningTimerCallback()
                             }
                         }
                         solution_path_for_control.waypoints.push_back(p);
-                        path_visualize.append(solution_path_states_copy_[i + 1]);
+                        path_visualize.append(local_solution_path_states_copy_[i + 1]);
                     }
                     else
                     {
                         // ROS_INFO("%s:\n\tfound not possible motion\n", ros::this_node::getName().c_str());
 
-                        double angle = atan2(solution_path_states_copy_[i + 1]
+                        double angle = atan2(local_solution_path_states_copy_[i + 1]
                                                      ->as<ob::RealVectorStateSpace::StateType>()
                                                      ->values[1] -
-                                                 solution_path_states_copy_[i]
+                                                 local_solution_path_states_copy_[i]
                                                      ->as<ob::RealVectorStateSpace::StateType>()
                                                      ->values[1],
-                                             solution_path_states_copy_[i + 1]
+                                             local_solution_path_states_copy_[i + 1]
                                                      ->as<ob::RealVectorStateSpace::StateType>()
                                                      ->values[0] -
-                                                 solution_path_states_copy_[i]
+                                                 local_solution_path_states_copy_[i]
                                                      ->as<ob::RealVectorStateSpace::StateType>()
                                                      ->values[0]);
                         int counter = 1;
                         while (!lastNode)
                         {
-                            ob::ScopedState<> posEv(simple_setup_global_->getStateSpace());
-                            posEv[0] = double(solution_path_states_copy_[i]
+                            ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
+                            posEv[0] = double(local_solution_path_states_copy_[i]
                                                   ->as<ob::RealVectorStateSpace::StateType>()
                                                   ->values[0] +
                                               counter * robot_base_radius * std::cos(angle)); // x
-                            posEv[1] = double(solution_path_states_copy_[i]
+                            posEv[1] = double(local_solution_path_states_copy_[i]
                                                   ->as<ob::RealVectorStateSpace::StateType>()
                                                   ->values[1] +
                                               counter * robot_base_radius * std::sin(angle)); // y
 
-                            if (!simple_setup_global_->getSpaceInformation()->checkMotion(
-                                    solution_path_states_copy_[i], posEv->as<ob::State>()))
+                            if (!simple_setup_local_->getSpaceInformation()->checkMotion(
+                                    local_solution_path_states_copy_[i], posEv->as<ob::State>()))
                             {
                                 // ROS_INFO("%s:\n\tadding last position\n",
                                 // ros::this_node::getName().c_str());
-                                ob::ScopedState<> posEv(simple_setup_global_->getStateSpace());
-                                posEv[0] = double(solution_path_states_copy_[i]
+                                ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
+                                posEv[0] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[0] +
                                                   (counter - 1) * robot_base_radius * std::cos(angle)); // x
-                                posEv[1] = double(solution_path_states_copy_[i]
+                                posEv[1] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[1] +
                                                   (counter - 1) * robot_base_radius * std::sin(angle));
