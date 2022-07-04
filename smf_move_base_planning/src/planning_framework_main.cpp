@@ -1008,9 +1008,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 std::vector<const ob::State *> global_path_feedback;
                 ob::StateSpacePtr local_space = simple_setup_local_->getStateSpace();
 
-                ROS_INFO_STREAM("PATH STATES SIZE: " << path_states.size());
-
-                for (int i = 0; i < path_states.size(); i++)
+                for (int i = path_states.size() - 1; i > 0; i--)
                 {
                     double local_path_distance = std::sqrt(std::pow(start_local[0] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start_local[1] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
 
@@ -1025,9 +1023,6 @@ void OnlinePlannFramework::planningTimerCallback()
                         break;
                     }
                 }
-
-                ROS_INFO_STREAM("GOAL X: " << goal_local[0]);
-                ROS_INFO_STREAM("GOAL Y: " << goal_local[1]);
 
                 //======================================================================
                 // Set the start and goal states
