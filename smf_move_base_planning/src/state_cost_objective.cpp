@@ -18,6 +18,13 @@ ob::OptimizationObjectivePtr getRiskZonesObjective(const ob::SpaceInformationPtr
     return ob::OptimizationObjectivePtr(new RiskZonesObjective(si, motion_cost_interpolation));
 }
 
+// !SOCIAL COMFORT MODEL
+ob::OptimizationObjectivePtr getSocialComfortObjective(const ob::SpaceInformationPtr &si,
+                                                       bool motion_cost_interpolation)
+{
+    return ob::OptimizationObjectivePtr(new SocialComfortObjective(si, motion_cost_interpolation));
+}
+
 // !SOCIAL COSTMAP
 ob::OptimizationObjectivePtr getSocialCostmapObjective(const ob::SpaceInformationPtr &si,
                                                        bool motion_cost_interpolation)

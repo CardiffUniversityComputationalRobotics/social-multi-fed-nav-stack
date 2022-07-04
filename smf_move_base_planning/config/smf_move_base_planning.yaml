@@ -13,6 +13,7 @@ opport_collision_check: True
 reuse_last_best_solution: True
 optimization_objective: SocialCostmap #PathLength, RiskZones, SocialComfort, ExtendedSocialComfort, SocialCostmap
 # optimization_objective: RiskZones
+local_optimization_objective: SocialComfort
 motion_cost_interpolation: False
 start_prev_path_proj: False
 xy_goal_tolerance: 0.25

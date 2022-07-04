@@ -55,6 +55,7 @@
 #include <new_state_sampler.h>
 #include <state_cost_objective.h>
 #include <state_validity_checker_octomap_fcl_R2.h>
+#include <local_state_validity_checker_octomap_fcl_R2.h>
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -133,7 +134,7 @@ private:
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_;
-    std::string planner_name_, local_planner_name_, optimization_objective_, odometry_topic_, query_goal_topic_,
+    std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
     std::vector<const ob::State *> solution_path_states_;
 
@@ -185,6 +186,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("local_path_topic", local_path_topic_, local_path_topic_);
     local_nh_.param("local_planner_name", local_planner_name_, local_planner_name_);
     local_nh_.param("local_xy_goal_tolerance", local_xy_goal_tolerance_, local_xy_goal_tolerance_);
+    local_nh_.param("local_optimization_objective", local_optimization_objective_, local_optimization_objective_);
 
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
@@ -439,7 +441,7 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
         goal_region_available_ = false;
     }
 
-    current_robot_velocity = odom_msg->twist;
+    current_robot_velocity = odom_msg->twist.twist;
 }
 
 //! Control active callback.
@@ -636,11 +638,11 @@ void OnlinePlannFramework::planWithSimpleSetup()
     simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
     // !VALIDITY CHECKING FOR LOCAL PLANNER
-    ob::StateValidityCheckerPtr om_stat_val_check;
-    om_stat_val_check = ob::StateValidityCheckerPtr(
-        new OmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                        planning_bounds_x_, planning_bounds_y_));
-    simple_setup_global_->setStateValidityChecker(om_stat_val_check);
+    ob::StateValidityCheckerPtr local_om_stat_val_check;
+    local_om_stat_val_check = ob::StateValidityCheckerPtr(
+        new LocalOmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
+                                             planning_bounds_x_, planning_bounds_y_));
+    // simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
     //=======================================================================
     // Set optimization objective
@@ -658,6 +660,22 @@ void OnlinePlannFramework::planWithSimpleSetup()
             getSocialCostmapObjective(si_global, motion_cost_interpolation_));
     else
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_global));
+
+    // !OPTIMIZATION OBJECTIVE FOR LOCAL PLANNER
+
+    if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
+    else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+            getPathLengthGoalRegionObjective(si_global, goal.get(), goal_radius_));
+    else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+            getRiskZonesObjective(si_local, motion_cost_interpolation_));
+    else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+            getSocialComfortObjective(si_local, motion_cost_interpolation_));
+    else
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
 
     //=======================================================================
     // Perform setup steps for the planner
