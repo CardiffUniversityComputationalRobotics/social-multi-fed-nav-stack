@@ -18,7 +18,7 @@ motion_cost_interpolation: False
 start_prev_path_proj: False
 xy_goal_tolerance: 0.25
 local_xy_goal_tolerance: 1.0
-visualize_tree: False
+visualize_tree: True
 
 # Collision checking
 octomap_service: /octomap_binary

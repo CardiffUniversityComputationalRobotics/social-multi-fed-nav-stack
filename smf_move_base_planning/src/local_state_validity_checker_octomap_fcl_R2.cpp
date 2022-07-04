@@ -321,7 +321,7 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
     double state_risk = 0.0;
     double current_state_risk = 0.0;
 
-    // ROS_INFO_STREAM("Running extended social comfort model function");
+    ROS_INFO_STREAM("Running extended social comfort model function");
 
     for (int i = 0; i < agentStates->agent_states.size(); i++)
     {
@@ -338,7 +338,7 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
     if (state_risk <= 1)
         state_risk = 1;
 
-    // ROS_INFO_STREAM("The current state risk: " << state_risk);
+    ROS_INFO_STREAM("The current state risk: " << state_risk);
 
     // ROS_INFO_STREAM("agent risk: " << state_risk);
 
