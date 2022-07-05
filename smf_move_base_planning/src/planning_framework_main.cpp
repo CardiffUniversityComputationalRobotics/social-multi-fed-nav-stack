@@ -53,6 +53,7 @@
 
 // Planner
 #include <new_state_sampler.h>
+#include <informed_new_state_sampler.h>
 #include <state_cost_objective.h>
 #include <state_validity_checker_octomap_fcl_R2.h>
 #include <local_state_validity_checker_octomap_fcl_R2.h>
@@ -141,7 +142,7 @@ private:
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
-    smf_move_base_msgs::Path2D last_local_path;
+    // smf_move_base_msgs::Path2D last_local_path;
 };
 
 //!  Constructor.
@@ -428,9 +429,9 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
 
-    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ * 0.1 + 0.1));
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.1));
 
-    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ * 0.1 + 0.1));
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.1));
 
     tf::poseMsgToTF(predictedPose, last_robot_pose_);
 
@@ -612,10 +613,10 @@ void OnlinePlannFramework::planWithSimpleSetup()
     start[1] = double(start_state_[1]); // y
 
     // !LOCAL PLANNER START STATE
-    ob::ScopedState<> local_start(space);
+    // ob::ScopedState<> local_start(space);
 
-    local_start[0] = double(start_state_[0] + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
-    local_start[1] = double(start_state_[1] + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
+    // local_start[0] = double(start_state_[0] + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
+    // local_start[1] = double(start_state_[1] + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
 
     // create a goal state
     ob::ScopedState<> goal(space);
@@ -630,7 +631,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     // simple_setup_->getStateSpace()->setValidSegmentCountFactor(5.0);
 
     // !LOCAL GOAL SETUP
-    simple_setup_local_->setStartState(local_start);
+    simple_setup_local_->setStartState(start);
     simple_setup_local_->setGoalState(goal, local_goal_radius_);
 
     //=======================================================================
@@ -679,6 +680,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
             getSocialComfortObjective(si_local, motion_cost_interpolation_));
+    else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+            getSocialCostmapObjective(si_local, motion_cost_interpolation_));
     else
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
 
@@ -838,60 +842,77 @@ void OnlinePlannFramework::planningTimerCallback()
 
         // !INTEGRATION OF LOCAL PATH INTO THE LAST BEST GLOBAL PATH
 
-        if (reuse_last_best_solution_)
-        {
+        // if (reuse_last_best_solution_)
+        // {
 
-            if (last_local_path.waypoints.size() > 0)
-            {
-                double last_node_pos_x = last_local_path.waypoints[last_local_path.waypoints.size() - 1].x;
+        //     if (local_solution_path_states_.size() > 0)
+        //     {
+        //         double last_node_pos_x = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
-                double last_node_pos_y = last_local_path.waypoints[last_local_path.waypoints.size() - 1].y;
+        //         double last_node_pos_y = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
-                double x_dif = 1000000000;
-                double y_dif = 1000000000;
-                unsigned int trim_node_index;
+        //         double x_dif = 1000000000;
+        //         double y_dif = 1000000000;
+        //         unsigned int trim_node_index;
 
-                for (int i = 0; i < solution_path_states_.size(); i++)
-                {
+        //         for (int i = 0; i < solution_path_states_.size(); i++)
+        //         {
 
-                    double node_x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+        //             double node_x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
-                    double node_y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+        //             double node_y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
-                    if (abs(last_node_pos_x - node_x) < x_dif || abs(last_node_pos_y - node_y) < y_dif)
-                    {
-                        x_dif = abs(last_node_pos_x - node_x);
-                        y_dif = abs(last_node_pos_y - node_y);
-                        trim_node_index = i;
-                    }
-                }
+        //             if (abs(last_node_pos_x - node_x) < x_dif || abs(last_node_pos_y - node_y) < y_dif)
+        //             {
+        //                 x_dif = abs(last_node_pos_x - node_x);
+        //                 y_dif = abs(last_node_pos_y - node_y);
+        //                 trim_node_index = i;
+        //             }
+        //         }
 
-                std::vector<const ob::State *> temp_solution_path_states_;
+        //         std::vector<const ob::State *> temp_solution_path_states_;
+        //         ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
 
-                if (solution_path_states_.size() > 0)
-                {
+        //         if (solution_path_states_.size() > 0)
+        //         {
 
-                    for (int i = 0; i < trim_node_index; i++)
-                    {
-                        temp_solution_path_states_.push_back(solution_path_states_[i]);
-                    }
-                }
+        //             for (int i = 0; i < trim_node_index; i++)
+        //             {
+        //                 ob::State *s = space->allocState();
+        //                 space->copyState(s, solution_path_states_[i]);
+        //                 temp_solution_path_states_.push_back(s);
+        //             }
+        //         }
 
-                ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
+        //         // ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
 
-                for (int i = 0; i < last_local_path.waypoints.size(); i++)
-                {
+        //         for (int i = 0; i < local_solution_path_states_.size(); i++)
+        //         {
 
-                    ob::State *s = space->allocState();
-                    s->as<ob::RealVectorStateSpace::StateType>()->values[0] = last_local_path.waypoints[i].x;
-                    s->as<ob::RealVectorStateSpace::StateType>()->values[1] = last_local_path.waypoints[i].y;
+        //             ob::State *s = space->allocState();
+        //             space->copyState(s, local_solution_path_states_[i]);
 
-                    temp_solution_path_states_.push_back(s);
-                }
+        //             temp_solution_path_states_.push_back(s);
+        //         }
 
-                solution_path_states_ = temp_solution_path_states_;
-            }
-        }
+        //         solution_path_states_.clear();
+
+        //         for (int i = 0; i < temp_solution_path_states_.size(); i++)
+        //         {
+        //             ob::State *s = space->allocState();
+        //             space->copyState(s, temp_solution_path_states_[i]);
+        //             solution_path_states_.push_back(s);
+        //         }
+        //     }
+        //     // for (int i = 0; i < solution_path_states_.size(); i++)
+        //     // {
+        //     //     ROS_INFO_STREAM("GLOBAL PLANNER FEEDBACK");
+        //     //     ROS_INFO_STREAM("POS X: " << solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+        //     //     ROS_INFO_STREAM("POS Y: " << solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+        //     // }
+        // }
+
+        // local_solution_path_states_.clear();
 
         // !==================================
 
@@ -992,13 +1013,13 @@ void OnlinePlannFramework::planningTimerCallback()
                 // Set new start state
                 //=======================================================================
                 simple_setup_local_->clearStartStates();
-                ob::ScopedState<> start_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
+                // ob::ScopedState<> start_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
                 ob::ScopedState<> goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
 
                 last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-                start_local[0] = double(last_robot_pose_.getOrigin().getX() + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
-                start_local[1] = double(last_robot_pose_.getOrigin().getY() + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
+                // start_local[0] = double(last_robot_pose_.getOrigin().getX() + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
+                // start_local[1] = double(last_robot_pose_.getOrigin().getY() + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
 
                 //        if (!simple_setup_->getStateValidityChecker()->isValid(start->as<ob::State>()))
                 //        {
@@ -1008,28 +1029,36 @@ void OnlinePlannFramework::planningTimerCallback()
                 std::vector<const ob::State *> global_path_feedback;
                 ob::StateSpacePtr local_space = simple_setup_local_->getStateSpace();
 
-                for (int i = path_states.size() - 1; i > 0; i--)
+                for (int i = solution_path_states_.size() - 1; i > 0; i--)
                 {
-                    double local_path_distance = std::sqrt(std::pow(start_local[0] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start_local[1] - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
+                    double local_path_distance = std::sqrt(std::pow(start[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
 
                     ob::State *s = local_space->allocState();
-                    local_space->copyState(s, path_states[i]);
+                    local_space->copyState(s, solution_path_states_[i]);
                     global_path_feedback.push_back(s);
 
-                    if (local_path_distance <= local_path_range_)
+                    if (local_path_distance >= local_path_range_)
                     {
-                        goal_local[0] = double(path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
-                        goal_local[1] = double(path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                        goal_local[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        goal_local[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
                         break;
                     }
                 }
+                std::reverse(global_path_feedback.begin(), global_path_feedback.end());
+
+                // for (int i = 0; i < global_path_feedback.size(); i++)
+                // {
+                //     ROS_INFO_STREAM("LOCAL PLANNER FEEDBACK");
+                //     ROS_INFO_STREAM("POS X: " << global_path_feedback[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                //     ROS_INFO_STREAM("POS Y: " << global_path_feedback[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                // }
 
                 //======================================================================
                 // Set the start and goal states
                 //=======================================================================
                 simple_setup_local_->clear();
                 simple_setup_local_->clearStartStates();
-                simple_setup_local_->setStartState(start_local);
+                simple_setup_local_->setStartState(start);
                 simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
                 //
                 simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
@@ -1041,8 +1070,8 @@ void OnlinePlannFramework::planningTimerCallback()
                     simple_setup_local_->getSpaceInformation()
                         ->getStateSpace()
                         ->setStateSamplerAllocator(
-                            std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
-                                      global_path_feedback));
+                            std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
+                                      local_solution_path_states_));
 
                 //=======================================================================
                 // Set state validity checking for this space
@@ -1068,6 +1097,9 @@ void OnlinePlannFramework::planningTimerCallback()
                 else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
                     simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                         getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+                else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                        getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
                 else
                     simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                         getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
@@ -1096,13 +1128,13 @@ void OnlinePlannFramework::planningTimerCallback()
                     local_path_states = path_local.getStates();
 
                     double distance_to_goal =
-                        sqrt(pow(goal_odom_frame_[0] - local_path_states[local_path_states.size() - 1]
-                                                           ->as<ob::RealVectorStateSpace::StateType>()
-                                                           ->values[0],
+                        sqrt(pow(goal_local[0] - local_path_states[local_path_states.size() - 1]
+                                                     ->as<ob::RealVectorStateSpace::StateType>()
+                                                     ->values[0],
                                  2.0) +
-                             pow(goal_odom_frame_[1] - local_path_states[local_path_states.size() - 1]
-                                                           ->as<ob::RealVectorStateSpace::StateType>()
-                                                           ->values[1],
+                             pow(goal_local[1] - local_path_states[local_path_states.size() - 1]
+                                                     ->as<ob::RealVectorStateSpace::StateType>()
+                                                     ->values[1],
                                  2.0));
 
                     if (simple_setup_local_->haveExactSolutionPath() || distance_to_goal <= local_goal_radius_)
@@ -1159,7 +1191,6 @@ void OnlinePlannFramework::planningTimerCallback()
                                     p.theta = goal_odom_frame_[2];
                                 }
                             }
-                            last_local_path = solution_path_for_control;
                             solution_path_for_control.waypoints.push_back(p);
                         }
                         // ROS_INFO_STREAM("complete path: " << solution_path_for_control);
@@ -1176,6 +1207,20 @@ void OnlinePlannFramework::planningTimerCallback()
         else
         {
             ROS_INFO("%s:\n\tpath has not been found\n", ros::this_node::getName().c_str());
+
+            simple_setup_local_->clear();
+
+            ob::StateValidityCheckerPtr local_om_stat_val_check;
+            local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                     planning_bounds_x_, planning_bounds_y_));
+            simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
+
+            // for (int i = 0; i < local_solution_path_states_.size(); i++)
+            // {
+            //     ROS_INFO_STREAM("POS X: " << local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+            //     ROS_INFO_STREAM("POS Y: " << local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+            // }
 
             if (local_solution_path_states_.size() > 0)
             {
@@ -1337,7 +1382,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
                 // ROS_INFO("%s:\n\tpartial path sent\n", ros::this_node::getName().c_str());
                 // ROS_INFO_STREAM("partial path: " << solution_path_for_control);
-                visualizeRRT(path_visualize);
+                visualizeRRTLocal(path_visualize);
                 solution_path_control_pub_.publish(solution_path_for_control);
                 // ros::spinOnce();
                 //        if (mapping_offline_)
