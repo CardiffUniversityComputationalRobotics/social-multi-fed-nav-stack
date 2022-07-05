@@ -429,9 +429,9 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
 
-    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.1));
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.2));
 
-    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.1));
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.2));
 
     tf::poseMsgToTF(predictedPose, last_robot_pose_);
 
@@ -842,75 +842,69 @@ void OnlinePlannFramework::planningTimerCallback()
 
         // !INTEGRATION OF LOCAL PATH INTO THE LAST BEST GLOBAL PATH
 
-        // if (reuse_last_best_solution_)
-        // {
+        if (reuse_last_best_solution_)
+        {
 
-        //     if (local_solution_path_states_.size() > 0)
-        //     {
-        //         double last_node_pos_x = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+            if (local_solution_path_states_.size() > 0)
+            {
+                double last_node_pos_x = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
-        //         double last_node_pos_y = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                double last_node_pos_y = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
-        //         double x_dif = 1000000000;
-        //         double y_dif = 1000000000;
-        //         unsigned int trim_node_index;
+                double x_dif = 1000000000;
+                double y_dif = 1000000000;
+                unsigned int trim_node_index;
 
-        //         for (int i = 0; i < solution_path_states_.size(); i++)
-        //         {
+                for (int i = 0; i < solution_path_states_.size(); i++)
+                {
 
-        //             double node_x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                    double node_x = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
-        //             double node_y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                    double node_y = solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
-        //             if (abs(last_node_pos_x - node_x) < x_dif || abs(last_node_pos_y - node_y) < y_dif)
-        //             {
-        //                 x_dif = abs(last_node_pos_x - node_x);
-        //                 y_dif = abs(last_node_pos_y - node_y);
-        //                 trim_node_index = i;
-        //             }
-        //         }
+                    if (abs(last_node_pos_x - node_x) < x_dif || abs(last_node_pos_y - node_y) < y_dif)
+                    {
+                        x_dif = abs(last_node_pos_x - node_x);
+                        y_dif = abs(last_node_pos_y - node_y);
+                        trim_node_index = i;
+                    }
+                }
 
-        //         std::vector<const ob::State *> temp_solution_path_states_;
-        //         ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
+                std::vector<const ob::State *> temp_solution_path_states_;
+                ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
 
-        //         if (solution_path_states_.size() > 0)
-        //         {
+                if (solution_path_states_.size() > 0)
+                {
 
-        //             for (int i = 0; i < trim_node_index; i++)
-        //             {
-        //                 ob::State *s = space->allocState();
-        //                 space->copyState(s, solution_path_states_[i]);
-        //                 temp_solution_path_states_.push_back(s);
-        //             }
-        //         }
+                    for (int i = 0; i < trim_node_index; i++)
+                    {
+                        ob::State *s = space->allocState();
+                        space->copyState(s, solution_path_states_[i]);
+                        temp_solution_path_states_.push_back(s);
+                    }
+                }
 
-        //         // ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
+                // ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
 
-        //         for (int i = 0; i < local_solution_path_states_.size(); i++)
-        //         {
+                for (int i = 0; i < local_solution_path_states_.size(); i++)
+                {
 
-        //             ob::State *s = space->allocState();
-        //             space->copyState(s, local_solution_path_states_[i]);
+                    ob::State *s = space->allocState();
+                    space->copyState(s, local_solution_path_states_[i]);
 
-        //             temp_solution_path_states_.push_back(s);
-        //         }
+                    temp_solution_path_states_.push_back(s);
+                }
 
-        //         solution_path_states_.clear();
+                solution_path_states_.clear();
 
-        //         for (int i = 0; i < temp_solution_path_states_.size(); i++)
-        //         {
-        //             ob::State *s = space->allocState();
-        //             space->copyState(s, temp_solution_path_states_[i]);
-        //             solution_path_states_.push_back(s);
-        //         }
-        //     }
-        //     // for (int i = 0; i < solution_path_states_.size(); i++)
-        //     // {
-        //     //     ROS_INFO_STREAM("GLOBAL PLANNER FEEDBACK");
-        //     //     ROS_INFO_STREAM("POS X: " << solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-        //     //     ROS_INFO_STREAM("POS Y: " << solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
-        //     // }
-        // }
+                for (int i = 0; i < temp_solution_path_states_.size(); i++)
+                {
+                    ob::State *s = space->allocState();
+                    space->copyState(s, temp_solution_path_states_[i]);
+                    solution_path_states_.push_back(s);
+                }
+            }
+        }
 
         // local_solution_path_states_.clear();
 
@@ -1066,12 +1060,13 @@ void OnlinePlannFramework::planningTimerCallback()
                 //=======================================================================
                 // Set a modified sampler
                 //=======================================================================
+
                 if (reuse_last_best_solution_)
                     simple_setup_local_->getSpaceInformation()
                         ->getStateSpace()
                         ->setStateSamplerAllocator(
                             std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
-                                      local_solution_path_states_));
+                                      global_path_feedback));
 
                 //=======================================================================
                 // Set state validity checking for this space
