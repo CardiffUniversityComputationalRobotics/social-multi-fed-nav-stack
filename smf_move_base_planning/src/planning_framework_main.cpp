@@ -102,6 +102,8 @@ public:
     void visualizeRRT(og::PathGeometric &geopath);
     //! Procedure to visualize the resulting local path
     void visualizeRRTLocal(og::PathGeometric &geopath);
+    //! Procedure to visualize the resulting local path
+    void visualizeRRTFeedback(og::PathGeometric &geopath);
     //! Callback for getting the state of the Esc base controller.
     void controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg);
 
@@ -111,7 +113,7 @@ private:
     ros::Timer timer_;
     ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
     ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_,
-        query_goal_radius_rviz_pub_, merged_path_rviz_pub_;
+        query_goal_radius_rviz_pub_, merged_path_rviz_pub_, solution_feedback_path_rviz_pub_;
 
     // ROS action server
     EscBaseGoToActionServer *goto_action_server_;
@@ -217,6 +219,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     //=======================================================================
     solution_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("solution_path", 1, true);
     solution_local_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("local_solution_path", 1, true);
+    solution_feedback_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("feedback_solution_path", 1, true);
     solution_path_control_pub_ =
         local_nh_.advertise<smf_move_base_msgs::Path2D>("smf_move_base_solution_path", 1, true);
     query_goal_pose_rviz_pub_ =
@@ -847,9 +850,9 @@ void OnlinePlannFramework::planningTimerCallback()
 
             if (local_solution_path_states_.size() > 0)
             {
-                double last_node_pos_x = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                double last_node_pos_x = local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0];
 
-                double last_node_pos_y = local_solution_path_states_[local_solution_path_states_.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                double last_node_pos_y = local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1];
 
                 double x_dif = 1000000000;
                 double y_dif = 1000000000;
@@ -883,6 +886,22 @@ void OnlinePlannFramework::planningTimerCallback()
                         temp_solution_path_states_.push_back(s);
                     }
                 }
+
+                // ROS_INFO_STREAM("TRIM INDEX: " << trim_node_index);
+                // ROS_INFO_STREAM("SOLUTION STATES SIZE: " << solution_path_states_.size());
+
+                // std::vector<const ob::State *> path_feedback_states = temp_solution_path_states_;
+
+                // std::reverse(path_feedback_states.begin(), path_feedback_states.end());
+
+                // og::PathGeometric path_global_feedback = og::PathGeometric(simple_setup_local_->getSpaceInformation());
+
+                // for (int i = 0; i < path_feedback_states.size(); i++)
+                // {
+                //     path_global_feedback.append(path_feedback_states[i]);
+                // }
+
+                // visualizeRRTFeedback(path_global_feedback);
 
                 // ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
 
@@ -919,6 +938,19 @@ void OnlinePlannFramework::planningTimerCallback()
                 ->setStateSamplerAllocator(
                     std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_global_->getPlanner(),
                               solution_path_states_));
+
+        // std::vector<const ob::State *> path_feedback_states = solution_path_states_;
+
+        // std::reverse(path_feedback_states.begin(), path_feedback_states.end());
+
+        // og::PathGeometric path_global_feedback = og::PathGeometric(simple_setup_local_->getSpaceInformation());
+
+        // for (int i = 0; i < path_feedback_states.size(); i++)
+        // {
+        //     path_global_feedback.append(path_feedback_states[i]);
+        // }
+
+        // visualizeRRTFeedback(path_global_feedback);
 
         //=======================================================================
         // Set state validity checking for this space
@@ -1092,7 +1124,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 // Set the start and goal states
                 //=======================================================================
 
-                if (abs(start[0] - goal[0]) < 1.5 && abs(start[1] - goal[1]) < 1.5)
+                if (abs(start[0] - goal[0]) < 8 && abs(start[1] - goal[1]) < 8)
                 {
                     simple_setup_local_->setGoalState(goal, goal_radius_);
                 }
@@ -1111,6 +1143,19 @@ void OnlinePlannFramework::planningTimerCallback()
                         ->setStateSamplerAllocator(
                             std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
                                       global_path_feedback));
+
+                // std::vector<const ob::State *> path_feedback_states = global_path_feedback;
+
+                // std::reverse(path_feedback_states.begin(), path_feedback_states.end());
+
+                // og::PathGeometric path_global_feedback = og::PathGeometric(simple_setup_local_->getSpaceInformation());
+
+                // for (int i = 0; i < path_feedback_states.size(); i++)
+                // {
+                //     path_global_feedback.append(path_feedback_states[i]);
+                // }
+
+                // visualizeRRTFeedback(path_global_feedback);
 
                 //=======================================================================
                 // Attempt to solve the problem within one second of planning time
@@ -1565,8 +1610,8 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
 
     geometry_msgs::Point p;
 
-    ob::PlannerData planner_data(simple_setup_global_->getSpaceInformation());
-    simple_setup_global_->getPlannerData(planner_data);
+    ob::PlannerData planner_data(simple_setup_local_->getSpaceInformation());
+    simple_setup_local_->getPlannerData(planner_data);
 
     std::vector<unsigned int> edgeList;
     int num_parents;
@@ -1621,6 +1666,107 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
         }
     }
     solution_local_path_rviz_pub_.publish(visual_result_path);
+}
+
+void OnlinePlannFramework::visualizeRRTFeedback(og::PathGeometric &geopath)
+{
+    // %Tag(MARKER_INIT)%
+    tf::Quaternion orien_quat;
+    visualization_msgs::Marker visual_rrt, visual_result_path;
+    visual_result_path.header.frame_id = visual_rrt.header.frame_id = world_frame_;
+    visual_result_path.header.stamp = visual_rrt.header.stamp = ros::Time::now();
+    visual_rrt.ns = "online_planner_rrt_local";
+    visual_result_path.ns = "online_planner_result_path_local";
+    visual_result_path.action = visual_rrt.action = visualization_msgs::Marker::ADD;
+
+    visual_result_path.pose.orientation.w = visual_rrt.pose.orientation.w = 1.0;
+    // %EndTag(MARKER_INIT)%
+
+    // %Tag(ID)%
+    visual_rrt.id = 0;
+    visual_result_path.id = 1;
+    // %EndTag(ID)%
+
+    // %Tag(TYPE)%
+    visual_rrt.type = visual_result_path.type = visualization_msgs::Marker::LINE_LIST;
+    // %EndTag(TYPE)%
+
+    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+    visual_rrt.scale.x = 0.03;
+    visual_result_path.scale.x = 0.05;
+    // %EndTag(SCALE)%
+
+    // %Tag(COLOR)%
+    // Points are green
+    visual_result_path.color.b = 1.0;
+    visual_result_path.color.g = 1.0;
+    visual_result_path.color.a = 1.0;
+
+    // Line strip is blue
+    visual_rrt.color.r = 0.0;
+    visual_rrt.color.b = 0.0;
+    visual_rrt.color.a = 1.0;
+
+    const ob::RealVectorStateSpace::StateType *state_r2;
+
+    geometry_msgs::Point p;
+
+    ob::PlannerData planner_data(simple_setup_global_->getSpaceInformation());
+    simple_setup_global_->getPlannerData(planner_data);
+
+    std::vector<unsigned int> edgeList;
+    int num_parents;
+    ROS_DEBUG("%s: number of states in the tree: %d", ros::this_node::getName().c_str(),
+              planner_data.numVertices());
+
+    // if (visualize_tree_)
+    // {
+    //     for (unsigned int i = 1; i < planner_data.numVertices(); ++i)
+    //     {
+    //         if (planner_data.getVertex(i).getState() && planner_data.getIncomingEdges(i, edgeList) > 0)
+    //         {
+    //             state_r2 = planner_data.getVertex(i).getState()->as<ob::RealVectorStateSpace::StateType>();
+    //             p.x = state_r2->values[0];
+    //             p.y = state_r2->values[1];
+    //             p.z = 0.1;
+
+    //             visual_rrt.points.push_back(p);
+
+    //             state_r2 =
+    //                 planner_data.getVertex(edgeList[0]).getState()->as<ob::RealVectorStateSpace::StateType>();
+    //             p.x = state_r2->values[0];
+    //             p.y = state_r2->values[1];
+    //             p.z = 0.1;
+
+    //             visual_rrt.points.push_back(p);
+    //         }
+    //     }
+    //     solution_feedback_path_rviz_pub_.publish(visual_rrt);
+    // }
+
+    std::vector<ob::State *> states = geopath.getStates();
+    for (uint32_t i = 0; i < geopath.getStateCount(); ++i)
+    {
+        // extract the component of the state and cast it to what we expect
+
+        state_r2 = states[i]->as<ob::RealVectorStateSpace::StateType>();
+        p.x = state_r2->values[0];
+        p.y = state_r2->values[1];
+        p.z = 0.1;
+
+        if (i > 0)
+        {
+            visual_result_path.points.push_back(p);
+
+            state_r2 = states[i - 1]->as<ob::RealVectorStateSpace::StateType>();
+            p.x = state_r2->values[0];
+            p.y = state_r2->values[1];
+            p.z = 0.1;
+
+            visual_result_path.points.push_back(p);
+        }
+    }
+    solution_feedback_path_rviz_pub_.publish(visual_result_path);
 }
 
 //! Main function
