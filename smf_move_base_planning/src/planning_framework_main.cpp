@@ -429,9 +429,9 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
 
-    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.2));
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.4));
 
-    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.2));
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.4));
 
     tf::poseMsgToTF(predictedPose, last_robot_pose_);
 
@@ -949,19 +949,60 @@ void OnlinePlannFramework::planningTimerCallback()
                 getPathLengthObjective(simple_setup_global_->getSpaceInformation()));
 
         //=======================================================================
+        // Set state validity checking for this space
+        //=======================================================================
+        ob::StateValidityCheckerPtr local_om_stat_val_check;
+        local_om_stat_val_check = ob::StateValidityCheckerPtr(
+            new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                 planning_bounds_x_, planning_bounds_y_));
+        simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
+
+        //=======================================================================
+        // Set optimization objective
+        //=======================================================================
+        if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
+        else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
+                simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
+        else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
+        else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+        else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+        else
+            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
+
+        simple_setup_local_->clear();
+        simple_setup_local_->clearStartStates();
+        simple_setup_local_->setStartState(start);
+
+        //
+        simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
+
+        //=======================================================================
         // Attempt to solve the problem within one second of planning time
         //=======================================================================
-        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_ * 0.1);
+        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_ * 0.2);
+
+        bool solution_found = false;
 
         if (solved && simple_setup_global_->haveExactSolutionPath())
         {
+            solution_found = true;
             // get the goal representation from the problem definition (not the same as the goal state)
             // and inquire about the found path
 
             og::PathGeometric path = simple_setup_global_->getSolutionPath();
 
             // generates varios little segments for the waypoints obtained from the planner
-            path.interpolate(int(path.length() / 0.2));
+            path.interpolate(int(path.length() / 0.5));
 
             // path_planning_msgs::PathConstSpeed solution_path;
             ROS_INFO("%s:\n\tpath with cost %f has been found with simple_setup\n",
@@ -1006,11 +1047,11 @@ void OnlinePlannFramework::planningTimerCallback()
                 //=======================================================================
                 // Set new start state
                 //=======================================================================
-                simple_setup_local_->clearStartStates();
+                // simple_setup_local_->clearStartStates();
                 // ob::ScopedState<> start_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
                 ob::ScopedState<> goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
 
-                last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
+                // last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
                 // start_local[0] = double(last_robot_pose_.getOrigin().getX() + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
                 // start_local[1] = double(last_robot_pose_.getOrigin().getY() + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
@@ -1050,12 +1091,15 @@ void OnlinePlannFramework::planningTimerCallback()
                 //======================================================================
                 // Set the start and goal states
                 //=======================================================================
-                simple_setup_local_->clear();
-                simple_setup_local_->clearStartStates();
-                simple_setup_local_->setStartState(start);
-                simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
-                //
-                simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
+
+                if (abs(start[0] - goal[0]) < 1.5 && abs(start[1] - goal[1]) < 1.5)
+                {
+                    simple_setup_local_->setGoalState(goal, goal_radius_);
+                }
+                else
+                {
+                    simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
+                }
 
                 //=======================================================================
                 // Set a modified sampler
@@ -1069,43 +1113,13 @@ void OnlinePlannFramework::planningTimerCallback()
                                       global_path_feedback));
 
                 //=======================================================================
-                // Set state validity checking for this space
-                //=======================================================================
-                ob::StateValidityCheckerPtr local_om_stat_val_check;
-                local_om_stat_val_check = ob::StateValidityCheckerPtr(
-                    new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                         planning_bounds_x_, planning_bounds_y_));
-                simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
-
-                //=======================================================================
-                // Set optimization objective
-                //=======================================================================
-                if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                        getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-                else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
-                        simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
-                else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                        getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
-                else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                        getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
-                else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                        getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
-                else
-                    simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                        getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-
-                //=======================================================================
                 // Attempt to solve the problem within one second of planning time
                 //=======================================================================
-                ob::PlannerStatus solved_local = simple_setup_local_->solve(solving_time_ * 0.9);
+                ob::PlannerStatus solved_local = simple_setup_local_->solve(solving_time_ * 0.8);
 
                 if (solved_local && simple_setup_local_->haveExactSolutionPath())
                 {
+                    solution_found = true;
                     // get the goal representation from the problem definition (not the same as the goal state)
                     // and inquire about the found path
 
@@ -1192,6 +1206,10 @@ void OnlinePlannFramework::planningTimerCallback()
                         solution_path_control_pub_.publish(solution_path_for_control);
                     }
                 }
+                else
+                {
+                    solution_found = false;
+                }
                 //=======================================================================
                 // Clear previous solution path
                 //=======================================================================
@@ -1200,6 +1218,11 @@ void OnlinePlannFramework::planningTimerCallback()
             }
         }
         else
+        {
+            solution_found = false;
+        }
+
+        if (!solution_found)
         {
             ROS_INFO("%s:\n\tpath has not been found\n", ros::this_node::getName().c_str());
 

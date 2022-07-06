@@ -249,6 +249,15 @@ public:
             return this->trapezoid(this->stateCost(s1), this->stateCost(s2), si_->distance(s1, s2));
         }
     }
+
+    /** \brief Allocate a state sampler for the path-length objective (i.e., direct ellipsoidal sampling). */
+    ob::InformedSamplerPtr allocInformedStateSampler(const ob::ProblemDefinitionPtr &probDefn,
+                                                     unsigned int maxNumberCalls) const
+    {
+        // Make the direct path-length informed sampler and return. If OMPL was compiled with Eigen, a direct
+        // version is available, if not a rejection-based technique can be used
+        return std::make_shared<ob::PathLengthDirectInfSampler>(probDefn, maxNumberCalls);
+    }
 };
 
 /*
