@@ -83,6 +83,24 @@ unsigned int SocialCostmap::calculateSocialCost(double x, double y)
 void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates)
 {
 
+    std::vector<int> irrelevant_agents;
+
+    for (auto &agentItem : this->agentStatesRecord)
+    {
+        if (agentItem.second.relevance <= 0)
+        {
+            irrelevant_agents.push_back(agentItem.first);
+        }
+    }
+
+    // ROS_INFO_STREAM("number of irrelevant agents: " << irrelevant_agents.size());
+
+    for (int i = 0; i < irrelevant_agents.size(); i++)
+    {
+        this->agentStatesRecord.erase(irrelevant_agents[i]);
+    }
+    // ROS_INFO_STREAM("number of agents recorded: " << this->agentStatesRecord.size());
+
     for (auto &agentItem : this->agentStatesRecord)
     {
         auto &relevantAgentState = agentItem.second;
