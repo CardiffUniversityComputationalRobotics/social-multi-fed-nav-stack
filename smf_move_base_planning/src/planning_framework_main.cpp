@@ -32,6 +32,7 @@
 #include <ompl/config.h>
 
 #include <planner/RRTstarMod.h>
+#include <planner/InformedRRTstarMod.h>
 
 // ROS
 #include <ros/ros.h>
@@ -600,6 +601,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
         local_planner = ob::PlannerPtr(new og::RRTstarMod(si_local));
     else if (local_planner_name_.compare("InformedRRTstar") == 0)
         local_planner = ob::PlannerPtr(new og::InformedRRTstar(si_local));
+    else if (local_planner_name_.compare("InformedRRTstarMod") == 0)
+        local_planner = ob::PlannerPtr(new og::InformedRRTstarMod(si_local));
     else
         local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
 
@@ -681,6 +684,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     // !OPTIMIZATION OBJECTIVE FOR LOCAL PLANNER
 
+    std::vector<const ob::State *> dummy_global_path_feedback;
+
     if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
     else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
@@ -691,7 +696,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
             getRiskZonesObjective(si_local, motion_cost_interpolation_));
     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-            getSocialComfortObjective(si_local, motion_cost_interpolation_));
+            getSocialComfortObjective(si_local, motion_cost_interpolation_, space, simple_setup_local_->getPlanner(), dummy_global_path_feedback));
     else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
             getSocialCostmapObjective(si_local, motion_cost_interpolation_));
@@ -999,6 +1004,13 @@ void OnlinePlannFramework::planningTimerCallback()
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_global_->getSpaceInformation()));
 
+        simple_setup_local_->clear();
+        simple_setup_local_->clearStartStates();
+        simple_setup_local_->setStartState(start);
+
+        //
+        simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
+
         //=======================================================================
         // Set state validity checking for this space
         //=======================================================================
@@ -1007,35 +1019,6 @@ void OnlinePlannFramework::planningTimerCallback()
             new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
                                                  planning_bounds_x_, planning_bounds_y_));
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
-
-        //=======================================================================
-        // Set optimization objective
-        //=======================================================================
-        if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-        else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
-                simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
-        else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
-        else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
-        else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
-        else
-            simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-
-        simple_setup_local_->clear();
-        simple_setup_local_->clearStartStates();
-        simple_setup_local_->setStartState(start);
-
-        //
-        simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
 
         //=======================================================================
         // Attempt to solve the problem within one second of planning time
@@ -1161,12 +1144,34 @@ void OnlinePlannFramework::planningTimerCallback()
                 {
                     // if (local_plan_solving)
                     // {
-                    simple_setup_local_->getSpaceInformation()
-                        ->getStateSpace()
-                        ->setStateSamplerAllocator(
-                            std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
-                                      global_path_feedback));
+                    // simple_setup_local_->getSpaceInformation()
+                    //     ->getStateSpace()
+                    //     ->setStateSamplerAllocator(
+                    //         std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
+                    //                   global_path_feedback));
                     // }
+
+                    //=======================================================================
+                    // Set optimization objective
+                    //=======================================================================
+                    if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                            getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
+                    else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
+                            simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
+                    else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                            getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
+                    else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                            getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_, local_space, simple_setup_global_->getPlanner(), global_path_feedback));
+                    else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                            getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+                    else
+                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
+                            getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
                 }
 
                 std::vector<const ob::State *> path_feedback_states = global_path_feedback;

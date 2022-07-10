@@ -1,7 +1,7 @@
 # Path planning parameters
 world_frame: world
-planner_name: RRTstar # RRT, RRTstar
-local_planner_name: InformedRRTstar
+planner_name: RRTstarMod # RRT, RRTstar
+local_planner_name: InformedRRTstarMod
 planning_bounds_x: [-50.0, 50.0] # [x_min, x_max]
 planning_bounds_y: [-50.0, 50.0] # [y_min, y_max]
 dynamic_bounds: True # the bounds of the planner will change according to the start and goal configurations

@@ -20,6 +20,7 @@
 #include <ompl/base/objectives/MaximizeMinClearanceObjective.h>
 #include <ompl/base/OptimizationObjective.h>
 #include <ompl/base/samplers/informed/PathLengthDirectInfSampler.h>
+#include <sampler/PathLengthDirectInfSamplerMod.h>
 
 #include <state_validity_checker_octomap_fcl_R2.h>
 #include <local_state_validity_checker_octomap_fcl_R2.h>
@@ -189,9 +190,24 @@ class SocialComfortObjective : public ob::StateCostIntegralObjective
 {
 private:
 public:
-    SocialComfortObjective(const ob::SpaceInformationPtr &si, bool enableMotionCostInterpolation)
+    ob::StateSpacePtr space_;
+    ob::PlannerPtr planner_;
+    std::vector<ob::State *> start_states_;
+
+    SocialComfortObjective(const ob::SpaceInformationPtr &si,
+                           bool enableMotionCostInterpolation, const ob::StateSpacePtr &space, const ob::PlannerPtr &planner,
+                           const std::vector<const ob::State *> &start_states)
         : ob::StateCostIntegralObjective(si, enableMotionCostInterpolation)
     {
+        space_ = si_->getStateSpace();
+        planner_ = planner;
+
+        for (int i = 0; i < start_states.size(); i++)
+        {
+            ob::State *s = space_->allocState();
+            space_->copyState(s, start_states[i]);
+            start_states_.push_back(s);
+        }
     }
 
     // in case of modifying the cost calculation function here it is where it should be done
@@ -256,7 +272,7 @@ public:
     {
         // Make the direct path-length informed sampler and return. If OMPL was compiled with Eigen, a direct
         // version is available, if not a rejection-based technique can be used
-        return std::make_shared<ob::PathLengthDirectInfSampler>(probDefn, maxNumberCalls);
+        return std::make_shared<ob::PathLengthDirectInfSamplerMod>(probDefn, maxNumberCalls, space_, planner_, start_states_);
     }
 };
 
@@ -337,7 +353,8 @@ ob::OptimizationObjectivePtr getRiskZonesObjective(const ob::SpaceInformationPtr
 /** Return an optimization objective which attempts to steer the robot
     away from social agents according to an extended social comfort model */
 ob::OptimizationObjectivePtr getSocialComfortObjective(const ob::SpaceInformationPtr &si,
-                                                       bool motion_cost_interpolation);
+                                                       bool motion_cost_interpolation, const ob::StateSpacePtr &space, const ob::PlannerPtr &planner,
+                                                       const std::vector<const ob::State *> &start_states);
 
 /** Return an optimization objective which attempts to steer the robot
     away from social agents according to a costmap provided by a world modeling module */
