@@ -69,6 +69,9 @@ namespace ompl
             std::vector<const State *> startStates;
             std::vector<State *> goalStates;
 
+            // IF USING REUSE OF LAST BEST KNOWN SOLUTION THEN SOLUTION START STATES ARE GOTTEN
+            solution_start_states_ = solution_start_states;
+
             if (!probDefn_->getGoal()->hasType(ompl::base::GOAL_SAMPLEABLE_REGION))
             {
                 throw Exception("PathLengthDirectInfSamplerMod: The direct path-length informed sampler currently only "
@@ -249,8 +252,18 @@ namespace ompl
             // The persistent iteration counter:
             unsigned int iter = 0u;
 
-            // Call the sampleUniform helper function with my iteration counter:
-            return sampleUniform(statePtr, maxCost, &iter);
+            if (!solution_start_states_.empty())
+            {
+                getNextSample(statePtr);
+                // OMPL_INFORM("ADDING SOLUTION NODE STATE");
+                return true;
+            }
+            else
+            {
+                // OMPL_INFORM("REGULAR SAMPLING GOING");
+                // Call the sampleUniform helper function with my iteration counter:
+                return sampleUniform(statePtr, maxCost, &iter);
+            }
         }
 
         bool PathLengthDirectInfSamplerMod::sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost)
@@ -337,6 +350,15 @@ namespace ompl
             }
 
             return minCost;
+        }
+
+        // Protected functions:
+
+        void PathLengthDirectInfSamplerMod::getNextSample(State *state)
+        {
+            InformedSampler::space_->copyState(state, solution_start_states_.back());
+            InformedSampler::space_->freeState(solution_start_states_.back());
+            solution_start_states_.pop_back();
         }
 
         // Private functions:

@@ -70,7 +70,7 @@ class NewStateSampler : public ob::StateSampler
 public:
     /** \brief Constructor */
     NewStateSampler(const ob::StateSpace *space, ob::StateSamplerPtr sampler)
-      : ob::StateSampler(space), sampler_(sampler)
+        : ob::StateSampler(space), sampler_(sampler)
     {
     }
 
@@ -134,7 +134,7 @@ class NewControlSampler : public oc::ControlSampler
 public:
     /** \brief Constructor */
     NewControlSampler(const oc::ControlSpace *cspace, oc::ControlSamplerPtr control_sampler)
-      : oc::ControlSampler(cspace), csampler_(control_sampler)
+        : oc::ControlSampler(cspace), csampler_(control_sampler)
     {
     }
 

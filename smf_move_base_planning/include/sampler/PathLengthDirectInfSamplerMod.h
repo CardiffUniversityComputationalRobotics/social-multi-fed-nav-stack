@@ -64,6 +64,8 @@ namespace ompl
 
             Cost heuristicSolnCost(const State *statePtr) const override;
 
+            void getNextSample(State *state);
+
         private:
             using ProlateHyperspheroidCPtr = std::shared_ptr<const ompl::ProlateHyperspheroid>;
 
@@ -108,6 +110,8 @@ namespace ompl
             StateSamplerPtr baseSampler_;
 
             StateSamplerPtr uninformedSubSampler_;
+
+            std::vector<State *> solution_start_states_;
 
             RNG rng_;
         }; // PathLengthDirectInfSamplerMod
