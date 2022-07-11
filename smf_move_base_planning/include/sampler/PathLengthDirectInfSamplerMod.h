@@ -51,7 +51,7 @@ namespace ompl
         {
         public:
             PathLengthDirectInfSamplerMod(const ProblemDefinitionPtr &probDefn, unsigned int maxNumberCalls, const StateSpacePtr space, const PlannerPtr &planner,
-                                          const std::vector<const State *> &solution_start_states);
+                                          const std::vector<State *> solution_start_states);
             ~PathLengthDirectInfSamplerMod() override;
 
             bool sampleUniform(State *statePtr, const Cost &maxCost) override;

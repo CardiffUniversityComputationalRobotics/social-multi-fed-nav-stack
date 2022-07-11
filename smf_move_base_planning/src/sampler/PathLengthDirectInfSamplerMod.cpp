@@ -56,7 +56,7 @@ namespace ompl
         // The direct ellipsoid sampling class for path-length:
         PathLengthDirectInfSamplerMod::PathLengthDirectInfSamplerMod(const ProblemDefinitionPtr &probDefn,
                                                                      unsigned int maxNumberCalls, const StateSpacePtr space, const PlannerPtr &planner,
-                                                                     const std::vector<const State *> &solution_start_states)
+                                                                     const std::vector<State *> solution_start_states)
             : InformedSampler(probDefn, maxNumberCalls), informedIdx_(0u), uninformedIdx_(0u)
         {
             // Variables
