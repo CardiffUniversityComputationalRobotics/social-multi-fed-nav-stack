@@ -138,13 +138,13 @@ private:
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
     bool opport_collision_check_, reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
         goal_available_, goal_region_available_, dynamic_bounds_, start_prev_path_proj_, visualize_tree_,
-        control_active_, global_plan_solving, local_plan_solving;
+        control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
-    std::vector<const ob::State *> solution_path_states_, local_solution_path_states_;
+    std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
     // smf_move_base_msgs::Path2D last_local_path;
@@ -202,9 +202,6 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_goal_radius_ = local_xy_goal_tolerance_;
     goal_available_ = false;
     goal_region_available_ = false;
-
-    global_plan_solving = true;
-    local_plan_solving = true;
 
     //=======================================================================
     // Subscribers
@@ -441,9 +438,9 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
 
-    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.3));
+    predictedPose.position.x = odom_msg->pose.pose.position.x + (odom_msg->twist.twist.linear.x * (solving_time_ + 0.1));
 
-    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.3));
+    predictedPose.position.y = odom_msg->pose.pose.position.y + (odom_msg->twist.twist.linear.y * (solving_time_ + 0.1));
 
     tf::poseMsgToTF(predictedPose, last_robot_pose_);
 
@@ -861,8 +858,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
         if (reuse_last_best_solution_)
         {
-            // if (global_plan_solving)
-            // {
             if (local_solution_path_states_.size() > 0)
             {
                 double last_node_pos_x = local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0];
@@ -910,24 +905,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                 }
 
-                // ROS_INFO_STREAM("TRIM INDEX: " << trim_node_index);
-                // ROS_INFO_STREAM("SOLUTION STATES SIZE: " << solution_path_states_.size());
-
-                // std::vector<const ob::State *> path_feedback_states = temp_solution_path_states_;
-
-                // std::reverse(path_feedback_states.begin(), path_feedback_states.end());
-
-                // og::PathGeometric path_global_feedback = og::PathGeometric(simple_setup_local_->getSpaceInformation());
-
-                // for (int i = 0; i < path_feedback_states.size(); i++)
-                // {
-                //     path_global_feedback.append(path_feedback_states[i]);
-                // }
-
-                // visualizeRRTFeedback(path_global_feedback);
-
-                // ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
-
                 for (int i = 0; i < local_solution_path_states_.size(); i++)
                 {
 
@@ -946,7 +923,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     solution_path_states_.push_back(s);
                 }
             }
-            // }
         }
 
         local_solution_path_states_.clear();
@@ -1058,7 +1034,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
             if (simple_setup_global_->haveExactSolutionPath() || distance_to_goal <= goal_radius_)
             {
-                global_plan_solving = true;
                 // path.interpolate(int(path.length() / 1.0));
                 visualizeRRT(path);
 
@@ -1079,22 +1054,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 // ! LOCAL PLANNER SOLVE
                 //=======================================================================
 
-                //=======================================================================
-                // Set new start state
-                //=======================================================================
-                // simple_setup_local_->clearStartStates();
-                // ob::ScopedState<> start_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
                 ob::ScopedState<> goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
-
-                // last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-
-                // start_local[0] = double(last_robot_pose_.getOrigin().getX() + (current_robot_velocity.linear.x * (solving_time_ * 0.9 + 0.1))); // x
-                // start_local[1] = double(last_robot_pose_.getOrigin().getY() + (current_robot_velocity.linear.y * (solving_time_ * 0.9 + 0.1))); // y
-
-                //        if (!simple_setup_->getStateValidityChecker()->isValid(start->as<ob::State>()))
-                //        {
-                //            std::cout << "start in collision!!!***** " << std::endl;
-                //        }
 
                 std::vector<const ob::State *> global_path_feedback;
                 ob::StateSpacePtr local_space = simple_setup_local_->getStateSpace();
@@ -1142,14 +1102,12 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 if (reuse_last_best_solution_)
                 {
-                    // if (local_plan_solving)
-                    // {
+
                     // simple_setup_local_->getSpaceInformation()
                     //     ->getStateSpace()
                     //     ->setStateSamplerAllocator(
                     //         std::bind(informedNewAllocStateSampler, std::placeholders::_1, simple_setup_local_->getPlanner(),
                     //                   global_path_feedback));
-                    // }
 
                     //=======================================================================
                     // Set optimization objective
@@ -1194,7 +1152,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 if (solved_local && simple_setup_local_->haveExactSolutionPath())
                 {
-                    local_plan_solving = true;
                     solution_found = true;
                     // get the goal representation from the problem definition (not the same as the goal state)
                     // and inquire about the found path
@@ -1231,12 +1188,14 @@ void OnlinePlannFramework::planningTimerCallback()
                         {
                             ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
                             local_solution_path_states_.clear();
+                            past_local_solution_path_states_.clear();
                             // solution_path_states_.reserve(path_states.size());
                             for (int i = local_path_states.size() - 1; i >= 0; i--)
                             {
                                 ob::State *s = space->allocState();
                                 space->copyState(s, local_path_states[i]);
                                 local_solution_path_states_.push_back(s);
+                                past_local_solution_path_states_.push_back(s);
                             }
                         }
                     }
@@ -1296,12 +1255,10 @@ void OnlinePlannFramework::planningTimerCallback()
         else
         {
             solution_found = false;
-            global_plan_solving = false;
         }
 
         if (!solution_found)
         {
-            local_plan_solving = false;
             ROS_INFO("%s:\n\tpath has not been found\n", ros::this_node::getName().c_str());
 
             simple_setup_local_->clear();
@@ -1318,9 +1275,9 @@ void OnlinePlannFramework::planningTimerCallback()
             //     ROS_INFO_STREAM("POS Y: " << local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
             // }
 
-            if (local_solution_path_states_.size() > 0)
+            if (past_local_solution_path_states_.size() > 0)
             {
-                std::vector<const ob::State *> local_solution_path_states_copy_ = local_solution_path_states_;
+                std::vector<const ob::State *> local_solution_path_states_copy_ = past_local_solution_path_states_;
 
                 std::reverse(local_solution_path_states_copy_.begin(), local_solution_path_states_copy_.end());
                 ROS_INFO("%s:\n\tsending partial last possible path\n", ros::this_node::getName().c_str());
