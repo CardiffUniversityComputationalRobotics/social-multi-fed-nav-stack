@@ -141,8 +141,7 @@ public:
   /*
    * Calculates wether an agent is in the field of view of the robot.
    */
-  bool isAgentInRFOV(const ob::State *state, const pedsim_msgs::AgentState agentState,
-                     const ob::SpaceInformationPtr space) const;
+  bool isAgentInRFOV(const ob::State *state, const pedsim_msgs::AgentState agentState) const;
 
   bool isRobotInFront(const ob::State *state, const pedsim_msgs::AgentState agentState,
                       const ob::SpaceInformationPtr space) const;
