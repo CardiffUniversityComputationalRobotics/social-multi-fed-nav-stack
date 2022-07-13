@@ -22,7 +22,7 @@ SocialCostmap::SocialCostmap(std::string frameId, unsigned int width, unsigned i
 }
 
 //! FUNCTIONS
-void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates *agentStates)
+void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates agentStates)
 {
     setDimensions(width, height);
     setOrigin(origin);
@@ -32,35 +32,33 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
     addNewAgentStates(agentStates);
 
     // header
-    this->socialCostmap.header.stamp = ros::Time::now();
-    this->socialCostmap.header.frame_id = this->frameId_;
+    social_costmap_.header.stamp = ros::Time::now();
+    social_costmap_.header.frame_id = frameId_;
 
     // info
-    this->socialCostmap.info.resolution = this->resolution_;
-    this->socialCostmap.info.width = this->width_;
-    this->socialCostmap.info.height = this->height_;
-    this->socialCostmap.info.origin = this->origin_;
+    social_costmap_.info.resolution = resolution_;
+    social_costmap_.info.width = width_;
+    social_costmap_.info.height = height_;
+    social_costmap_.info.origin = origin_;
 
-    int dataArraySize = this->width_ * this->height_;
+    int dataArraySize = width_ * height_;
 
-    this->socialCostmap.data.resize(dataArraySize);
+    social_costmap_.data.resize(dataArraySize);
 
-    double mapOriginX = this->origin_.position.x + (this->width_ / 2) * this->resolution_;
+    double mapOriginX = origin_.position.x + (width_ / 2) * resolution_;
 
-    double mapOriginY = this->origin_.position.y + (this->height_ / 2) * this->resolution_;
+    double mapOriginY = origin_.position.y + (height_ / 2) * resolution_;
 
-    for (int j = 0; j < this->height_; j++)
+    for (int j = 0; j < height_; j++)
     {
-        for (int i = 0; i < this->width_; i++)
+        for (int i = 0; i < width_; i++)
         {
-            double wX = mapWx(mapOriginX, this->width_, this->resolution_, i);
-            double wY = mapWy(mapOriginY, this->height_, this->resolution_, j);
+            double wX = mapWx(mapOriginX, width_, resolution_, i);
+            double wY = mapWy(mapOriginY, height_, resolution_, j);
 
-            this->socialCostmap.data[mapIndex(this->width_, i, j)] = this->calculateSocialCost(wX, wY);
+            social_costmap_.data[mapIndex(width_, i, j)] = calculateSocialCost(wX, wY);
         }
     }
-
-    free(agentStates);
 }
 
 unsigned int SocialCostmap::calculateSocialCost(double x, double y)
@@ -68,7 +66,7 @@ unsigned int SocialCostmap::calculateSocialCost(double x, double y)
 
     double socialCost = 0;
 
-    for (auto &agentItem : this->agentStatesRecord)
+    for (auto &agentItem : agent_states_record_)
     {
         auto &relevantAgentState = agentItem.second;
         socialCost += socialComfortCost(x, y, relevantAgentState);
@@ -82,12 +80,12 @@ unsigned int SocialCostmap::calculateSocialCost(double x, double y)
     return int(socialCost);
 }
 
-void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates)
+void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentStates)
 {
 
     std::vector<int> irrelevant_agents;
 
-    for (auto &agentItem : this->agentStatesRecord)
+    for (auto &agentItem : agent_states_record_)
     {
         if (agentItem.second.relevance <= 0)
         {
@@ -99,11 +97,11 @@ void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentSt
 
     for (int i = 0; i < irrelevant_agents.size(); i++)
     {
-        this->agentStatesRecord.erase(irrelevant_agents[i]);
+        agent_states_record_.erase(irrelevant_agents[i]);
     }
-    // ROS_INFO_STREAM("number of agents recorded: " << this->agentStatesRecord.size());
+    // ROS_INFO_STREAM("number of agents recorded: " << agent_states_record_.size());
 
-    for (auto &agentItem : this->agentStatesRecord)
+    for (auto &agentItem : agent_states_record_)
     {
         auto &relevantAgentState = agentItem.second;
 
@@ -111,7 +109,7 @@ void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentSt
         newRelevantAgentState.header = relevantAgentState.header;
         newRelevantAgentState.agent_state = relevantAgentState.agent_state;
 
-        newRelevantAgentState.relevance = relevantAgentState.relevance - double(this->timeDecayFactor * exp(double(this->timeDecayFactor * (ros::Time::now().sec - relevantAgentState.agent_state.header.stamp.now().sec))));
+        newRelevantAgentState.relevance = relevantAgentState.relevance - double(time_decay_factor_ * exp(double(time_decay_factor_ * (ros::Time::now().sec - relevantAgentState.agent_state.header.stamp.now().sec))));
 
         if (newRelevantAgentState.relevance < 0)
         {
@@ -122,21 +120,21 @@ void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentSt
     }
 }
 
-void SocialCostmap::addNewAgentStates(pedsim_msgs::AgentStates *agentStates)
+void SocialCostmap::addNewAgentStates(pedsim_msgs::AgentStates agentStates)
 {
 
-    for (int i = 0; i < agentStates->agent_states.size(); i++)
+    for (int i = 0; i < agentStates.agent_states.size(); i++)
     {
 
         smf_move_base_msgs::RelevantAgentState relevantAgentState;
 
-        relevantAgentState.header = agentStates->header;
+        relevantAgentState.header = agentStates.header;
 
-        relevantAgentState.agent_state = agentStates->agent_states[i];
+        relevantAgentState.agent_state = agentStates.agent_states[i];
 
         relevantAgentState.relevance = 100;
 
-        agentStatesRecord[agentStates->agent_states[i].id] = relevantAgentState;
+        agent_states_record_[agentStates.agent_states[i].id] = relevantAgentState;
     }
 }
 
@@ -145,50 +143,50 @@ void SocialCostmap::initSocialCostmap()
     // social costmap initialization
 
     // header
-    this->socialCostmap.header.stamp = ros::Time::now();
-    this->socialCostmap.header.frame_id = this->frameId_;
+    social_costmap_.header.stamp = ros::Time::now();
+    social_costmap_.header.frame_id = frameId_;
 
     // info
-    this->socialCostmap.info.resolution = this->resolution_;
-    this->socialCostmap.info.width = this->width_;
-    this->socialCostmap.info.height = this->height_;
-    this->socialCostmap.info.origin = this->origin_;
+    social_costmap_.info.resolution = resolution_;
+    social_costmap_.info.width = width_;
+    social_costmap_.info.height = height_;
+    social_costmap_.info.origin = origin_;
 
-    int dataArraySize = this->width_ * this->height_;
+    int dataArraySize = width_ * height_;
 
-    this->socialCostmap.data.resize(dataArraySize);
+    social_costmap_.data.resize(dataArraySize);
 
-    this->lastUpdateTime_ = ros::Time::now().sec;
+    lastUpdateTime_ = ros::Time::now().sec;
 }
 
 // ! SETTERS
 void SocialCostmap::setDimensions(unsigned int width, unsigned int height)
 {
-    this->width_ = int(width / this->resolutionFactor);
-    this->height_ = int(height / this->resolutionFactor);
+    width_ = int(width / resolution_factor_);
+    height_ = int(height / resolution_factor_);
 }
 
 void SocialCostmap::setOrigin(geometry_msgs::Pose origin)
 {
-    this->origin_ = origin;
+    origin_ = origin;
 }
 
 void SocialCostmap::setTimeDecayFactor(double timeDecayFactor)
 {
-    this->timeDecayFactor = timeDecayFactor;
+    time_decay_factor_ = timeDecayFactor;
 }
 
 void SocialCostmap::setResolution(double resolution)
 {
-    this->resolution_ = resolution * this->resolutionFactor;
+    resolution_ = resolution * resolution_factor_;
 }
 
 void SocialCostmap::setFrameId(std::string frameId)
 {
-    this->frameId_ = frameId;
+    frameId_ = frameId;
 }
 
 void SocialCostmap::setResolutionFactor(unsigned int resolutionFactor)
 {
-    this->resolutionFactor = resolutionFactor;
+    resolution_factor_ = resolutionFactor;
 }

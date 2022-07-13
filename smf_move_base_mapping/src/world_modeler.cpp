@@ -80,17 +80,17 @@ private:
     std::vector<std::string> point_cloud_topics_, point_cloud_frames_;
 
     //  global map
-    nav_msgs::OccupancyGrid global_2d_map;
+    nav_msgs::OccupancyGrid global_2d_map_;
 
     // odometry variable
-    nav_msgs::Odometry robot_odometry;
+    nav_msgs::Odometry robot_odometry_;
 
     // agent states
-    pedsim_msgs::AgentStates agent_states;
+    pedsim_msgs::AgentStates agent_states_;
 
     // social costmap
-    SocialCostmap socialCostmap = SocialCostmap();
-    nav_msgs::OccupancyGrid current_social_costmap;
+    SocialCostmap social_costmap_ = SocialCostmap();
+    nav_msgs::OccupancyGrid current_social_costmap_;
 
     // OCTOMAP VARIABLES
 
@@ -161,7 +161,7 @@ WorldModeler::WorldModeler()
     local_nh_.param("octomap_service", octomap_service_,
                     octomap_service_);
 
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(5);
 
     // !PUBLISHERS
 
@@ -191,22 +191,22 @@ WorldModeler::WorldModeler()
     ROS_WARN("%s:\n\tGot global 2D map\n",
              ros::this_node::getName().c_str());
 
-    socialCostmap.setResolutionFactor(social_costmap_resolution_factor_);
-    socialCostmap.setDimensions(global_2d_map.info.width, global_2d_map.info.height);
-    socialCostmap.setFrameId(global_2d_map.header.frame_id);
-    socialCostmap.setOrigin(global_2d_map.info.origin);
-    socialCostmap.setResolution(global_2d_map.info.resolution);
-    socialCostmap.setTimeDecayFactor(social_costmap_decay_factor_);
+    social_costmap_.setResolutionFactor(social_costmap_resolution_factor_);
+    social_costmap_.setDimensions(global_2d_map_.info.width, global_2d_map_.info.height);
+    social_costmap_.setFrameId(global_2d_map_.header.frame_id);
+    social_costmap_.setOrigin(global_2d_map_.info.origin);
+    social_costmap_.setResolution(global_2d_map_.info.resolution);
+    social_costmap_.setTimeDecayFactor(social_costmap_decay_factor_);
 
     while (ros::ok())
     {
         pedsim_msgs::AgentStates social_agents_in_fov = socialAgentsInFOV();
 
-        socialCostmap.updateSocialCostmap(global_2d_map.info.width, global_2d_map.info.height, global_2d_map.info.origin, &social_agents_in_fov);
+        social_costmap_.updateSocialCostmap(global_2d_map_.info.width, global_2d_map_.info.height, global_2d_map_.info.origin, social_agents_in_fov);
 
-        current_social_costmap = socialCostmap.getSocialCostmap();
+        current_social_costmap_ = social_costmap_.getSocialCostmap();
 
-        social_costmap_pub_.publish(current_social_costmap);
+        social_costmap_pub_.publish(current_social_costmap_);
 
         ros::spinOnce();
 
@@ -217,11 +217,11 @@ WorldModeler::WorldModeler()
 bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
 {
 
-    double dRobotAgent = std::sqrt(std::pow(social_agent.pose.position.x - robot_odometry.pose.pose.position.x, 2) +
-                                   std::pow(social_agent.pose.position.y - robot_odometry.pose.pose.position.y, 2));
+    double dRobotAgent = std::sqrt(std::pow(social_agent.pose.position.x - robot_odometry_.pose.pose.position.x, 2) +
+                                   std::pow(social_agent.pose.position.y - robot_odometry_.pose.pose.position.y, 2));
 
     double robotVelocity =
-        std::sqrt(std::pow(robot_odometry.twist.twist.linear.x, 2) + std::pow(robot_odometry.twist.twist.linear.y, 2));
+        std::sqrt(std::pow(robot_odometry_.twist.twist.linear.x, 2) + std::pow(robot_odometry_.twist.twist.linear.y, 2));
 
     double actualFOVDistance = (robot_distance_view_ / robot_velocity_thres_) * robotVelocity;
 
@@ -239,16 +239,16 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         return false;
     }
 
-    double tethaRobotAgent = atan2((social_agent.pose.position.y - robot_odometry.pose.pose.position.y),
-                                   (social_agent.pose.position.x - robot_odometry.pose.pose.position.x));
+    double tethaRobotAgent = atan2((social_agent.pose.position.y - robot_odometry_.pose.pose.position.y),
+                                   (social_agent.pose.position.x - robot_odometry_.pose.pose.position.x));
 
     if (tethaRobotAgent < 0)
     {
         tethaRobotAgent = 2 * M_PI + tethaRobotAgent;
     }
 
-    tf::Quaternion q(robot_odometry.pose.pose.orientation.x, robot_odometry.pose.pose.orientation.y,
-                     robot_odometry.pose.pose.orientation.z, robot_odometry.pose.pose.orientation.w);
+    tf::Quaternion q(robot_odometry_.pose.pose.orientation.x, robot_odometry_.pose.pose.orientation.y,
+                     robot_odometry_.pose.pose.orientation.z, robot_odometry_.pose.pose.orientation.w);
 
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
@@ -280,7 +280,7 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
 
         fcl::Transform3f robot_agent_solid_tf;
         robot_agent_solid_tf.setIdentity();
-        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry.pose.pose.position.y) / 2, 1));
+        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry_.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry_.pose.pose.position.y) / 2, 1));
 
         tf2::Quaternion myQuaternion;
         myQuaternion.setRPY(0, tethaRobotAgent, 0);
@@ -323,15 +323,15 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
         }
     }
 
-    for (int i = 0; i < agent_states.agent_states.size(); i++)
+    for (int i = 0; i < agent_states_.agent_states.size(); i++)
     {
-        if (agentInFOV(agent_states.agent_states[i]))
+        if (agentInFOV(agent_states_.agent_states[i]))
         {
-            agentStatesVector.push_back(agent_states.agent_states[i]);
+            agentStatesVector.push_back(agent_states_.agent_states[i]);
         }
     }
 
-    agentStatesInFOV.header = agent_states.header;
+    agentStatesInFOV.header = agent_states_.header;
     agentStatesInFOV.agent_states = agentStatesVector;
 
     return agentStatesInFOV;
@@ -340,23 +340,23 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
 void WorldModeler::global2DMapCallback(const nav_msgs::OccupancyGridConstPtr &map)
 {
     global_map_available_ = true;
-    global_2d_map.header = map->header;
-    global_2d_map.data = map->data;
-    global_2d_map.info = map->info;
+    global_2d_map_.header = map->header;
+    global_2d_map_.data = map->data;
+    global_2d_map_.info = map->info;
 }
 
 void WorldModeler::odometryCallback(const nav_msgs::OdometryConstPtr &odometry)
 {
-    robot_odometry.child_frame_id = odometry->child_frame_id;
-    robot_odometry.header = odometry->header;
-    robot_odometry.pose = odometry->pose;
-    robot_odometry.twist = odometry->twist;
+    robot_odometry_.child_frame_id = odometry->child_frame_id;
+    robot_odometry_.header = odometry->header;
+    robot_odometry_.pose = odometry->pose;
+    robot_odometry_.twist = odometry->twist;
 }
 
 void WorldModeler::agentStatesCallback(const pedsim_msgs::AgentStatesPtr &social_agents)
 {
-    agent_states.agent_states = social_agents->agent_states;
-    agent_states.header = social_agents->header;
+    agent_states_.agent_states = social_agents->agent_states;
+    agent_states_.header = social_agents->header;
 }
 
 //! Main function

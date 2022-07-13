@@ -16,7 +16,7 @@
 class SocialCostmap
 {
 private:
-    nav_msgs::OccupancyGrid socialCostmap;
+    nav_msgs::OccupancyGrid social_costmap_;
 
     unsigned int lastUpdateTime_;
     unsigned int width_;
@@ -25,11 +25,11 @@ private:
     geometry_msgs::Pose origin_;
     std::string frameId_;
 
-    double timeDecayFactor = 1;
+    double time_decay_factor_ = 1;
 
-    unsigned int resolutionFactor = 5;
+    unsigned int resolution_factor_ = 5;
 
-    std::map<unsigned int, smf_move_base_msgs::RelevantAgentState> agentStatesRecord;
+    std::map<unsigned int, smf_move_base_msgs::RelevantAgentState> agent_states_record_;
 
 public:
     //! CONSTRUCTOR
@@ -42,18 +42,18 @@ public:
 
     unsigned int calculateSocialCost(double x, double y);
 
-    void updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates *agentStates);
+    void updateSocialCostmap(unsigned int width, unsigned int height, geometry_msgs::Pose origin, pedsim_msgs::AgentStates agentStates);
 
     void initSocialCostmap();
 
-    void addNewAgentStates(pedsim_msgs::AgentStates *agentStates);
+    void addNewAgentStates(pedsim_msgs::AgentStates agentStates);
 
-    void updateAgentStatesRelevance(pedsim_msgs::AgentStates *agentStates);
+    void updateAgentStatesRelevance(pedsim_msgs::AgentStates agentStates);
 
     //! GETTERS
     nav_msgs::OccupancyGrid getSocialCostmap()
     {
-        return socialCostmap;
+        return social_costmap_;
     }
 
     //! SETTERS
@@ -65,7 +65,7 @@ public:
 
     void setTimeDecayFactor(double timeDecayFactor);
 
-    void setFrameId(std::string);
+    void setFrameId(std::string frameId);
 
     void setResolutionFactor(unsigned int resolutionFactor);
 
