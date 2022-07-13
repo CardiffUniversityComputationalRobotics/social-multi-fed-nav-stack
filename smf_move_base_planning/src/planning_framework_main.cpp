@@ -111,8 +111,10 @@ public:
     void visualizeRRTGlobalFeedback(og::PathGeometric &geopath);
     //! Callback for getting the state of the Esc base controller.
     void controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg);
-    //! Callback for getting the state of the Esc base controller.
-    ob::ScopedState<> validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
+    //! check if goal candidate is valid
+    bool validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
+    //! get a new valid goal candidate according to the provided goal
+    ob::ScopedState<> findNewGoalCandidate(const ob::ScopedState<> &goal_candidate);
 
     void visualizeRRTTree();
 
@@ -1038,16 +1040,19 @@ void OnlinePlannFramework::planningTimerCallback()
                 if (abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - goal[0]) < local_path_range_ && abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - goal[1]) < local_path_range_)
                 {
                     simple_setup_local_->setGoalState(goal, goal_radius_);
-                    ROS_INFO_STREAM("goal X: " << goal[0]);
-                    ROS_INFO_STREAM("goal Y: " << goal[1]);
                 }
                 else
                 {
-                    ob::ScopedState<> actual_goal_local = validateGoalCandidate(goal_local);
+                    if (validateGoalCandidate(goal_local))
+                    {
+                        simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
+                    }
+                    else
+                    {
 
-                    simple_setup_local_->setGoalState(actual_goal_local, local_goal_radius_);
-                    ROS_INFO_STREAM("local goal region X: " << actual_goal_local[0]);
-                    ROS_INFO_STREAM("local goal region Y: " << actual_goal_local[1]);
+                        ob::ScopedState<> actual_goal_local = findNewGoalCandidate(goal_local);
+                        simple_setup_local_->setGoalState(actual_goal_local, goal_radius_);
+                    }
                 }
 
                 //=======================================================================
@@ -1906,40 +1911,43 @@ void OnlinePlannFramework::visualizeRRTTree()
     rrt_tree_pub_.publish(visual_rrt);
 }
 
-ob::ScopedState<> OnlinePlannFramework::validateGoalCandidate(const ob::ScopedState<> &goal_candidate)
+bool OnlinePlannFramework::validateGoalCandidate(const ob::ScopedState<> &goal_candidate)
 {
     if (simple_setup_local_->getStateValidityChecker()->isValid(goal_candidate->as<ob::State>()))
     {
-        return goal_candidate;
+        return true;
     }
-    else
+    ROS_WARN_STREAM("FIRST GOAL CANDIDATE INVALID!");
+    return false;
+}
+
+ob::ScopedState<> OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState<> &goal_candidate)
+{
+
+    int i = 0;
+    while (i < 50)
     {
-        int i = 0;
-        bool valid_candidate_found = false;
-        while (i < 100 && !valid_candidate_found)
+
+        double r = 1.0 * std::sqrt(((double)rand() / (RAND_MAX)));
+        double theta = (((double)rand() / (RAND_MAX))) * 2 * M_PI;
+        double x = goal_candidate[0] + r * cos(theta);
+        double y = goal_candidate[1] + r * sin(theta);
+
+        ob::ScopedState<> new_goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
+
+        new_goal_local[0] = x;
+        new_goal_local[1] = y;
+        if (simple_setup_local_->getStateValidityChecker()->isValid(new_goal_local->as<ob::State>()))
         {
-
-            double r = 1 * std::sqrt(random());
-            double theta = random() * 2 * M_PI;
-            double x = goal_candidate[0] + r * cos(theta);
-            double y = goal_candidate[1] + r * sin(theta);
-
-            ob::ScopedState<> new_goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
-
-            new_goal_local[0] = x;
-            new_goal_local[0] = y;
-            if (simple_setup_local_->getStateValidityChecker()->isValid(new_goal_local->as<ob::State>()))
+            if (simple_setup_global_->getSpaceInformation()->checkMotion(goal_candidate->as<ob::State>(), new_goal_local->as<ob::State>()))
             {
-                ROS_INFO_STREAM("VALID NO COLLISION");
-                if (simple_setup_global_->getSpaceInformation()->checkMotion(goal_candidate->as<ob::State>(), new_goal_local->as<ob::State>()))
-                {
-                    return new_goal_local;
-                }
-                ROS_INFO_STREAM("INVALID FOR MOTION");
+                ROS_WARN_STREAM("APPROXIMATE VALID GOAL FOUND!");
+                return new_goal_local;
             }
-            i++;
         }
+        i++;
     }
+    ROS_WARN_STREAM("NO OPTIONAL GOAL FOUND!");
     return goal_candidate;
 }
 
