@@ -1133,7 +1133,9 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         // ======================================================================
                         ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
+                        nav_msgs::OdometryConstPtr odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
 
+                        // !NEAREST POINT FROM PAST LOCAL PATH
                         if (past_local_solution_path_states_.size() > 0)
                         {
                             double init_x_distance = 10000;
@@ -1141,8 +1143,8 @@ void OnlinePlannFramework::planningTimerCallback()
                             int less_distance_index = 0;
                             for (int i = 0; i < past_local_solution_path_states_.size(); i++)
                             {
-                                double current_distance_x = abs(local_path_states[0]->as<ob::RealVectorStateSpace::StateType>()->values[0] - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                                double current_distance_y = abs(local_path_states[0]->as<ob::RealVectorStateSpace::StateType>()->values[1] - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                                double current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                double current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
                                 if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                                 {
@@ -1166,8 +1168,25 @@ void OnlinePlannFramework::planningTimerCallback()
                         }
 
                         std::reverse(controller_local_path_states.begin(), controller_local_path_states.end());
+                        // !NEAREST POINT FROM CURRENT LOCAL PATH SOLUTION
 
+                        double init_x_distance = 10000;
+                        double init_y_distance = 10000;
+                        int less_distance_index = 0;
                         for (int i = 0; i < local_path_states.size(); i++)
+                        {
+                            double current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                            double current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+
+                            if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
+                            {
+                                init_x_distance = current_distance_x;
+                                init_y_distance = current_distance_y;
+                                less_distance_index = i;
+                            }
+                        }
+
+                        for (int i = less_distance_index; i < local_path_states.size(); i++)
                         {
                             ob::State *s = space->allocState();
                             space->copyState(s, local_path_states[i]);
