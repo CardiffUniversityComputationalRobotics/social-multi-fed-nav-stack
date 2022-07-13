@@ -31,6 +31,8 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/config.h>
 
+#include <random>
+
 #include <planner/RRTstarMod.h>
 #include <planner/InformedRRTstarMod.h>
 
@@ -109,6 +111,8 @@ public:
     void visualizeRRTGlobalFeedback(og::PathGeometric &geopath);
     //! Callback for getting the state of the Esc base controller.
     void controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg);
+    //! Callback for getting the state of the Esc base controller.
+    ob::ScopedState<> validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
 
     void visualizeRRTTree();
 
@@ -1039,9 +1043,11 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
                 else
                 {
-                    simple_setup_local_->setGoalState(goal_local, local_goal_radius_);
-                    ROS_INFO_STREAM("local goal region X: " << goal_local[0]);
-                    ROS_INFO_STREAM("local goal region Y: " << goal_local[1]);
+                    ob::ScopedState<> actual_goal_local = validateGoalCandidate(goal_local);
+
+                    simple_setup_local_->setGoalState(actual_goal_local, local_goal_radius_);
+                    ROS_INFO_STREAM("local goal region X: " << actual_goal_local[0]);
+                    ROS_INFO_STREAM("local goal region Y: " << actual_goal_local[1]);
                 }
 
                 //=======================================================================
@@ -1546,8 +1552,7 @@ void OnlinePlannFramework::visualizeRRT(og::PathGeometric &geopath)
 
                 visual_rrt.points.push_back(p);
 
-                state_r2 =
-                    planner_data.getVertex(edgeList[0]).getState()->as<ob::RealVectorStateSpace::StateType>();
+                state_r2 = planner_data.getVertex(edgeList[0]).getState()->as<ob::RealVectorStateSpace::StateType>();
                 p.x = state_r2->values[0];
                 p.y = state_r2->values[1];
                 p.z = 0.1;
@@ -1899,6 +1904,43 @@ void OnlinePlannFramework::visualizeRRTTree()
         }
     }
     rrt_tree_pub_.publish(visual_rrt);
+}
+
+ob::ScopedState<> OnlinePlannFramework::validateGoalCandidate(const ob::ScopedState<> &goal_candidate)
+{
+    if (simple_setup_local_->getStateValidityChecker()->isValid(goal_candidate->as<ob::State>()))
+    {
+        return goal_candidate;
+    }
+    else
+    {
+        int i = 0;
+        bool valid_candidate_found = false;
+        while (i < 100 && !valid_candidate_found)
+        {
+
+            double r = 1 * std::sqrt(random());
+            double theta = random() * 2 * M_PI;
+            double x = goal_candidate[0] + r * cos(theta);
+            double y = goal_candidate[1] + r * sin(theta);
+
+            ob::ScopedState<> new_goal_local(simple_setup_local_->getSpaceInformation()->getStateSpace());
+
+            new_goal_local[0] = x;
+            new_goal_local[0] = y;
+            if (simple_setup_local_->getStateValidityChecker()->isValid(new_goal_local->as<ob::State>()))
+            {
+                ROS_INFO_STREAM("VALID NO COLLISION");
+                if (simple_setup_global_->getSpaceInformation()->checkMotion(goal_candidate->as<ob::State>(), new_goal_local->as<ob::State>()))
+                {
+                    return new_goal_local;
+                }
+                ROS_INFO_STREAM("INVALID FOR MOTION");
+            }
+            i++;
+        }
+    }
+    return goal_candidate;
 }
 
 //! Main function
