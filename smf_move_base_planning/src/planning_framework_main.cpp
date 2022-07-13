@@ -1024,13 +1024,23 @@ void OnlinePlannFramework::planningTimerCallback()
                         break;
                     }
                 }
+
+                // adding last local solution states
+
+                for (int i = 0; i < local_solution_path_states_.size(); i++)
+                {
+                    ob::State *s = local_space->allocState();
+                    local_space->copyState(s, local_solution_path_states_[i]);
+                    global_path_feedback.push_back(s);
+                }
+
                 std::reverse(global_path_feedback.begin(), global_path_feedback.end());
 
                 //======================================================================
                 // Set the start and goal states
                 //=======================================================================
 
-                if (abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - goal[0]) < local_path_range_ && abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - goal[1]) < local_path_range_)
+                if (abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - goal[0]) < 3 && abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - goal[1]) < 3)
                 {
                     simple_setup_local_->setGoalState(goal, goal_radius_);
                 }
