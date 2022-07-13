@@ -33,32 +33,34 @@ void SocialCostmap::updateSocialCostmap(unsigned int width, unsigned int height,
 
     // header
     this->socialCostmap.header.stamp = ros::Time::now();
-    this->socialCostmap.header.frame_id = this->frameId;
+    this->socialCostmap.header.frame_id = this->frameId_;
 
     // info
-    this->socialCostmap.info.resolution = this->resolution;
-    this->socialCostmap.info.width = this->width;
-    this->socialCostmap.info.height = this->height;
-    this->socialCostmap.info.origin = this->origin;
+    this->socialCostmap.info.resolution = this->resolution_;
+    this->socialCostmap.info.width = this->width_;
+    this->socialCostmap.info.height = this->height_;
+    this->socialCostmap.info.origin = this->origin_;
 
-    int dataArraySize = this->width * this->height;
+    int dataArraySize = this->width_ * this->height_;
 
     this->socialCostmap.data.resize(dataArraySize);
 
-    double mapOriginX = this->origin.position.x + (this->width / 2) * this->resolution;
+    double mapOriginX = this->origin_.position.x + (this->width_ / 2) * this->resolution_;
 
-    double mapOriginY = this->origin.position.y + (this->height / 2) * this->resolution;
+    double mapOriginY = this->origin_.position.y + (this->height_ / 2) * this->resolution_;
 
-    for (int j = 0; j < this->height; j++)
+    for (int j = 0; j < this->height_; j++)
     {
-        for (int i = 0; i < this->width; i++)
+        for (int i = 0; i < this->width_; i++)
         {
-            double wX = mapWx(mapOriginX, this->width, this->resolution, i);
-            double wY = mapWy(mapOriginY, this->height, this->resolution, j);
+            double wX = mapWx(mapOriginX, this->width_, this->resolution_, i);
+            double wY = mapWy(mapOriginY, this->height_, this->resolution_, j);
 
-            this->socialCostmap.data[mapIndex(this->width, i, j)] = this->calculateSocialCost(wX, wY);
+            this->socialCostmap.data[mapIndex(this->width_, i, j)] = this->calculateSocialCost(wX, wY);
         }
     }
+
+    free(agentStates);
 }
 
 unsigned int SocialCostmap::calculateSocialCost(double x, double y)
@@ -144,31 +146,31 @@ void SocialCostmap::initSocialCostmap()
 
     // header
     this->socialCostmap.header.stamp = ros::Time::now();
-    this->socialCostmap.header.frame_id = this->frameId;
+    this->socialCostmap.header.frame_id = this->frameId_;
 
     // info
-    this->socialCostmap.info.resolution = this->resolution;
-    this->socialCostmap.info.width = this->width;
-    this->socialCostmap.info.height = this->height;
-    this->socialCostmap.info.origin = this->origin;
+    this->socialCostmap.info.resolution = this->resolution_;
+    this->socialCostmap.info.width = this->width_;
+    this->socialCostmap.info.height = this->height_;
+    this->socialCostmap.info.origin = this->origin_;
 
-    int dataArraySize = this->width * this->height;
+    int dataArraySize = this->width_ * this->height_;
 
     this->socialCostmap.data.resize(dataArraySize);
 
-    this->lastUpdateTime = ros::Time::now().sec;
+    this->lastUpdateTime_ = ros::Time::now().sec;
 }
 
 // ! SETTERS
 void SocialCostmap::setDimensions(unsigned int width, unsigned int height)
 {
-    this->width = int(width / this->resolutionFactor);
-    this->height = int(height / this->resolutionFactor);
+    this->width_ = int(width / this->resolutionFactor);
+    this->height_ = int(height / this->resolutionFactor);
 }
 
 void SocialCostmap::setOrigin(geometry_msgs::Pose origin)
 {
-    this->origin = origin;
+    this->origin_ = origin;
 }
 
 void SocialCostmap::setTimeDecayFactor(double timeDecayFactor)
@@ -178,12 +180,12 @@ void SocialCostmap::setTimeDecayFactor(double timeDecayFactor)
 
 void SocialCostmap::setResolution(double resolution)
 {
-    this->resolution = resolution * this->resolutionFactor;
+    this->resolution_ = resolution * this->resolutionFactor;
 }
 
 void SocialCostmap::setFrameId(std::string frameId)
 {
-    this->frameId = frameId;
+    this->frameId_ = frameId;
 }
 
 void SocialCostmap::setResolutionFactor(unsigned int resolutionFactor)

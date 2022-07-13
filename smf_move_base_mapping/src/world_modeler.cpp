@@ -89,7 +89,7 @@ private:
     pedsim_msgs::AgentStates agent_states;
 
     // social costmap
-    SocialCostmap *socialCostmap = new SocialCostmap();
+    SocialCostmap socialCostmap = SocialCostmap();
     nav_msgs::OccupancyGrid current_social_costmap;
 
     // OCTOMAP VARIABLES
@@ -191,20 +191,20 @@ WorldModeler::WorldModeler()
     ROS_WARN("%s:\n\tGot global 2D map\n",
              ros::this_node::getName().c_str());
 
-    socialCostmap->setResolutionFactor(social_costmap_resolution_factor_);
-    socialCostmap->setDimensions(global_2d_map.info.width, global_2d_map.info.height);
-    socialCostmap->setFrameId(global_2d_map.header.frame_id);
-    socialCostmap->setOrigin(global_2d_map.info.origin);
-    socialCostmap->setResolution(global_2d_map.info.resolution);
-    socialCostmap->setTimeDecayFactor(social_costmap_decay_factor_);
+    socialCostmap.setResolutionFactor(social_costmap_resolution_factor_);
+    socialCostmap.setDimensions(global_2d_map.info.width, global_2d_map.info.height);
+    socialCostmap.setFrameId(global_2d_map.header.frame_id);
+    socialCostmap.setOrigin(global_2d_map.info.origin);
+    socialCostmap.setResolution(global_2d_map.info.resolution);
+    socialCostmap.setTimeDecayFactor(social_costmap_decay_factor_);
 
     while (ros::ok())
     {
         pedsim_msgs::AgentStates social_agents_in_fov = socialAgentsInFOV();
 
-        socialCostmap->updateSocialCostmap(global_2d_map.info.width, global_2d_map.info.height, global_2d_map.info.origin, &social_agents_in_fov);
+        socialCostmap.updateSocialCostmap(global_2d_map.info.width, global_2d_map.info.height, global_2d_map.info.origin, &social_agents_in_fov);
 
-        current_social_costmap = socialCostmap->getSocialCostmap();
+        current_social_costmap = socialCostmap.getSocialCostmap();
 
         social_costmap_pub_.publish(current_social_costmap);
 

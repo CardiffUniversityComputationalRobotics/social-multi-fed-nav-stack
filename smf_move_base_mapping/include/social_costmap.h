@@ -18,12 +18,12 @@ class SocialCostmap
 private:
     nav_msgs::OccupancyGrid socialCostmap;
 
-    unsigned int lastUpdateTime;
-    unsigned int width;
-    unsigned int height;
-    double resolution;
-    geometry_msgs::Pose origin;
-    std::string frameId;
+    unsigned int lastUpdateTime_;
+    unsigned int width_;
+    unsigned int height_;
+    double resolution_;
+    geometry_msgs::Pose origin_;
+    std::string frameId_;
 
     double timeDecayFactor = 1;
 
