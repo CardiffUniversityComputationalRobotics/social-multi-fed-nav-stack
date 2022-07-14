@@ -30,8 +30,7 @@
 #include <ompl/geometric/planners/prm/PRMstar.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/config.h>
-
-#include <random>
+#include <ompl/base/goals/GoalStates.h>
 
 #include <planner/RRTstarMod.h>
 #include <planner/InformedRRTstarMod.h>
@@ -114,7 +113,7 @@ public:
     //! check if goal candidate is valid
     bool validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
     //! get a new valid goal candidate according to the provided goal
-    ob::ScopedState<> findNewGoalCandidate(const ob::ScopedState<> &goal_candidate);
+    ob::GoalStates *findNewGoalCandidate(const ob::ScopedState<> &goal_candidate);
 
     void visualizeRRTTree();
 
@@ -1027,12 +1026,12 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // adding last local solution states
 
-                for (int i = 0; i < local_solution_path_states_.size(); i++)
-                {
-                    ob::State *s = local_space->allocState();
-                    local_space->copyState(s, local_solution_path_states_[i]);
-                    global_path_feedback.push_back(s);
-                }
+                // for (int i = 0; i < local_solution_path_states_.size(); i++)
+                // {
+                //     ob::State *s = local_space->allocState();
+                //     local_space->copyState(s, local_solution_path_states_[i]);
+                //     global_path_feedback.push_back(s);
+                // }
 
                 std::reverse(global_path_feedback.begin(), global_path_feedback.end());
 
@@ -1053,8 +1052,8 @@ void OnlinePlannFramework::planningTimerCallback()
                     else
                     {
 
-                        ob::ScopedState<> new_goal_local = findNewGoalCandidate(local_goal);
-                        simple_setup_local_->setGoalState(new_goal_local, goal_radius_);
+                        ob::GoalStates *new_goal_local = findNewGoalCandidate(local_goal);
+                        simple_setup_local_->setGoal(ob::GoalPtr(new_goal_local));
                     }
                 }
 
@@ -1926,10 +1925,15 @@ bool OnlinePlannFramework::validateGoalCandidate(const ob::ScopedState<> &goal_c
     return false;
 }
 
-ob::ScopedState<> OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState<> &goal_candidate)
+ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState<> &goal_candidate)
 {
 
+    ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
+
+    ob::GoalStates *goal_states(new ob::GoalStates(si_local));
+
     int i = 0;
+    int j = 0;
     while (i < 50)
     {
 
@@ -1947,13 +1951,23 @@ ob::ScopedState<> OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedSta
             if (simple_setup_global_->getSpaceInformation()->checkMotion(goal_candidate->as<ob::State>(), new_goal_local->as<ob::State>()))
             {
                 ROS_WARN_STREAM("APPROXIMATE VALID GOAL FOUND!");
-                return new_goal_local;
+
+                if (j < 10)
+                {
+                    goal_states->addState(new_goal_local);
+                    j++;
+                }
+                else
+                {
+                    return goal_states;
+                }
             }
         }
         i++;
     }
     ROS_WARN_STREAM("NO OPTIONAL GOAL FOUND!");
-    return goal_candidate;
+
+    return goal_states;
 }
 
 //! Main function
@@ -1961,7 +1975,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "smf_move_base_planner");
 
-    ROS_INFO("%s:\n\toonline planner (C++), using OMPL version %s\n", ros::this_node::getName().c_str(),
+    ROS_INFO("%s:\n\tonline planner (C++), using OMPL version %s\n", ros::this_node::getName().c_str(),
              OMPL_VERSION);
     // ompl::msg::setLogLevel(ompl::msg::LOG_NONE);
     //	if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug) ) {
