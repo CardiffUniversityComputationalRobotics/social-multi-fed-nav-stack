@@ -44,6 +44,7 @@
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Int32.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose2D.h>
@@ -72,9 +73,9 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> EscBaseGoToActionServer;
+typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> SmfBaseGoToActionServer;
 typedef actionlib::SimpleActionServer<smf_move_base_msgs::GotoRegion2DAction>
-    EscBaseGoToRegionActionServer;
+    SmfBaseGoToRegionActionServer;
 
 //!  OnlinePlannFramework class.
 /*!
@@ -108,7 +109,7 @@ public:
     void visualizeRRTFeedback(og::PathGeometric &geopath);
     //! Procedure to visualize the resulting local path
     void visualizeRRTGlobalFeedback(og::PathGeometric &geopath);
-    //! Callback for getting the state of the Esc base controller.
+    //! Callback for getting the state of the Smf base controller.
     void controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg);
     //! check if goal candidate is valid
     bool validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
@@ -123,15 +124,15 @@ private:
     ros::Timer timer_;
     ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
     ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_,
-        query_goal_radius_rviz_pub_, merged_path_rviz_pub_, solution_feedback_path_rviz_pub_, solution_global_feedback_path_rviz_pub_, rrt_tree_pub_;
+        query_goal_radius_rviz_pub_, merged_path_rviz_pub_, solution_feedback_path_rviz_pub_, solution_global_feedback_path_rviz_pub_, rrt_tree_pub_, num_nodes_pub_;
 
     // ROS action server
-    EscBaseGoToActionServer *goto_action_server_;
+    SmfBaseGoToActionServer *goto_action_server_;
     std::string goto_action_;
     smf_move_base_msgs::Goto2DAction goto_action_feedback_;
     smf_move_base_msgs::Goto2DAction goto_action_result_;
 
-    EscBaseGoToRegionActionServer *goto_region_action_server_;
+    SmfBaseGoToRegionActionServer *goto_region_action_server_;
     std::string goto_region_action_;
     smf_move_base_msgs::GotoRegion2DAction goto_region_action_feedback_;
     smf_move_base_msgs::GotoRegion2DAction goto_region_action_result_;
@@ -240,13 +241,15 @@ OnlinePlannFramework::OnlinePlannFramework()
         local_nh_.advertise<visualization_msgs::Marker>("query_goal_radius_rviz", 1, true);
     merged_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("merged_path", 1, true);
 
+    num_nodes_pub_ = local_nh_.advertise<std_msgs::Int32>("smf_num_nodes", 1, true);
+
     //=======================================================================
     // Action server
     //=======================================================================
-    goto_action_server_ = new EscBaseGoToActionServer(
+    goto_action_server_ = new SmfBaseGoToActionServer(
         ros::NodeHandle(), goto_action_, boost::bind(&OnlinePlannFramework::goToActionCallback, this, _1),
         false);
-    goto_region_action_server_ = new EscBaseGoToRegionActionServer(
+    goto_region_action_server_ = new SmfBaseGoToRegionActionServer(
         ros::NodeHandle(), goto_region_action_,
         boost::bind(&OnlinePlannFramework::goToRegionActionCallback, this, _1), false);
 
@@ -469,7 +472,7 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
 //! Control active callback.
 /*!
- * Callback for getting the state of the Esc base controller
+ * Callback for getting the state of the Smf base controller
  */
 void OnlinePlannFramework::controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg)
 {
@@ -1646,6 +1649,11 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
     int num_parents;
     ROS_DEBUG("%s: number of states in the tree: %d", ros::this_node::getName().c_str(),
               planner_data.numVertices());
+
+    std_msgs::Int32 num_nodes;
+    num_nodes.data = (int)planner_data.numVertices();
+
+    num_nodes_pub_.publish(num_nodes);
 
     if (visualize_tree_)
     {
