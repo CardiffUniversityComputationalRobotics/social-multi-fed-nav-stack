@@ -1967,6 +1967,11 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
     }
     ROS_WARN_STREAM("NO OPTIONAL GOAL FOUND!");
 
+    if (j == 0)
+    {
+        goal_states->addState(goal_candidate);
+    }
+
     return goal_states;
 }
 
