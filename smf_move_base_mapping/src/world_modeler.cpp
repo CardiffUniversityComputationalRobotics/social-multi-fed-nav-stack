@@ -306,6 +306,9 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
     pedsim_msgs::AgentStates agentStatesInFOV;
     std::vector<pedsim_msgs::AgentState> agentStatesVector;
 
+    octree_ = NULL;
+    delete octree_;
+
     while ((nh_.ok() && !ros::service::call(octomap_service_, req, resp)) || resp.map.data.size() == 0)
     {
         ROS_WARN("Requestt to %s failed; trying again...", nh_.resolveName(octomap_service_).c_str());
