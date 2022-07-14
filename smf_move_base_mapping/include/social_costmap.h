@@ -89,11 +89,11 @@ public:
 
     double socialComfortCost(double x, double y, smf_move_base_msgs::RelevantAgentState relevantAgentState)
     {
-        double distance = std::sqrt(std::pow(relevantAgentState.agent_state.pose.position.x - x, 2) +
+        double distance = std::sqrt(std::pow((relevantAgentState.agent_state.pose.position.x - 0.6) - x, 2) +
                                     std::pow(relevantAgentState.agent_state.pose.position.y - y, 2));
 
         double tethaRobotAgent = atan2((y - relevantAgentState.agent_state.pose.position.y),
-                                       (x - relevantAgentState.agent_state.pose.position.x));
+                                       (x - (relevantAgentState.agent_state.pose.position.x - 0.6)));
 
         if (tethaRobotAgent < 0)
         {
