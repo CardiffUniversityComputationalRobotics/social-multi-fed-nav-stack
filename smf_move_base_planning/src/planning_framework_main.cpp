@@ -1960,7 +1960,7 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
             {
                 ROS_WARN_STREAM("APPROXIMATE VALID GOAL FOUND!");
 
-                if (j < 10)
+                if (j < 20)
                 {
                     goal_states->addState(new_goal_local);
                     j++;
