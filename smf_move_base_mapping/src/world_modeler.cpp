@@ -161,7 +161,7 @@ WorldModeler::WorldModeler()
     local_nh_.param("octomap_service", octomap_service_,
                     octomap_service_);
 
-    ros::Rate loop_rate(5);
+    ros::Rate loop_rate(10);
 
     // !PUBLISHERS
 
