@@ -105,8 +105,8 @@ private:
     double octree_res_;
 
     // FCL
-    fcl::OcTreef *tree_;
-    fcl::CollisionObjectf *tree_obj_;
+    std::shared_ptr<fcl::OcTreef> tree_;
+    std::shared_ptr<fcl::CollisionObjectf> tree_obj_;
     std::shared_ptr<fcl::Boxf> robot_agent_solid_;
 };
 
@@ -289,7 +289,7 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
 
         fcl::CollisionObjectf robot_agent_co(robot_agent_solid_, robot_agent_solid_tf);
 
-        fcl::collide(tree_obj_, &robot_agent_co, collision_request, collision_result);
+        fcl::collide(tree_obj_.get(), &robot_agent_co, collision_request, collision_result);
 
         if (collision_result.isCollision())
         {
@@ -321,8 +321,8 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
         if (abs_octree_)
         {
             octree_ = dynamic_cast<octomap::OcTree *>(abs_octree_);
-            tree_ = new fcl::OcTreef(std::shared_ptr<const octomap::OcTree>(octree_));
-            tree_obj_ = new fcl::CollisionObjectf((std::shared_ptr<fcl::CollisionGeometryf>(tree_)));
+            tree_ = std::make_shared<fcl::OcTreef>(std::shared_ptr<const octomap::OcTree>(octree_));
+            tree_obj_ = std::make_shared<fcl::CollisionObjectf>((std::shared_ptr<fcl::CollisionGeometryf>(tree_)));
         }
     }
 
