@@ -276,11 +276,11 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
         fcl::CollisionRequestf collision_request;
         fcl::CollisionResultf collision_result;
 
-        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 3));
+        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 0.25));
 
         fcl::Transform3f robot_agent_solid_tf;
         robot_agent_solid_tf.setIdentity();
-        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry_.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry_.pose.pose.position.y) / 2, 1));
+        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry_.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry_.pose.pose.position.y) / 2, 1.2));
 
         tf2::Quaternion myQuaternion;
         myQuaternion.setRPY(0, tethaRobotAgent, 0);

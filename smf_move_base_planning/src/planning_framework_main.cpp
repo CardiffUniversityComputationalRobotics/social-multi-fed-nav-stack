@@ -1310,12 +1310,12 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                     {
-                        if (simple_setup_local_->getSpaceInformation()->checkMotion(past_local_solution_path_states_[i], current_robot_state->as<ob::State>()))
-                        {
-                            init_x_distance = current_distance_x;
-                            init_y_distance = current_distance_y;
-                            less_distance_index = i;
-                        }
+                        // if (simple_setup_local_->getSpaceInformation()->checkMotion(past_local_solution_path_states_[i], current_robot_state->as<ob::State>()))
+                        // {
+                        init_x_distance = current_distance_x;
+                        init_y_distance = current_distance_y;
+                        less_distance_index = i;
+                        // }
                     }
                 }
 
