@@ -177,7 +177,7 @@ private:
   std::shared_ptr<fcl::Cylinderf> robot_collision_solid_;
   std::shared_ptr<fcl::Cylinderf> agent_collision_solid_;
 
-  bool opport_collision_check_;
+  bool opport_collision_check_, social_relevance_validity_checking_;
 
   // pedsim variables
   pedsim_msgs::AgentStatesConstPtr agentStates;

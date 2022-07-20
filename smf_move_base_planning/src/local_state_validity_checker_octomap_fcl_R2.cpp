@@ -33,6 +33,7 @@ LocalOmFclStateValidityCheckerR2::LocalOmFclStateValidityCheckerR2(const ob::Spa
     local_nh_.param("odometry_topic", odometry_topic, odometry_topic);
     local_nh_.param("main_frame", main_frame, main_frame);
     local_nh_.param("optimization_objective", optimization_objective, optimization_objective);
+    local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
 
     octree_ = NULL;
 
@@ -147,7 +148,7 @@ bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
     {
         pedsim_msgs::AgentState agentState = agentStates->agent_states[i];
 
-        if (optimization_objective == "SocialComfort")
+        if (social_relevance_validity_checking_)
         {
             double dRobotAgent =
                 std::sqrt(std::pow(agentState.pose.position.x - odomData->pose.pose.position.x, 2) +
@@ -328,12 +329,20 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
 
     for (int i = 0; i < agentStates->agent_states.size(); i++)
     {
-        if (this->isAgentInRFOV(state, agentStates->agent_states[i]))
+        if (social_relevance_validity_checking_)
         {
-            // ROS_INFO_STREAM("Agent in fov: " << agentStates->agent_states[i].id);
-            current_state_risk = this->extendedPersonalSpaceFnc(state, agentStates->agent_states[i], space);
-            // ROS_INFO_STREAM("agent risk: " << current_state_risk);
+            if (this->isAgentInRFOV(state, agentStates->agent_states[i]))
+            {
+                // ROS_INFO_STREAM("Agent in fov: " << agentStates->agent_states[i].id);
+                current_state_risk = this->extendedPersonalSpaceFnc(state, agentStates->agent_states[i], space);
+                // ROS_INFO_STREAM("agent risk: " << current_state_risk);
+            }
         }
+        else
+        {
+            current_state_risk = this->extendedPersonalSpaceFnc(state, agentStates->agent_states[i], space);
+        }
+
         if (current_state_risk > state_risk)
             state_risk = current_state_risk;
     }
