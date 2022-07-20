@@ -28,3 +28,5 @@ social_costmap_resolution_factor: 5
 
 # octomap
 octomap_service: /octomap_binary
+
+social_relevance_validity_checking: True

@@ -70,7 +70,7 @@ private:
     std::string map_frame_,
         fixed_frame_, robot_frame_, odometry_topic_, global_2d_map_topic_, social_agents_topic_, social_costmap_topic_, octomap_service_;
 
-    bool add_rays_, apply_filter_, add_max_range_measures_, projection_2d_, global_map_available_;
+    bool add_rays_, apply_filter_, add_max_range_measures_, projection_2d_, global_map_available_, social_relevance_validity_checking_;
 
     double octree_resol_, minimum_range_, rviz_timer_, robot_distance_view_, robot_velocity_thres_, robot_fov_, social_costmap_decay_factor_;
 
@@ -160,6 +160,8 @@ WorldModeler::WorldModeler()
                     social_costmap_resolution_factor_);
     local_nh_.param("octomap_service", octomap_service_,
                     octomap_service_);
+    local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_,
+                    social_relevance_validity_checking_);
 
     ros::Rate loop_rate(10);
 
@@ -200,7 +202,16 @@ WorldModeler::WorldModeler()
 
     while (ros::ok())
     {
-        pedsim_msgs::AgentStates social_agents_in_fov = socialAgentsInFOV();
+
+        pedsim_msgs::AgentStates social_agents_in_fov;
+        if (social_relevance_validity_checking_)
+        {
+            social_agents_in_fov = socialAgentsInFOV();
+        }
+        else
+        {
+            social_agents_in_fov = agent_states_;
+        }
 
         social_costmap_.updateSocialCostmap(global_2d_map_.info.width, global_2d_map_.info.height, global_2d_map_.info.origin, social_agents_in_fov);
 
