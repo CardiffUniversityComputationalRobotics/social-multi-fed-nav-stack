@@ -44,3 +44,5 @@ social_costmap_topic: "/social_costmap"
 local_path_range: 4
 
 social_relevance_validity_checking: True
+
+local_reuse_last_best_solution: True

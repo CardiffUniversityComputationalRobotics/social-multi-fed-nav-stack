@@ -137,7 +137,7 @@ private:
     // OMPL, online planner
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
-    bool opport_collision_check_, reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
+    bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
         goal_available_, goal_region_available_, dynamic_bounds_, start_prev_path_proj_, visualize_tree_,
         control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
@@ -178,6 +178,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("opport_collision_check", opport_collision_check_, opport_collision_check_);
     local_nh_.param("planner_name", planner_name_, planner_name_);
     local_nh_.param("reuse_last_best_solution", reuse_last_best_solution_, reuse_last_best_solution_);
+    local_nh_.param("local_reuse_last_best_solution", local_reuse_last_best_solution_, local_reuse_last_best_solution_);
     local_nh_.param("optimization_objective", optimization_objective_, optimization_objective_);
     local_nh_.param("motion_cost_interpolation", motion_cost_interpolation_, motion_cost_interpolation_);
     local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
@@ -1005,12 +1006,15 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // adding last local solution states
 
-                // for (int i = 0; i < local_solution_path_states_.size(); i++)
-                // {
-                //     ob::State *s = local_space->allocState();
-                //     local_space->copyState(s, local_solution_path_states_[i]);
-                //     global_path_feedback.push_back(s);
-                // }
+                if (local_reuse_last_best_solution_)
+                {
+                    for (int i = 0; i < local_solution_path_states_.size(); i++)
+                    {
+                        ob::State *s = local_space->allocState();
+                        local_space->copyState(s, local_solution_path_states_[i]);
+                        global_path_feedback.push_back(s);
+                    }
+                }
 
                 std::reverse(global_path_feedback.begin(), global_path_feedback.end());
 
