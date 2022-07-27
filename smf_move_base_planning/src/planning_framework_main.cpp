@@ -1183,7 +1183,7 @@ void OnlinePlannFramework::planningTimerCallback()
                                     less_distance_index = i;
                                 }
 
-                                if (current_distance_x < 0.15 && current_distance_y < 0.15)
+                                if (current_distance_x < 0.3 && current_distance_y < 0.3)
                                 {
                                     break;
                                 }
