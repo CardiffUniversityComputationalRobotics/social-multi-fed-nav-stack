@@ -955,8 +955,16 @@ void OnlinePlannFramework::planningTimerCallback()
 
             if (simple_setup_global_->haveExactSolutionPath() || distance_to_goal <= goal_radius_)
             {
+
+                // ! TRIM PATH IF POINT NEAR
+
                 // path.interpolate(int(path.length() / 1.0));
-                visualizeRRT(path);
+
+                nav_msgs::OdometryConstPtr odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
+
+                ob::ScopedState<> current_robot_state(simple_setup_global_->getSpaceInformation()->getStateSpace());
+                current_robot_state[0] = odomData->pose.pose.position.x;
+                current_robot_state[1] = odomData->pose.pose.position.y;
 
                 if (reuse_last_best_solution_)
                 {
@@ -968,8 +976,33 @@ void OnlinePlannFramework::planningTimerCallback()
                         ob::State *s = space->allocState();
                         space->copyState(s, path_states[i]);
                         solution_path_states_.push_back(s);
+
+                        double current_dist_x = abs(odomData->pose.pose.position.x - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+
+                        double current_dist_y = abs(odomData->pose.pose.position.y - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+
+                        if (current_dist_x < 0.6 && current_dist_y < 0.6)
+                        {
+                            if (simple_setup_global_->getSpaceInformation()->checkMotion(path_states[i], current_robot_state->as<ob::State>()))
+                            {
+                                break;
+                            }
+                        }
                     }
+
+                    ob::State *s = space->allocState();
+                    space->copyState(s, current_robot_state->as<ob::State>());
+                    solution_path_states_.push_back(s);
                 }
+
+                og::PathGeometric global_path_solution = og::PathGeometric(simple_setup_global_->getSpaceInformation());
+
+                for (int i = 0; i < solution_path_states_.size(); i++)
+                {
+                    global_path_solution.append(solution_path_states_[i]);
+                }
+
+                visualizeRRT(global_path_solution);
 
                 //=======================================================================
                 // ! LOCAL PLANNER SOLVE
@@ -1169,7 +1202,7 @@ void OnlinePlannFramework::planningTimerCallback()
                         double init_x_distance = 10000;
                         double init_y_distance = 10000;
                         int less_distance_index = 0;
-                        for (int i = 0; i < local_path_states.size(); i++)
+                        for (int i = (local_path_states.size() - 1); i > -1; i--)
                         {
                             double current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
                             double current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
@@ -1181,11 +1214,11 @@ void OnlinePlannFramework::planningTimerCallback()
                                     init_x_distance = current_distance_x;
                                     init_y_distance = current_distance_y;
                                     less_distance_index = i;
-                                }
 
-                                if (current_distance_x < 0.3 && current_distance_y < 0.3)
-                                {
-                                    break;
+                                    if (current_distance_x < 0.4 && current_distance_y < 0.4)
+                                    {
+                                        break;
+                                    }
                                 }
                             }
                         }
