@@ -150,30 +150,23 @@ bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
 
         if (social_relevance_validity_checking_)
         {
-            double dRobotAgent =
-                std::sqrt(std::pow(agentState.pose.position.x - odomData->pose.pose.position.x, 2) +
-                          std::pow(agentState.pose.position.y - odomData->pose.pose.position.y, 2));
-
-            if (dRobotAgent < actualFOVDistance)
+            if (this->isAgentInRFOV(state, agentState))
             {
-                if (this->isAgentInRFOV(state, agentState))
+                // FCL
+                fcl::Transform3f agent_tf;
+                agent_tf.setIdentity();
+                agent_tf.translate(fcl::Vector3f(agentState.pose.position.x, agentState.pose.position.y,
+                                                 robot_base_height_ / 2.0));
+                // fcl::Quaternion3f qt0;
+                // qt0.fromEuler(0.0, 0.0, 0.0);
+                // agent_tf.setQuatRotation(qt0);
+
+                fcl::CollisionObjectf agent_co(agent_collision_solid_, agent_tf);
+                fcl::collide(&agent_co, &vehicle_co, collision_request, collision_result);
+
+                if (collision_result.isCollision())
                 {
-                    // FCL
-                    fcl::Transform3f agent_tf;
-                    agent_tf.setIdentity();
-                    agent_tf.translate(fcl::Vector3f(agentState.pose.position.x, agentState.pose.position.y,
-                                                     robot_base_height_ / 2.0));
-                    // fcl::Quaternion3f qt0;
-                    // qt0.fromEuler(0.0, 0.0, 0.0);
-                    // agent_tf.setQuatRotation(qt0);
-
-                    fcl::CollisionObjectf agent_co(agent_collision_solid_, agent_tf);
-                    fcl::collide(&agent_co, &vehicle_co, collision_request, collision_result);
-
-                    if (collision_result.isCollision())
-                    {
-                        return false;
-                    }
+                    return false;
                 }
             }
         }
