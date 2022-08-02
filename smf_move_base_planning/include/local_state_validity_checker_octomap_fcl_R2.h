@@ -183,7 +183,7 @@ private:
   pedsim_msgs::AgentStatesConstPtr agentStates;
 
   // relevant agents
-  std::shared_ptr<pedsim_msgs::AgentStates> relevant_agent_states_;
+  pedsim_msgs::AgentStates relevant_agent_states_;
 
   // odometry data
   nav_msgs::OdometryConstPtr odomData;
