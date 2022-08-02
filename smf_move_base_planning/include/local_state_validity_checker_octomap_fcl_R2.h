@@ -141,7 +141,7 @@ public:
   /*
    * Calculates wether an agent is in the field of view of the robot.
    */
-  bool isAgentInRFOV(const ob::State *state, const pedsim_msgs::AgentState agentState) const;
+  bool isAgentInRFOV(const pedsim_msgs::AgentState agentState) const;
 
   bool isRobotInFront(const ob::State *state, const pedsim_msgs::AgentState agentState,
                       const ob::SpaceInformationPtr space) const;
@@ -181,6 +181,9 @@ private:
 
   // pedsim variables
   pedsim_msgs::AgentStatesConstPtr agentStates;
+
+  // relevant agents
+  std::shared_ptr<pedsim_msgs::AgentStates> relevant_agent_states_;
 
   // odometry data
   nav_msgs::OdometryConstPtr odomData;
