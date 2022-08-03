@@ -222,8 +222,6 @@ double OmFclStateValidityCheckerR2::checkSocialCostmap(const ob::State *state,
 
     double state_risk = 1.0;
 
-    double nearestDist = 1000000000;
-
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
     double mapOriginX = socialCostmap->info.origin.position.x + (socialCostmap->info.width / 2) * socialCostmap->info.resolution;
