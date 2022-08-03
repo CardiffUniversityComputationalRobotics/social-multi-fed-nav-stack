@@ -145,7 +145,7 @@ private:
     double goal_radius_, local_goal_radius_, local_path_range_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
-    std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_, past_controller_local_path_states_;
+    std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
     // smf_move_base_msgs::Path2D last_local_path;
@@ -1257,17 +1257,6 @@ void OnlinePlannFramework::planningTimerCallback()
                                 past_local_solution_path_states_.push_back(s);
                             }
                         }
-
-                        past_controller_local_path_states_.clear();
-
-                        for (int i = 0; i < controller_local_path_states.size(); i++)
-                        {
-                            ob::State *s = space->allocState();
-                            space->copyState(s, controller_local_path_states[i]);
-                            past_controller_local_path_states_.push_back(s);
-                        }
-
-                        std::reverse(past_controller_local_path_states_.begin(), past_controller_local_path_states_.end());
                     }
 
                     // !end of local planner solve
@@ -1341,7 +1330,7 @@ void OnlinePlannFramework::planningTimerCallback()
                                                      planning_bounds_x_, planning_bounds_y_));
             simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
-            if (past_controller_local_path_states_.size() > 0)
+            if (past_local_solution_path_states_.size() > 0)
             {
                 std::vector<const ob::State *> local_solution_path_states_copy_;
 
@@ -1355,10 +1344,10 @@ void OnlinePlannFramework::planningTimerCallback()
                 double init_x_distance = 10000;
                 double init_y_distance = 10000;
                 int less_distance_index = 0;
-                for (int i = 0; i < past_controller_local_path_states_.size(); i++)
+                for (int i = 0; i < past_local_solution_path_states_.size(); i++)
                 {
-                    double current_distance_x = abs(odomData->pose.pose.position.x - past_controller_local_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                    double current_distance_y = abs(odomData->pose.pose.position.y - past_controller_local_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                    double current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    double current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
                     if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                     {
@@ -1372,15 +1361,15 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 less_distance_index += 1;
-                if (less_distance_index > past_controller_local_path_states_.size())
+                if (less_distance_index > past_local_solution_path_states_.size())
                 {
-                    less_distance_index = past_controller_local_path_states_.size();
+                    less_distance_index = past_local_solution_path_states_.size();
                 }
 
                 for (int i = 0; i < less_distance_index; i++)
                 {
                     ob::State *s = space->allocState();
-                    space->copyState(s, past_controller_local_path_states_[i]);
+                    space->copyState(s, past_local_solution_path_states_[i]);
                     local_solution_path_states_copy_.push_back(s);
                 }
 
