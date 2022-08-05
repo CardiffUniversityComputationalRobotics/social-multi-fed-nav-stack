@@ -109,7 +109,7 @@ void SocialCostmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentSta
         newRelevantAgentState.header = relevantAgentState.header;
         newRelevantAgentState.agent_state = relevantAgentState.agent_state;
 
-        newRelevantAgentState.relevance = relevantAgentState.relevance - double(time_decay_factor_ * exp(double(time_decay_factor_ * time_decay_factor_ * (ros::Time::now().sec - relevantAgentState.agent_state.header.stamp.now().sec))));
+        newRelevantAgentState.relevance = relevantAgentState.relevance - double((time_decay_factor_ * exp(double(time_decay_factor_ * time_decay_factor_ * (ros::Time::now().sec - relevantAgentState.agent_state.header.stamp.now().sec)))) / 1000000);
 
         if (newRelevantAgentState.relevance < 0)
         {
