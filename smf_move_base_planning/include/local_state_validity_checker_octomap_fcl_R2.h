@@ -55,6 +55,9 @@
 #include <fcl/narrowphase/collision_request.h>
 #include <fcl/narrowphase/collision_result.h>
 
+// Social Costmap
+#include <nav_msgs/OccupancyGrid.h>
+
 #include <iostream>
 #include <pedsim_msgs/AgentStates.h>
 #include <pedsim_msgs/AgentState.h>
@@ -146,6 +149,32 @@ public:
   bool isRobotInFront(const ob::State *state, const pedsim_msgs::AgentState agentState,
                       const ob::SpaceInformationPtr space) const;
 
+  unsigned int mapIndex(unsigned int width, unsigned int i, unsigned int j) const
+  {
+    return i + j * width;
+  }
+
+  double mapWx(double origin_x, unsigned int width, double resolution, unsigned int i) const
+  {
+
+    return double(origin_x) + (double(i) - double(width) / 2) * double(resolution);
+  }
+
+  double mapWy(double origin_y, unsigned int height, double resolution, unsigned int j) const
+  {
+    return double(origin_y) + (double(j) - double(height) / 2) * double(resolution);
+  }
+
+  unsigned int IMapIndex(double origin_x, double width, double resolution, double x_position) const
+  {
+    return (double(width) / 2) + ((double(x_position) - double(origin_x)) / double(resolution));
+  }
+
+  unsigned int JMapIndex(double origin_y, double height, double resolution, double y_position) const
+  {
+    return (double(height) / 2) + ((double(y_position) - double(origin_y)) / double(resolution));
+  }
+
 private:
   // ROS
   ros::NodeHandle nh_, local_nh_;
@@ -165,6 +194,7 @@ private:
   // topics
   std::string sim_agents_topic;
   std::string odometry_topic;
+  std::string social_costmap_topic_;
 
   // extra frames
   std::string main_frame;
@@ -177,7 +207,7 @@ private:
   std::shared_ptr<fcl::Cylinderf> robot_collision_solid_;
   std::shared_ptr<fcl::Cylinderf> agent_collision_solid_;
 
-  bool opport_collision_check_, social_relevance_validity_checking_;
+  bool opport_collision_check_, social_relevance_validity_checking_, use_social_costmap_;
 
   // pedsim variables
   pedsim_msgs::AgentStatesConstPtr agentStates;
@@ -260,6 +290,10 @@ private:
    * This is the velocity that will create de maximum distance for agent evaluation
    */
   double robotVelocityThreshold = 0.38;
+
+  // social costmap data
+  nav_msgs::OccupancyGridConstPtr socialCostmap;
+  std::vector<int8_t> socialCostmapValues;
 };
 
 #endif

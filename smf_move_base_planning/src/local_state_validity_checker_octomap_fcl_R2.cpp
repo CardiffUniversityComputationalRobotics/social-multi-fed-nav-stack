@@ -34,6 +34,8 @@ LocalOmFclStateValidityCheckerR2::LocalOmFclStateValidityCheckerR2(const ob::Spa
     local_nh_.param("main_frame", main_frame, main_frame);
     local_nh_.param("optimization_objective", optimization_objective, optimization_objective);
     local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
+    local_nh_.param("use_social_costmap", use_social_costmap_, use_social_costmap_);
+    local_nh_.param("social_costmap_topic", social_costmap_topic_, social_costmap_topic_);
 
     octree_ = NULL;
 
@@ -87,6 +89,10 @@ LocalOmFclStateValidityCheckerR2::LocalOmFclStateValidityCheckerR2(const ob::Spa
         }
     }
     relevant_agent_states_.agent_states = agent_state_vector;
+
+    ROS_INFO_STREAM("Retrieving social costmap.");
+    socialCostmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(social_costmap_topic_);
+    socialCostmapValues = socialCostmap->data;
 }
 
 bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
@@ -309,7 +315,8 @@ double LocalOmFclStateValidityCheckerR2::checkSocialComfort(const ob::State *sta
 double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
                                                                     const ob::SpaceInformationPtr space) const
 {
-    // const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+
     double state_risk = 0.0;
     double current_state_risk = 0.0;
 
@@ -334,6 +341,27 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
 
             if (current_state_risk > state_risk)
                 state_risk = current_state_risk;
+        }
+    }
+
+    // ? SOCIAL COSTMAP
+
+    if (use_social_costmap_)
+    {
+        double mapOriginX = socialCostmap->info.origin.position.x + (socialCostmap->info.width / 2) * socialCostmap->info.resolution;
+
+        double mapOriginY = socialCostmap->info.origin.position.y + (socialCostmap->info.height / 2) * socialCostmap->info.resolution;
+
+        unsigned int nearI = IMapIndex(mapOriginX, socialCostmap->info.width, socialCostmap->info.resolution, state_r2->values[0]);
+
+        unsigned int nearJ = JMapIndex(mapOriginY, socialCostmap->info.height, socialCostmap->info.resolution, state_r2->values[1]);
+
+        if (nearI > socialCostmap->info.width || nearJ > socialCostmap->info.height)
+        {
+        }
+        else
+        {
+            state_risk += socialCostmapValues[mapIndex(socialCostmap->info.width, nearI, nearJ)];
         }
     }
 
