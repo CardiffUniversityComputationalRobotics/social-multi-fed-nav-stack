@@ -361,7 +361,7 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
         }
         else
         {
-            state_risk += socialCostmapValues[mapIndex(socialCostmap->info.width, nearI, nearJ)];
+            state_risk += double(socialCostmapValues[mapIndex(socialCostmap->info.width, nearI, nearJ)] / 10);
         }
     }
 

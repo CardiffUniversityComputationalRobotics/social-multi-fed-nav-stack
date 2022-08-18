@@ -245,7 +245,7 @@ double OmFclStateValidityCheckerR2::checkSocialCostmap(const ob::State *state,
         return state_risk;
     }
 
-    return 2 * state_risk;
+    return state_risk;
 }
 
 bool OmFclStateValidityCheckerR2::isValidPoint(const ob::State *state) const
