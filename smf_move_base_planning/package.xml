@@ -48,7 +48,7 @@
 
 
   <!-- pedsim messages dependency -->
-  <depend>pedsim_ros</depend>
+  <!-- <depend>pedsim_ros</depend> -->
 
   <!-- OMPL -->
   <depend>ompl</depend>

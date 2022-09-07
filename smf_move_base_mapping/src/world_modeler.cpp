@@ -16,21 +16,17 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 // FCL
-#include <fcl/fcl.h>
+#include <fcl/shape/geometric_shapes.h>
+#include <fcl/shape/geometric_shapes_utility.h>
+#include <fcl/narrowphase/narrowphase.h>
+#include <fcl/octree.h>
+#include <fcl/traversal/traversal_node_octree.h>
+#include <fcl/broadphase/broadphase.h>
+#include <fcl/shape/geometric_shape_to_BVH_model.h>
+#include <fcl/math/transform.h>
 #include <fcl/collision.h>
-#include <fcl/geometry/octree/octree.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/distance.h>
-#include <fcl/broadphase/broadphase_dynamic_AABB_tree.h>
-#include <fcl/broadphase/default_broadphase_callbacks.h>
-#include <fcl/broadphase/broadphase_spatialhash.h>
-#include <fcl/common/types.h>
-#include <fcl/config.h>
-#include <fcl/geometry/shape/box.h>
-#include <fcl/math/geometry-inl.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/collision_request.h>
-#include <fcl/narrowphase/collision_result.h>
+#include <fcl/collision_node.h>
+#include <fcl/distance.h>
 
 using octomap_msgs::GetOctomap;
 // Standard namespace
@@ -105,9 +101,9 @@ private:
     double octree_res_;
 
     // FCL
-    std::shared_ptr<fcl::OcTreef> tree_;
-    std::shared_ptr<fcl::CollisionObjectf> tree_obj_;
-    std::shared_ptr<fcl::Boxf> robot_agent_solid_;
+    std::shared_ptr<fcl::OcTree> tree_;
+    std::shared_ptr<fcl::CollisionObject> tree_obj_;
+    std::shared_ptr<fcl::Box> robot_agent_solid_;
 };
 
 WorldModeler::WorldModeler()
@@ -284,21 +280,21 @@ bool WorldModeler::agentInFOV(pedsim_msgs::AgentState social_agent)
     if (abs(tethaRobotAgentFov) < robot_fov_)
     {
 
-        fcl::CollisionRequestf collision_request;
-        fcl::CollisionResultf collision_result;
+        fcl::CollisionRequest collision_request;
+        fcl::CollisionResult collision_result;
 
-        robot_agent_solid_.reset(new fcl::Boxf(dRobotAgent, 0.2, 0.25));
+        robot_agent_solid_.reset(new fcl::Box(dRobotAgent, 0.2, 0.25));
 
         fcl::Transform3f robot_agent_solid_tf;
         robot_agent_solid_tf.setIdentity();
-        robot_agent_solid_tf.translate(fcl::Vector3f((social_agent.pose.position.x + robot_odometry_.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry_.pose.pose.position.y) / 2, 1.2));
+        robot_agent_solid_tf.setTranslation(fcl::Vec3f((social_agent.pose.position.x + robot_odometry_.pose.pose.position.x) / 2, (social_agent.pose.position.y + robot_odometry_.pose.pose.position.y) / 2, 1.2));
 
         tf2::Quaternion myQuaternion;
         myQuaternion.setRPY(0, tethaRobotAgent, 0);
 
-        robot_agent_solid_tf.rotate(fcl::Quaternionf(myQuaternion.getX(), myQuaternion.getY(), myQuaternion.getZ(), myQuaternion.getW()));
+        robot_agent_solid_tf.setQuatRotation(fcl::Quaternion3f(myQuaternion.getX(), myQuaternion.getY(), myQuaternion.getZ(), myQuaternion.getW()));
 
-        fcl::CollisionObjectf robot_agent_co(robot_agent_solid_, robot_agent_solid_tf);
+        fcl::CollisionObject robot_agent_co(robot_agent_solid_, robot_agent_solid_tf);
 
         fcl::collide(tree_obj_.get(), &robot_agent_co, collision_request, collision_result);
 
@@ -332,8 +328,8 @@ pedsim_msgs::AgentStates WorldModeler::socialAgentsInFOV()
         if (abs_octree_)
         {
             octree_ = dynamic_cast<octomap::OcTree *>(abs_octree_);
-            tree_ = std::make_shared<fcl::OcTreef>(std::shared_ptr<const octomap::OcTree>(octree_));
-            tree_obj_ = std::make_shared<fcl::CollisionObjectf>((std::shared_ptr<fcl::CollisionGeometryf>(tree_)));
+            tree_ = std::make_shared<fcl::OcTree>(std::shared_ptr<const octomap::OcTree>(octree_));
+            tree_obj_ = std::make_shared<fcl::CollisionObject>((std::shared_ptr<fcl::CollisionGeometry>(tree_)));
         }
     }
 

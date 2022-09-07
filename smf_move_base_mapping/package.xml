@@ -24,7 +24,7 @@
   <!-- more msgs deps -->
   <depend>nav_msgs</depend>
   <depend>smf_move_base_msgs</depend>
-  <depend>pedsim_ros</depend>
+  <!-- <depend>pedsim_ros</depend> -->
 
   <build_depend condition="$ROS_DISTRO != noetic">libfcl-dev</build_depend>
   <exec_depend condition="$ROS_DISTRO != noetic">libfcl-dev</exec_depend>
