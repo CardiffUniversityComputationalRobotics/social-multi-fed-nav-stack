@@ -279,7 +279,7 @@ private:
    */
 
   // double fRobotView = (M_PI - ((M_PI - robotAngleView) * 2));
-  double fRobotView = 0.5 * M_PI;
+  double fRobotView = 0.75 * M_PI;
 
   /*
    * This is the angle of field of view of the robot.
