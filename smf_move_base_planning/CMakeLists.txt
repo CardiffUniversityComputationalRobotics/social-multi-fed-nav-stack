@@ -16,6 +16,16 @@ find_package(catkin REQUIRED COMPONENTS
   smf_move_base_msgs
   pedsim_msgs
   roslib
+  grid_map_core
+  grid_map_cv
+  grid_map_filters
+  grid_map_loader
+  grid_map_msgs
+  grid_map_octomap
+  grid_map_ros
+  grid_map_rviz_plugin
+  grid_map_sdf
+  grid_map_visualization
 )
 
 find_package(Octomap REQUIRED)

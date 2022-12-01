@@ -652,15 +652,15 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     ob::StateValidityCheckerPtr om_stat_val_check;
     om_stat_val_check = ob::StateValidityCheckerPtr(
-        new OmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                        planning_bounds_x_, planning_bounds_y_));
+        new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
+                                          planning_bounds_x_, planning_bounds_y_));
     simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
     // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr local_om_stat_val_check;
     local_om_stat_val_check = ob::StateValidityCheckerPtr(
-        new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                             planning_bounds_x_, planning_bounds_y_));
+        new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                               planning_bounds_x_, planning_bounds_y_));
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
     //=======================================================================
@@ -857,8 +857,8 @@ void OnlinePlannFramework::planningTimerCallback()
         //=======================================================================
         ob::StateValidityCheckerPtr om_stat_val_check;
         om_stat_val_check = ob::StateValidityCheckerPtr(
-            new OmFclStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                            planning_bounds_x_, planning_bounds_y_));
+            new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
+                                              planning_bounds_x_, planning_bounds_y_));
         simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
         //=======================================================================
@@ -895,8 +895,8 @@ void OnlinePlannFramework::planningTimerCallback()
         //=======================================================================
         ob::StateValidityCheckerPtr local_om_stat_val_check;
         local_om_stat_val_check = ob::StateValidityCheckerPtr(
-            new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                 planning_bounds_x_, planning_bounds_y_));
+            new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                   planning_bounds_x_, planning_bounds_y_));
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
         //=======================================================================
@@ -1302,8 +1302,8 @@ void OnlinePlannFramework::planningTimerCallback()
 
             ob::StateValidityCheckerPtr local_om_stat_val_check;
             local_om_stat_val_check = ob::StateValidityCheckerPtr(
-                new LocalOmFclStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                     planning_bounds_x_, planning_bounds_y_));
+                new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                       planning_bounds_x_, planning_bounds_y_));
             simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
             if (past_local_solution_path_states_.size() > 0)

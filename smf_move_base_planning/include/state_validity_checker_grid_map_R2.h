@@ -29,10 +29,10 @@
 #include <cmath>
 #include <string>
 
-// Octomap
-#include <octomap/octomap.h>
-#include <octomap_msgs/conversions.h>
-#include <octomap_msgs/GetOctomap.h>
+// grid map library
+#include <grid_map_ros/grid_map_ros.hpp>
+#include <grid_map_msgs/GetGridMap.h>
+#include <grid_map_msgs/GridMap.h>
 
 // OMPL
 #include <ompl/config.h>
@@ -62,36 +62,35 @@
 #include <tf/tf.h>
 #include <math.h>
 
-// ROS-Octomap interface
-using octomap_msgs::GetOctomap;
+// ROS-GridMap interface
+using grid_map_msgs::GetGridMap;
 // Standard namespace
 using namespace std;
-// Octomap namespace
-using namespace octomap;
+
 // OMPL namespaces
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-//!  OmFclStateValidityCheckerR2 class.
+//!  GridMapStateValidityCheckerR2 class.
 /*!
   Octomap State Validity checker.
   Extension of an abstract class used to implement the state validity checker over an octomap using FCL.
 */
-class OmFclStateValidityCheckerR2 : public ob::StateValidityChecker
+class GridMapStateValidityCheckerR2 : public ob::StateValidityChecker
 {
 public:
-  //! OmFclStateValidityCheckerR2 constructor.
+  //! GridMapStateValidityCheckerR2 constructor.
   /*!
    * Besides of initializing the private attributes, it loads the octomap.
    */
-  OmFclStateValidityCheckerR2(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
-                              std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
+  GridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
+                                std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
 
-  //! OmFclStateValidityCheckerR2 destructor.
+  //! GridMapStateValidityCheckerR2 destructor.
   /*!
    * Destroy the octomap.
    */
-  ~OmFclStateValidityCheckerR2();
+  ~GridMapStateValidityCheckerR2();
 
   //! State validator.
   /*!
@@ -102,7 +101,7 @@ public:
   /*
    * Returns the cost value for the integration of the path defined on the values of a time decaying social costmap
    */
-  virtual double checkSocialCostmap(const ob::State *state, const ob::SpaceInformationPtr space) const;
+  virtual double checkSocialHeatmap(const ob::State *state, const ob::SpaceInformationPtr space) const;
 
   virtual bool isValidPoint(const ob::State *state) const;
 
@@ -110,15 +109,22 @@ private:
   // ROS
   ros::NodeHandle nh_, local_nh_;
 
-  double octree_min_x_, octree_min_y_, octree_min_z_;
-  double octree_max_x_, octree_max_y_, octree_max_z_;
+  double grid_map_min_x_, grid_map_min_y_, grid_map_min_z_;
+  double grid_map_max_x_, grid_map_max_y_, grid_map_max_z_;
   std::vector<double> planning_bounds_x_, planning_bounds_y_;
-  double robot_base_radius_, robot_base_height_;
+  double robot_base_radius_;
 
   // cost objective type
   std::string optimization_objective;
 
   bool opport_collision_check_;
+
+  std::string grid_map_service_;
+  grid_map_msgs::GridMap grid_map_msgs_;
+  grid_map::GridMap grid_map_;
+
+  grid_map::Matrix obstacles_grid_map_;
+  grid_map::Matrix social_heatmap_grid_map_;
 };
 
 #endif

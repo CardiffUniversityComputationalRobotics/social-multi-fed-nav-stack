@@ -13,34 +13,25 @@
 
 #include <local_state_validity_checker_grid_map_R2.h>
 
-LocalOmFclStateValidityCheckerR2::LocalOmFclStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
-                                                                   const bool opport_collision_check,
-                                                                   std::vector<double> planning_bounds_x,
-                                                                   std::vector<double> planning_bounds_y)
-    : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4), robot_base_height_(2.0)
+LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
+                                                                       const bool opport_collision_check,
+                                                                       std::vector<double> planning_bounds_x,
+                                                                       std::vector<double> planning_bounds_y)
+    : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4)
 {
-    GetOctomap::Request req;
-    GetOctomap::Response resp;
+    GetGridMap::Request req;
+    GetGridMap::Response resp;
 
     opport_collision_check_ = opport_collision_check;
     planning_bounds_x_ = planning_bounds_x;
     planning_bounds_y_ = planning_bounds_y;
 
     local_nh_.param("robot_base_radius", robot_base_radius_, robot_base_radius_);
-    local_nh_.param("robot_base_height", robot_base_height_, robot_base_height_);
-    local_nh_.param("octomap_service", octomap_service_, octomap_service_);
-    local_nh_.param("sim_agents_topic", sim_agents_topic, sim_agents_topic);
-    local_nh_.param("odometry_topic", odometry_topic, odometry_topic);
-    local_nh_.param("main_frame", main_frame, main_frame);
-    local_nh_.param("optimization_objective", optimization_objective, optimization_objective);
     local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
     local_nh_.param("use_social_costmap", use_social_costmap_, use_social_costmap_);
-    local_nh_.param("social_costmap_topic", social_costmap_topic_, social_costmap_topic_);
-
-    octree_ = NULL;
 }
 
-bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
 {
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
@@ -49,8 +40,8 @@ bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
     // extract the component of the state and cast it to what we expect
 
     if (opport_collision_check_ &&
-        (state_r2->values[0] < octree_min_x_ || state_r2->values[1] < octree_min_y_ ||
-         state_r2->values[0] > octree_max_x_ || state_r2->values[1] > octree_max_y_))
+        (state_r2->values[0] < grid_map_min_x_ || state_r2->values[1] < grid_map_min_y_ ||
+         state_r2->values[0] > grid_map_max_x_ || state_r2->values[1] > grid_map_max_y_))
     {
         // ompl::tools::Profiler::End("collision");
         return true;
@@ -66,8 +57,8 @@ bool LocalOmFclStateValidityCheckerR2::isValid(const ob::State *state) const
     return true;
 }
 
-double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
-                                                                    const ob::SpaceInformationPtr space) const
+double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
+                                                                      const ob::SpaceInformationPtr space) const
 {
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
@@ -80,37 +71,34 @@ double LocalOmFclStateValidityCheckerR2::checkExtendedSocialComfort(const ob::St
     return state_risk;
 }
 
-bool LocalOmFclStateValidityCheckerR2::isValidPoint(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
 {
-    OcTreeNode *result;
-    point3d query;
-    double node_occupancy;
+    // OcTreeNode *result;
+    // point3d query;
+    // double node_occupancy;
 
-    // extract the component of the state and cast it to what we expect
-    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+    // // extract the component of the state and cast it to what we expect
+    // const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
-    query.x() = state_r2->values[0];
-    query.y() = state_r2->values[1];
-    query.z() = 0.0;
+    // query.x() = state_r2->values[0];
+    // query.y() = state_r2->values[1];
+    // query.z() = 0.0;
 
-    result = octree_->search(query);
+    // result = octree_->search(query);
 
-    if (result == NULL)
-    {
-        return false;
-    }
-    else
-    {
-        node_occupancy = result->getOccupancy();
-        if (node_occupancy <= 0.4)
-            return true;
-    }
+    // if (result == NULL)
+    // {
+    //     return false;
+    // }
+    // else
+    // {
+    //     node_occupancy = result->getOccupancy();
+    //     if (node_occupancy <= 0.4)
+    //         return true;
+    // }
     return false;
 }
 
-LocalOmFclStateValidityCheckerR2::~LocalOmFclStateValidityCheckerR2()
+LocalGridMapStateValidityCheckerR2::~LocalGridMapStateValidityCheckerR2()
 {
-    delete octree_;
-    //    delete tree_;
-    //    delete tree_obj_;
 }
