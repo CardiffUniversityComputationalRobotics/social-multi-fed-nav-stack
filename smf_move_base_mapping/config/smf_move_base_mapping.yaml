@@ -17,14 +17,14 @@ point_cloud_frames: ["/CameraDepth_frame"]
 
 # social agents config
 social_agents_topic: "/pedsim_simulator/simulated_agents"
-social_costmap_topic: "/social_costmap"
+social_heatmap_topic: "/social_heatmap"
 
 global_2d_map_topic: "/projected_map"
 robot_distance_view: 8
 robot_velocity_thres: 0.22
 robot_fov: 1.57
-social_costmap_decay_factor: 1
-social_costmap_resolution_factor: 5
+social_heatmap_decay_factor: 1
+social_heatmap_resolution_factor: 5
 
 # octomap
 octomap_service: /octomap_binary
