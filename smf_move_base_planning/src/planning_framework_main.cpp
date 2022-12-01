@@ -58,8 +58,8 @@
 #include <new_state_sampler.h>
 #include <informed_new_state_sampler.h>
 #include <state_cost_objective.h>
-#include <state_validity_checker_octomap_fcl_R2.h>
-#include <local_state_validity_checker_octomap_fcl_R2.h>
+#include <state_validity_checker_grid_map_R2.h>
+#include <local_state_validity_checker_grid_map_R2.h>
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -668,12 +668,6 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     if (optimization_objective_.compare("PathLength") == 0) // path length Objective
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_global));
-    else if (optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-        simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
-            getPathLengthGoalRegionObjective(si_global, goal.get(), goal_radius_));
-    else if (optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-        simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
-            getRiskZonesObjective(si_global, motion_cost_interpolation_));
     else if (optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
             getSocialCostmapObjective(si_global, motion_cost_interpolation_));
@@ -686,12 +680,6 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
-    else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-            getPathLengthGoalRegionObjective(si_global, goal.get(), goal_radius_));
-    else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-            getRiskZonesObjective(si_local, motion_cost_interpolation_));
     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
             getSocialComfortObjective(si_local, motion_cost_interpolation_, space, simple_setup_local_->getPlanner(), dummy_global_path_feedback));
@@ -879,12 +867,6 @@ void OnlinePlannFramework::planningTimerCallback()
         if (optimization_objective_.compare("PathLength") == 0) // path length Objective
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_global_->getSpaceInformation()));
-        else if (optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-            simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
-                simple_setup_global_->getSpaceInformation(), goal.get(), goal_radius_));
-        else if (optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-            simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
-                getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
         else if (optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
                 getSocialCostmapObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
@@ -1086,12 +1068,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-                    else if (local_optimization_objective_.compare("PathLengthGoalRegion") == 0) // path length Objective
-                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthGoalRegionObjective(
-                            simple_setup_local_->getSpaceInformation(), goal.get(), goal_radius_));
-                    else if (local_optimization_objective_.compare("RiskZones") == 0) // Risk Zones
-                        simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                            getRiskZonesObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
                     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_, local_space, simple_setup_global_->getPlanner(), global_path_feedback));

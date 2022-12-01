@@ -1,4 +1,4 @@
-/*! \file state_validity_checker_octomap_fcl_R2.hpp
+/*! \file state_validity_checker_grid_map_R2.hpp
  * \brief State validity checker.
  *
  * \date March 5, 2015
@@ -11,8 +11,8 @@
  * http://hdl.handle.net/10803/457592, http://www.tdx.cat/handle/10803/457592
  */
 
-#ifndef OMPL_CONTRIB_STATE_VALIDITY_CHECKER_FCL_OCTOMAP_R2_
-#define OMPL_CONTRIB_STATE_VALIDITY_CHECKER_FCL_OCTOMAP_R2_
+#ifndef OMPL_CONTRIB_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
+#define OMPL_CONTRIB_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
 
 // ROS
 #include <ros/ros.h>
@@ -48,23 +48,6 @@
 
 // Eigen
 #include <Eigen/Dense>
-
-// FCL
-#include <fcl/fcl.h>
-#include <fcl/collision.h>
-#include <fcl/geometry/octree/octree.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/distance.h>
-#include <fcl/broadphase/broadphase_dynamic_AABB_tree.h>
-#include <fcl/broadphase/default_broadphase_callbacks.h>
-#include <fcl/broadphase/broadphase_spatialhash.h>
-#include <fcl/common/types.h>
-#include <fcl/config.h>
-#include <fcl/geometry/shape/cylinder.h>
-#include <fcl/math/geometry-inl.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/collision_request.h>
-#include <fcl/narrowphase/collision_result.h>
 
 // Social Costmap
 #include <nav_msgs/OccupancyGrid.h>
@@ -116,14 +99,6 @@ public:
    */
   virtual bool isValid(const ob::State *state) const;
 
-  //! State clearance.
-  /*!
-   * Returns the minimum distance from the given robot state and the environment
-   */
-  virtual double clearance(const ob::State *state) const;
-
-  virtual double checkRiskZones(const ob::State *state) const;
-
   /*
    * Returns the cost value for the integration of the path defined on the values of a time decaying social costmap
    */
@@ -131,70 +106,19 @@ public:
 
   virtual bool isValidPoint(const ob::State *state) const;
 
-  unsigned int mapIndex(unsigned int width, unsigned int i, unsigned int j) const
-  {
-    return i + j * width;
-  }
-
-  double mapWx(double origin_x, unsigned int width, double resolution, unsigned int i) const
-  {
-
-    return double(origin_x) + (double(i) - double(width) / 2) * double(resolution);
-  }
-
-  double mapWy(double origin_y, unsigned int height, double resolution, unsigned int j) const
-  {
-    return double(origin_y) + (double(j) - double(height) / 2) * double(resolution);
-  }
-
-  unsigned int IMapIndex(double origin_x, double width, double resolution, double x_position) const
-  {
-    return (double(width) / 2) + ((double(x_position) - double(origin_x)) / double(resolution));
-  }
-
-  unsigned int JMapIndex(double origin_y, double height, double resolution, double y_position) const
-  {
-    return (double(height) / 2) + ((double(y_position) - double(origin_y)) / double(resolution));
-  }
-
 private:
   // ROS
   ros::NodeHandle nh_, local_nh_;
 
-  // Octomap
-  octomap::AbstractOcTree *abs_octree_;
-  octomap::OcTree *octree_;
   double octree_min_x_, octree_min_y_, octree_min_z_;
   double octree_max_x_, octree_max_y_, octree_max_z_;
   std::vector<double> planning_bounds_x_, planning_bounds_y_;
   double robot_base_radius_, robot_base_height_;
-  std::string octomap_service_;
 
   // cost objective type
   std::string optimization_objective;
 
-  // topics
-  std::string odometry_topic, social_costmap_topic;
-
-  // extra frames
-  std::string main_frame;
-
-  double octree_res_;
-
-  // FCL
-  fcl::OcTreef *tree_;
-  fcl::CollisionObjectf *tree_obj_;
-  std::shared_ptr<fcl::Cylinderf> robot_collision_solid_;
-  std::shared_ptr<fcl::Cylinderf> agent_collision_solid_;
-
   bool opport_collision_check_;
-
-  // odometry data
-  nav_msgs::OdometryConstPtr odomData;
-
-  // social costmap data
-  nav_msgs::OccupancyGridConstPtr socialCostmap;
-  std::vector<int8_t> socialCostmapValues;
 };
 
 #endif

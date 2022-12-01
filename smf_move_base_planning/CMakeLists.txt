@@ -21,19 +21,6 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Octomap REQUIRED)
 find_package(ompl REQUIRED)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBFCL REQUIRED fcl)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBFCL_PC REQUIRED fcl)
-# find *absolute* paths to LIBFCL_* paths
-find_path(LIBFCL_INCLUDE_DIRS fcl/config.h HINTS ${LIBFCL_PC_INCLUDE_DIR} ${LIBFCL_PC_INCLUDE_DIRS})
-set(LIBFCL_LIBRARIES)
-foreach(_lib ${LIBFCL_PC_LIBRARIES})
-  find_library(_lib_${_lib} ${_lib} HINTS ${LIBFCL_PC_LIBRARY_DIRS})
-  list(APPEND LIBFCL_LIBRARIES ${_lib_${_lib}})
-endforeach()
-
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES
@@ -46,9 +33,8 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OMPL_INCLUDE_DIRS}
-  ${FCL_INCLUDE_DIRS}
 )
-link_directories(${OCTOMAP_LIBRARY_DIRS} ${ompl_LIBRARY_DIRS} ${FCL_LIBRARY_DIRS} ${CCD_LIBRARY_DIRS})
+link_directories(${OCTOMAP_LIBRARY_DIRS} ${ompl_LIBRARY_DIRS} ${CCD_LIBRARY_DIRS})
 
 
 add_executable(smf_move_base_planner
@@ -56,11 +42,11 @@ src/planner/RRTstarMod.cpp
 src/planner/InformedRRTstarMod.cpp
 src/sampler/PathLengthDirectInfSamplerMod.cpp
 src/planning_framework_main.cpp
-src/state_validity_checker_octomap_fcl_R2.cpp
-src/local_state_validity_checker_octomap_fcl_R2.cpp
+src/state_validity_checker_grid_map_R2.cpp
+src/local_state_validity_checker_grid_map_R2.cpp
 src/new_state_sampler.cpp
 src/informed_new_state_sampler.cpp
 src/state_cost_objective.cpp
 )
-target_link_libraries(smf_move_base_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${LIBFCL_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
+target_link_libraries(smf_move_base_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
 add_dependencies(smf_move_base_planner ${catkin_EXPORTED_TARGETS} smf_move_base_msgs_generate_messages_cpp ${smf_move_base_msgs_EXPORTED_TARGETS})

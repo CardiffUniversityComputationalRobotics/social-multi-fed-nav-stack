@@ -1,7 +1,7 @@
 
 
-#ifndef OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_FCL_OCTOMAP_R2_
-#define OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_FCL_OCTOMAP_R2_
+#ifndef OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
+#define OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
 
 // ROS
 #include <ros/ros.h>
@@ -37,23 +37,6 @@
 
 // Eigen
 #include <Eigen/Dense>
-
-// FCL
-#include <fcl/fcl.h>
-#include <fcl/collision.h>
-#include <fcl/geometry/octree/octree.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/distance.h>
-#include <fcl/broadphase/broadphase_dynamic_AABB_tree.h>
-#include <fcl/broadphase/default_broadphase_callbacks.h>
-#include <fcl/broadphase/broadphase_spatialhash.h>
-#include <fcl/common/types.h>
-#include <fcl/config.h>
-#include <fcl/geometry/shape/cylinder.h>
-#include <fcl/math/geometry-inl.h>
-#include <fcl/narrowphase/collision_object.h>
-#include <fcl/narrowphase/collision_request.h>
-#include <fcl/narrowphase/collision_result.h>
 
 // Social Costmap
 #include <nav_msgs/OccupancyGrid.h>
@@ -105,20 +88,6 @@ public:
    */
   virtual bool isValid(const ob::State *state) const;
 
-  //! State clearance.
-  /*!
-   * Returns the minimum distance from the given robot state and the environment
-   */
-  virtual double clearance(const ob::State *state) const;
-
-  virtual double checkRiskZones(const ob::State *state) const;
-
-  /*
-   * Returns the cost value for the integration of the path defined on the equation that defines social
-   * comfort zone.
-   */
-  virtual double checkSocialComfort(const ob::State *state, const ob::SpaceInformationPtr space) const;
-
   /*
    * Returns the cost value for the integration of the path defined on the equation that defines an extended
    * social comfort zone model.
@@ -127,53 +96,6 @@ public:
                                             const ob::SpaceInformationPtr space) const;
 
   virtual bool isValidPoint(const ob::State *state) const;
-
-  /*
-   * Calculates the value of the interaction between robot agent and social agent
-   */
-  double basicPersonalSpaceFnc(const ob::State *state, const pedsim_msgs::AgentState agentState,
-                               const ob::SpaceInformationPtr space) const;
-
-  /*
-   * Calculates the value of the interaction between robot agent and social agent as the extended social
-   * model
-   */
-  double extendedPersonalSpaceFnc(const ob::State *state, const pedsim_msgs::AgentState agentState,
-                                  const ob::SpaceInformationPtr space) const;
-
-  /*
-   * Calculates wether an agent is in the field of view of the robot.
-   */
-  bool isAgentInRFOV(const pedsim_msgs::AgentState agentState) const;
-
-  bool isRobotInFront(const ob::State *state, const pedsim_msgs::AgentState agentState,
-                      const ob::SpaceInformationPtr space) const;
-
-  unsigned int mapIndex(unsigned int width, unsigned int i, unsigned int j) const
-  {
-    return i + j * width;
-  }
-
-  double mapWx(double origin_x, unsigned int width, double resolution, unsigned int i) const
-  {
-
-    return double(origin_x) + (double(i) - double(width) / 2) * double(resolution);
-  }
-
-  double mapWy(double origin_y, unsigned int height, double resolution, unsigned int j) const
-  {
-    return double(origin_y) + (double(j) - double(height) / 2) * double(resolution);
-  }
-
-  unsigned int IMapIndex(double origin_x, double width, double resolution, double x_position) const
-  {
-    return (double(width) / 2) + ((double(x_position) - double(origin_x)) / double(resolution));
-  }
-
-  unsigned int JMapIndex(double origin_y, double height, double resolution, double y_position) const
-  {
-    return (double(height) / 2) + ((double(y_position) - double(origin_y)) / double(resolution));
-  }
 
 private:
   // ROS
@@ -200,12 +122,6 @@ private:
   std::string main_frame;
 
   double octree_res_;
-
-  // FCL
-  fcl::OcTreef *tree_;
-  fcl::CollisionObjectf *tree_obj_;
-  std::shared_ptr<fcl::Cylinderf> robot_collision_solid_;
-  std::shared_ptr<fcl::Cylinderf> agent_collision_solid_;
 
   bool opport_collision_check_, social_relevance_validity_checking_, use_social_costmap_;
 
