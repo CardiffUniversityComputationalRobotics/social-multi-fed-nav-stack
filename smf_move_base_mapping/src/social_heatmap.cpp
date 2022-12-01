@@ -92,7 +92,7 @@ void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentSta
         new_relevant_agent_state.header = relevant_agent_state.header;
         new_relevant_agent_state.agent_state = relevant_agent_state.agent_state;
 
-        new_relevant_agent_state.relevance = relevant_agent_state.relevance - double((time_decay_factor_ * exp(double(time_decay_factor_ * time_decay_factor_ * (ros::Time::now().sec - relevant_agent_state.agent_state.header.stamp.now().sec)))) / 1000000);
+        new_relevant_agent_state.relevance = relevant_agent_state.relevance - double(((time_decay_factor_ / 10000000000000000) * exp(double(time_decay_factor_ * (time_decay_factor_ / 10000000000000000) * (ros::Time::now().sec - relevant_agent_state.agent_state.header.stamp.now().sec)))));
 
         if (new_relevant_agent_state.relevance < 0)
         {
