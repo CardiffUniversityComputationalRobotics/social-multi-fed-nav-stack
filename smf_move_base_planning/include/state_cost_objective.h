@@ -123,11 +123,11 @@ public:
 /*
  * Class to manage integral cost objective based on social costmap.
  */
-class SocialCostmapObjective : public ob::StateCostIntegralObjective
+class SocialHeatmapObjective : public ob::StateCostIntegralObjective
 {
 private:
 public:
-    SocialCostmapObjective(const ob::SpaceInformationPtr &si, bool enableMotionCostInterpolation)
+    SocialHeatmapObjective(const ob::SpaceInformationPtr &si, bool enableMotionCostInterpolation)
         : ob::StateCostIntegralObjective(si, enableMotionCostInterpolation)
     {
     }
@@ -197,7 +197,7 @@ ob::OptimizationObjectivePtr getSocialComfortObjective(const ob::SpaceInformatio
 
 /** Return an optimization objective which attempts to steer the robot
     away from social agents according to a costmap provided by a world modeling module */
-ob::OptimizationObjectivePtr getSocialCostmapObjective(const ob::SpaceInformationPtr &si,
+ob::OptimizationObjectivePtr getSocialHeatmapObjective(const ob::SpaceInformationPtr &si,
                                                        bool motion_cost_interpolation);
 
 /** Returns a structure representing the optimization objective to use

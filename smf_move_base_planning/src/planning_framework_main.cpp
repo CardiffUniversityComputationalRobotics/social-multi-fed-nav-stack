@@ -64,7 +64,6 @@
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
 #include <smf_move_base_msgs/Goto2DAction.h>
-#include <smf_move_base_msgs/GotoRegion2DAction.h>
 
 // pedsim msgs
 #include <pedsim_msgs/AgentStates.h>
@@ -74,8 +73,6 @@ namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
 typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> SmfBaseGoToActionServer;
-typedef actionlib::SimpleActionServer<smf_move_base_msgs::GotoRegion2DAction>
-    SmfBaseGoToRegionActionServer;
 
 //!  OnlinePlannFramework class.
 /*!
@@ -99,8 +96,6 @@ public:
     void queryGoalCallback(const geometry_msgs::PoseStampedConstPtr &nav_goal_msg);
     //! Callback for getting the 2D navigation goal
     void goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req);
-    //! Callback for getting the 2D navigation goal region
-    void goToRegionActionCallback(const smf_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req);
     //! Procedure to visualize the resulting path
     void visualizeRRT(og::PathGeometric &geopath);
     //! Procedure to visualize the resulting local path
@@ -125,11 +120,6 @@ private:
     smf_move_base_msgs::Goto2DAction goto_action_feedback_;
     smf_move_base_msgs::Goto2DAction goto_action_result_;
 
-    SmfBaseGoToRegionActionServer *goto_region_action_server_;
-    std::string goto_region_action_;
-    smf_move_base_msgs::GotoRegion2DAction goto_region_action_feedback_;
-    smf_move_base_msgs::GotoRegion2DAction goto_region_action_result_;
-
     // ROS TF
     tf::Pose last_robot_pose_;
     tf::TransformListener tf_listener_;
@@ -138,13 +128,13 @@ private:
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
     bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
-        goal_available_, goal_region_available_, dynamic_bounds_, start_prev_path_proj_, visualize_tree_,
+        goal_available_, dynamic_bounds_, visualize_tree_,
         control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
-    double goal_radius_, local_goal_radius_, local_path_range_;
+    double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
-        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, sim_agents_topic, local_path_topic_;
+        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
@@ -157,7 +147,7 @@ private:
  * Publishers to visualize the resulting path.
  */
 OnlinePlannFramework::OnlinePlannFramework()
-    : local_nh_("~"), dynamic_bounds_(false), start_prev_path_proj_(true), goto_action_server_(NULL), control_active_(false)
+    : local_nh_("~"), dynamic_bounds_(false), goto_action_server_(NULL), control_active_(false)
 {
     //=======================================================================
     // Get parameters
@@ -184,26 +174,21 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
     local_nh_.param("query_goal_topic", query_goal_topic_, query_goal_topic_);
     local_nh_.param("goto_action", goto_action_, goto_action_);
-    local_nh_.param("goto_region_action", goto_region_action_, goto_region_action_);
     local_nh_.param("solution_path_topic", solution_path_topic_, solution_path_topic_);
-    local_nh_.param("control_active_topic", control_active_topic_, control_active_topic_);
     local_nh_.param("dynamic_bounds", dynamic_bounds_, dynamic_bounds_);
-    local_nh_.param("start_prev_path_proj", start_prev_path_proj_, start_prev_path_proj_);
     local_nh_.param("xy_goal_tolerance", xy_goal_tolerance_, 0.2);
     local_nh_.param("yaw_goal_tolerance", yaw_goal_tolerance_, 0.1);
     local_nh_.param("visualize_tree", visualize_tree_, false);
-    local_nh_.param("sim_agents_topic", sim_agents_topic, sim_agents_topic);
     local_nh_.param("robot_base_radius", robot_base_radius, robot_base_radius);
-    local_nh_.param("local_path_topic", local_path_topic_, local_path_topic_);
     local_nh_.param("local_planner_name", local_planner_name_, local_planner_name_);
     local_nh_.param("local_xy_goal_tolerance", local_xy_goal_tolerance_, local_xy_goal_tolerance_);
     local_nh_.param("local_optimization_objective", local_optimization_objective_, local_optimization_objective_);
     local_nh_.param("local_path_range", local_path_range_, local_path_range_);
+    local_nh_.param("global_time_percent", global_time_percent_, global_time_percent_);
 
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
     goal_available_ = false;
-    goal_region_available_ = false;
 
     //=======================================================================
     // Subscribers
@@ -239,9 +224,6 @@ OnlinePlannFramework::OnlinePlannFramework()
     goto_action_server_ = new SmfBaseGoToActionServer(
         ros::NodeHandle(), goto_action_, boost::bind(&OnlinePlannFramework::goToActionCallback, this, _1),
         false);
-    goto_region_action_server_ = new SmfBaseGoToRegionActionServer(
-        ros::NodeHandle(), goto_region_action_,
-        boost::bind(&OnlinePlannFramework::goToRegionActionCallback, this, _1), false);
 
     //=======================================================================
     // Waiting for odometry
@@ -256,7 +238,6 @@ OnlinePlannFramework::OnlinePlannFramework()
     ROS_WARN("%s:\n\tOdometry received\n", ros::this_node::getName().c_str());
 
     goto_action_server_->start();
-    goto_region_action_server_->start();
 }
 
 //! Goto action callback.
@@ -349,85 +330,6 @@ void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGo
     goto_action_server_->setSucceeded(result);
 }
 
-//! Goto region action callback.
-/*!
- * Callback for getting the 2D navigation goal region
- */
-void OnlinePlannFramework::goToRegionActionCallback(
-    const smf_move_base_msgs::GotoRegion2DGoalConstPtr &goto_region_req)
-{
-    goal_map_frame_[0] = goto_region_req->goal.x;
-    goal_map_frame_[1] = goto_region_req->goal.y;
-    goal_map_frame_[2] = goto_region_req->goal.theta;
-
-    double useless_pitch, useless_roll, yaw;
-
-    //=======================================================================
-    // Publish RViz Maker
-    //=======================================================================
-    visualization_msgs::Marker radius_msg;
-    radius_msg.header.frame_id = "map";
-    radius_msg.header.stamp = ros::Time::now();
-    radius_msg.ns = "goal_radius";
-    radius_msg.action = visualization_msgs::Marker::ADD;
-    radius_msg.pose.orientation.w = 1.0;
-    radius_msg.id = 0;
-    radius_msg.type = visualization_msgs::Marker::CYLINDER;
-    radius_msg.scale.x = 2.0 * goto_region_req->radius;
-    radius_msg.scale.y = 2.0 * goto_region_req->radius;
-    radius_msg.scale.z = 0.02;
-    radius_msg.color.r = 1.0;
-    radius_msg.color.a = 0.5;
-    radius_msg.pose.position.x = goto_region_req->goal.x;
-    radius_msg.pose.position.y = goto_region_req->goal.y;
-    radius_msg.pose.position.z = 0.0;
-    query_goal_radius_rviz_pub_.publish(radius_msg);
-
-    //=======================================================================
-    // Transform from map to odom
-    //=======================================================================
-    ros::Time t;
-    std::string err = "";
-    tf::StampedTransform tf_map_to_fixed;
-    tf_listener_.getLatestCommonTime("map", "odom", t, &err);
-    tf_listener_.lookupTransform("map", "odom", t, tf_map_to_fixed);
-    tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-
-    tf::Point goal_point_odom_frame(goal_map_frame_[0], goal_map_frame_[1], 0.0);
-    goal_point_odom_frame = tf_map_to_fixed.inverse() * goal_point_odom_frame;
-    goal_odom_frame_[0] = goal_point_odom_frame.getX();
-    goal_odom_frame_[1] = goal_point_odom_frame.getY();
-    goal_odom_frame_[2] = goal_map_frame_[2] - yaw;
-
-    goal_radius_ = goto_region_req->radius;
-
-    //=======================================================================
-    // Clean and merge octomap
-    //=======================================================================
-    std_srvs::Empty::Request req;
-    std_srvs::Empty::Response resp;
-    // ! COMMENTED TO AVOID UNNEEDED PROCESSING
-    // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
-    // TODO
-    // {
-    //     ROS_WARN("Request to %s failed; trying again...",
-    //              nh_.resolveName("/smf_move_base_mapper/clean_merge_octomap").c_str());
-    //     usleep(1000000);
-    // }
-    solution_path_states_.clear();
-    local_solution_path_states_.clear();
-    goal_region_available_ = true;
-
-    ros::Rate loop_rate(10);
-    while (ros::ok() && (goal_region_available_ || control_active_))
-        loop_rate.sleep();
-
-    smf_move_base_msgs::GotoRegion2DResult result;
-    result.success = true;
-
-    goto_region_action_server_->setSucceeded(result);
-}
-
 //! Odometry callback.
 /*!
  * Callback for getting updated vehicle odometry
@@ -449,12 +351,11 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
         useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-    if ((goal_available_ || goal_region_available_) &&
+    if ((goal_available_) &&
         sqrt(pow(goal_odom_frame_[0] - last_robot_pose_.getOrigin().getX(), 2.0) +
              pow(goal_odom_frame_[1] - last_robot_pose_.getOrigin().getY(), 2.0)) < (goal_radius_ + 0.1))
     {
         goal_available_ = false;
-        goal_region_available_ = false;
     }
 
     current_robot_velocity = odom_msg->twist.twist;
@@ -668,9 +569,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     if (optimization_objective_.compare("PathLength") == 0) // path length Objective
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_global));
-    else if (optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+    else if (optimization_objective_.compare("SocialHeatmap") == 0) // Social Costmap
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
-            getSocialCostmapObjective(si_global, motion_cost_interpolation_));
+            getSocialHeatmapObjective(si_global, motion_cost_interpolation_));
     else
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_global));
 
@@ -683,9 +584,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
             getSocialComfortObjective(si_local, motion_cost_interpolation_, space, simple_setup_local_->getPlanner(), dummy_global_path_feedback));
-    else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+    else if (local_optimization_objective_.compare("SocialHeatmap") == 0) // Social Costmap
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-            getSocialCostmapObjective(si_local, motion_cost_interpolation_));
+            getSocialHeatmapObjective(si_local, motion_cost_interpolation_));
     else
         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_local));
 
@@ -719,8 +620,6 @@ void OnlinePlannFramework::planWithSimpleSetup()
     {
         if (goal_available_)
             ROS_INFO("%s: goal available", ros::this_node::getName().c_str());
-        else if (goal_region_available_)
-            ROS_INFO("%s: goal region available", ros::this_node::getName().c_str());
         OnlinePlannFramework::planningTimerCallback();
         ros::spinOnce();
         loop_rate.sleep();
@@ -733,7 +632,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
  */
 void OnlinePlannFramework::planningTimerCallback()
 {
-    if (goal_available_ || goal_region_available_)
+    if (goal_available_)
     {
         //=======================================================================
         // Transform from map to odom
@@ -867,9 +766,9 @@ void OnlinePlannFramework::planningTimerCallback()
         if (optimization_objective_.compare("PathLength") == 0) // path length Objective
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_global_->getSpaceInformation()));
-        else if (optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+        else if (optimization_objective_.compare("SocialHeatmap") == 0) // Social Costmap
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
-                getSocialCostmapObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
+                getSocialHeatmapObjective(simple_setup_global_->getSpaceInformation(), motion_cost_interpolation_));
         else
             simple_setup_global_->getProblemDefinition()->setOptimizationObjective(
                 getPathLengthObjective(simple_setup_global_->getSpaceInformation()));
@@ -902,7 +801,7 @@ void OnlinePlannFramework::planningTimerCallback()
         //=======================================================================
         // Attempt to solve the problem within one second of planning time
         //=======================================================================
-        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_ * 0.1);
+        ob::PlannerStatus solved = simple_setup_global_->solve(solving_time_ * (global_time_percent_ / 100));
 
         bool solution_found = false;
 
@@ -1071,9 +970,9 @@ void OnlinePlannFramework::planningTimerCallback()
                     else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_, local_space, simple_setup_global_->getPlanner(), global_path_feedback));
-                    else if (local_optimization_objective_.compare("SocialCostmap") == 0) // Social Costmap
+                    else if (local_optimization_objective_.compare("SocialHeatmap") == 0) // Social Costmap
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
-                            getSocialCostmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
+                            getSocialHeatmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
                     else
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
@@ -1082,7 +981,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 //=======================================================================
                 // Attempt to solve the problem within one second of planning time
                 //=======================================================================
-                ob::PlannerStatus solved_local = simple_setup_local_->solve(solving_time_ * 0.9);
+                ob::PlannerStatus solved_local = simple_setup_local_->solve(solving_time_ * (1 - (global_time_percent_ / 100)));
 
                 if (solved_local && simple_setup_local_->haveExactSolutionPath())
                 {
@@ -1263,12 +1162,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                     p.theta = goal_map_frame_[2] - yaw;
                                 }
-                                else if (goal_region_available_)
-                                {
-                                    goal_odom_frame_[2] =
-                                        atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
-                                    p.theta = goal_odom_frame_[2];
-                                }
                             }
                             solution_path_for_control.waypoints.push_back(p);
                         }
@@ -1377,11 +1270,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                             p.theta = goal_map_frame_[2] - yaw;
                         }
-                        else if (goal_region_available_)
-                        {
-                            goal_odom_frame_[2] = atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
-                            p.theta = goal_odom_frame_[2];
-                        }
                     }
                     solution_path_for_control.waypoints.push_back(p);
                     path_visualize.append(local_solution_path_states_copy_[0]);
@@ -1419,12 +1307,6 @@ void OnlinePlannFramework::planningTimerCallback()
                                 tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
                                 p.theta = goal_map_frame_[2] - yaw;
-                            }
-                            else if (goal_region_available_)
-                            {
-                                goal_odom_frame_[2] =
-                                    atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
-                                p.theta = goal_odom_frame_[2];
                             }
                         }
                         solution_path_for_control.waypoints.push_back(p);
@@ -1490,12 +1372,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                     p.theta = goal_map_frame_[2] - yaw;
                                 }
-                                else if (goal_region_available_)
-                                {
-                                    goal_odom_frame_[2] =
-                                        atan2(goal_odom_frame_[1] - p.y, goal_odom_frame_[0] - p.x);
-                                    p.theta = goal_odom_frame_[2];
-                                }
+
                                 lastNode = true;
                                 path_visualize.append(posEv->as<ob::RealVectorStateSpace::StateType>());
                                 solution_path_for_control.waypoints.push_back(p);

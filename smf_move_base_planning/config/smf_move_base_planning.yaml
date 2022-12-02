@@ -11,7 +11,7 @@ timer_period: 1.0
 solving_time: 0.3
 opport_collision_check: True
 reuse_last_best_solution: True
-optimization_objective: SocialCostmap #PathLength, RiskZones, SocialComfort, ExtendedSocialComfort, SocialCostmap
+optimization_objective: SocialHeatmap #PathLength, RiskZones, SocialComfort, ExtendedSocialComfort, SocialHeatmap
 # optimization_objective: RiskZones
 local_optimization_objective: SocialComfort
 motion_cost_interpolation: False
@@ -27,7 +27,6 @@ query_goal_topic: /smf_move_base_planner/query_goal
 solution_path_topic: /smf_move_base_planner/solution_path
 
 goto_action: /smf_goto_action
-goto_region_action: /smf_goto_region_action
 
 local_path_range: 4
 

@@ -21,10 +21,10 @@ ob::OptimizationObjectivePtr getSocialComfortObjective(const ob::SpaceInformatio
 }
 
 // !SOCIAL COSTMAP
-ob::OptimizationObjectivePtr getSocialCostmapObjective(const ob::SpaceInformationPtr &si,
+ob::OptimizationObjectivePtr getSocialHeatmapObjective(const ob::SpaceInformationPtr &si,
                                                        bool motion_cost_interpolation)
 {
-    return ob::OptimizationObjectivePtr(new SocialCostmapObjective(si, motion_cost_interpolation));
+    return ob::OptimizationObjectivePtr(new SocialHeatmapObjective(si, motion_cost_interpolation));
 }
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr &si)

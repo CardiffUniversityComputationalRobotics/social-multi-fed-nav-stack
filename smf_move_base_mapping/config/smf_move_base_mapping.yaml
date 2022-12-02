@@ -9,7 +9,6 @@ visualize_free_space: True
 mapping_max_range: 8
 odometry_topic: "/pepper/odom_groundtruth"
 
-minimum_range: 0.1 # -1 if no filtering is required
 rviz_timer: 1 # 0.0 if no visualization
 
 point_cloud_topics: ["/pepper/camera/depth/points"]
@@ -17,7 +16,7 @@ point_cloud_frames: ["/CameraDepth_optical_frame"]
 
 # social agents config
 social_agents_topic: "/pedsim_simulator/simulated_agents"
-social_agent_radius: 0.8
+social_agent_radius: 0.4
 
 social_relevance_validity_checking: True
 robot_distance_view_max: 8
@@ -25,4 +24,4 @@ robot_distance_view_min: 2
 robot_angle_view: 2
 robot_velocity_threshold: 0.35
 
-social_heatmap_decay_factor: 70
+social_heatmap_decay_factor: 0.2

@@ -125,7 +125,7 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
         if (local_use_social_heatmap_)
         {
             double social_heatmap_risk = social_heatmap_grid_map_(index(0), index(1));
-            if (!isnan(social_heatmap_risk))
+            if (!isnan(social_heatmap_risk) && !social_heatmap_risk <= 1)
             {
                 state_risk += social_heatmap_risk / 100;
             }
