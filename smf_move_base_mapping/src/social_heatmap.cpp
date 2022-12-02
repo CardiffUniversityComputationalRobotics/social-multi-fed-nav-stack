@@ -1,4 +1,3 @@
-
 #include <social_heatmap.h>
 
 //! CONSTRUCTOR
@@ -24,6 +23,8 @@ void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs:
 
     social_heatmap_.add("social_heatmap");
 
+    grid_map::Matrix &social_heatmap_grid_map = social_heatmap_["social_heatmap"];
+
     for (auto &agentItem : agent_states_record_)
     {
         auto &relevant_agent_state = agentItem.second;
@@ -40,7 +41,9 @@ void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs:
 
                 social_heatmap_.getPosition(*iterator, temp_pos);
 
-                double last_val = social_heatmap_.at("social_heatmap", *iterator);
+                grid_map::Index index(*iterator);
+
+                double last_val = social_heatmap_grid_map(index(0), index(1));
 
                 if (isnan(last_val))
                 {
@@ -56,7 +59,7 @@ void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs:
                     last_val = 100;
                 }
 
-                social_heatmap_.at("social_heatmap", *iterator) = last_val;
+                social_heatmap_grid_map(index(0), index(1)) = last_val;
             }
             catch (const std::out_of_range &oor)
             {
@@ -92,7 +95,9 @@ void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentSta
         new_relevant_agent_state.header = relevant_agent_state.header;
         new_relevant_agent_state.agent_state = relevant_agent_state.agent_state;
 
-        new_relevant_agent_state.relevance = relevant_agent_state.relevance - double(((time_decay_factor_ / 10000000000000000) * exp(double(time_decay_factor_ * (time_decay_factor_ / 10000000000000000) * (ros::Time::now().sec - relevant_agent_state.agent_state.header.stamp.now().sec)))));
+        new_relevant_agent_state.last_time = relevant_agent_state.last_time;
+
+        new_relevant_agent_state.relevance = 100 * exp(double(-time_decay_factor_ * (ros::Time::now().sec - relevant_agent_state.last_time) / 60));
 
         if (new_relevant_agent_state.relevance < 0)
         {
@@ -112,6 +117,8 @@ void SocialHeatmap::addNewAgentStates(pedsim_msgs::AgentStates agent_state)
         smf_move_base_msgs::RelevantAgentState relevant_agent_state;
 
         relevant_agent_state.header = agent_state.header;
+
+        relevant_agent_state.last_time = ros::Time::now().sec;
 
         relevant_agent_state.agent_state = agent_state.agent_states[i];
 

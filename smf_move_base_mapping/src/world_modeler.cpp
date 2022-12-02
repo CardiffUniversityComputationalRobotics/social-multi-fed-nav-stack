@@ -199,7 +199,7 @@ private:
     /*
      * amplitude of basic social personal space function
      */
-    double Ap = 8;
+    double Ap = 4;
 
     /*
      * standard deviation in X of gaussian basic social personal space function
@@ -580,26 +580,22 @@ void WorldModeler::pointCloudCallback(
 
     grid_map_["obstacles"] = 150 * grid_map_["obstacles"];
 
-    grid_map_["full"] = grid_map_["obstacles"];
+    grid_map::Matrix &full_grid_map = grid_map_["obstacles"];
+    grid_map::Matrix &comfort_grid_map = grid_map_["comfort"];
 
     // !SOCIAL AGENTS GRID MAP PREPARATION
 
     for (int i = 0; i < relevant_agent_states_.agent_states.size(); i++)
     {
         grid_map::Position center(relevant_agent_states_.agent_states[i].pose.position.x, relevant_agent_states_.agent_states[i].pose.position.y);
-        double radius = social_agent_radius_;
 
-        for (grid_map::CircleIterator iterator(grid_map_, center, radius);
+        for (grid_map::CircleIterator iterator(grid_map_, center, social_agent_radius_);
              !iterator.isPastEnd(); ++iterator)
         {
             try
             {
-
-                grid_map::Position temp_pos;
-
-                grid_map_.getPosition(*iterator, temp_pos);
-
-                grid_map_.at("full", *iterator) = 100;
+                grid_map::Index index(*iterator);
+                full_grid_map(index(0), index(1)) = 100;
             }
             catch (const std::out_of_range &oor)
             {
@@ -617,7 +613,9 @@ void WorldModeler::pointCloudCallback(
 
                 grid_map_.getPosition(*iterator, temp_pos);
 
-                double last_val = grid_map_.at("comfort", *iterator);
+                grid_map::Index index(*iterator);
+
+                double last_val = comfort_grid_map(index(0), index(1));
 
                 if (isnan(last_val))
                 {
@@ -628,7 +626,7 @@ void WorldModeler::pointCloudCallback(
                     last_val += getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
                 }
 
-                grid_map_.at("comfort", *iterator) = last_val;
+                comfort_grid_map(index(0), index(1)) = last_val;
             }
             catch (const std::out_of_range &oor)
             {
@@ -638,6 +636,9 @@ void WorldModeler::pointCloudCallback(
     }
 
     social_heatmap_.updateSocialHeatmap(grid_map_, relevant_agent_states_);
+
+    grid_map_["full"] = full_grid_map;
+    grid_map_["comfort"] = comfort_grid_map;
 
     grid_map_["social_heatmap"] = social_heatmap_.getSocialHeatmap();
 }
