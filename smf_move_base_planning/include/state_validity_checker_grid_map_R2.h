@@ -49,9 +49,6 @@
 // Eigen
 #include <Eigen/Dense>
 
-// Social Costmap
-#include <nav_msgs/OccupancyGrid.h>
-
 #include <iostream>
 #include <pedsim_msgs/AgentStates.h>
 #include <pedsim_msgs/AgentState.h>

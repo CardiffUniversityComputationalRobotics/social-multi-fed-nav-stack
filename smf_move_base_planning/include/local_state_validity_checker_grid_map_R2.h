@@ -38,9 +38,6 @@
 // Eigen
 #include <Eigen/Dense>
 
-// Social Costmap
-#include <nav_msgs/OccupancyGrid.h>
-
 #include <iostream>
 #include <pedsim_msgs/AgentStates.h>
 #include <pedsim_msgs/AgentState.h>
@@ -103,8 +100,15 @@ private:
   double grid_map_max_x_, grid_map_max_y_, grid_map_max_z_;
   std::vector<double> planning_bounds_x_, planning_bounds_y_;
   double robot_base_radius_;
+  std::string grid_map_service_;
+  grid_map_msgs::GridMap grid_map_msgs_;
+  grid_map::GridMap grid_map_;
 
-  bool opport_collision_check_, social_relevance_validity_checking_, use_social_costmap_;
+  bool opport_collision_check_, local_use_social_heatmap_;
+
+  grid_map::Matrix full_grid_map_;
+  grid_map::Matrix comfort_grid_map_;
+  grid_map::Matrix social_heatmap_grid_map_;
 };
 
 #endif

@@ -27,8 +27,40 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     planning_bounds_y_ = planning_bounds_y;
 
     local_nh_.param("robot_base_radius", robot_base_radius_, robot_base_radius_);
-    local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
-    local_nh_.param("use_social_costmap", use_social_costmap_, use_social_costmap_);
+    local_nh_.param("grid_map_service", grid_map_service_, grid_map_service_);
+    local_nh_.param("local_use_social_heatmap", local_use_social_heatmap_, local_use_social_heatmap_);
+
+    // ! GRID MAP REQUEST
+    ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
+              nh_.resolveName(grid_map_service_).c_str());
+
+    ros::service::call(grid_map_service_, req, resp);
+
+    if (grid_map::GridMapRosConverter::fromMessage(resp.map, grid_map_))
+    {
+        ROS_DEBUG("Obtained gridmap successfully");
+        grid_map_msgs_ = resp.map;
+
+        grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
+        grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);
+
+        grid_map_max_y_ = grid_map_msgs_.info.pose.position.y + (grid_map_msgs_.info.length_y / 2);
+        grid_map_min_y_ = grid_map_msgs_.info.pose.position.y - (grid_map_msgs_.info.length_y / 2);
+    }
+    else
+    {
+        ROS_ERROR("Error reading GridMap");
+    }
+
+    try
+    {
+        full_grid_map_ = grid_map_["full"];
+        comfort_grid_map_ = grid_map_["comfort"];
+        social_heatmap_grid_map_ = grid_map_["social_heatmap"];
+    }
+    catch (...)
+    {
+    }
 }
 
 bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
@@ -54,6 +86,19 @@ bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
         return false;
     }
 
+    grid_map::Position query(state_r2->values[0], state_r2->values[1]);
+
+    for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
+         !iterator.isPastEnd(); ++iterator)
+    {
+        const grid_map::Index index(*iterator);
+
+        if (full_grid_map_(index(0), index(1)) > 50)
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -63,40 +108,51 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
     double state_risk = 0.0;
-    double current_state_risk = 0.0;
 
-    if (state_risk <= 1)
-        state_risk = 1;
+    grid_map::Position query(state_r2->values[0], state_r2->values[1]);
+
+    grid_map::Index index;
+
+    if (grid_map_.getIndex(query, index))
+    {
+        state_risk = comfort_grid_map_(index(0), index(1));
+
+        if (state_risk < 1 || isnan(state_risk))
+        {
+            state_risk = 1;
+        }
+
+        if (local_use_social_heatmap_)
+        {
+            double social_heatmap_risk = social_heatmap_grid_map_(index(0), index(1));
+            if (!isnan(social_heatmap_risk))
+            {
+                state_risk += social_heatmap_risk / 100;
+            }
+        }
+    }
 
     return state_risk;
 }
 
 bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
 {
-    // OcTreeNode *result;
-    // point3d query;
-    // double node_occupancy;
+    // extract the component of the state and cast it to what we expect
+    const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
 
-    // // extract the component of the state and cast it to what we expect
-    // const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+    grid_map::Position query(state_r2->values[0], state_r2->values[1]);
 
-    // query.x() = state_r2->values[0];
-    // query.y() = state_r2->values[1];
-    // query.z() = 0.0;
+    grid_map::Index index;
 
-    // result = octree_->search(query);
+    if (grid_map_.getIndex(query, index))
+    {
+        if (full_grid_map_(index(0), index(1)) > 50)
+        {
+            return false;
+        }
+    }
 
-    // if (result == NULL)
-    // {
-    //     return false;
-    // }
-    // else
-    // {
-    //     node_occupancy = result->getOccupancy();
-    //     if (node_occupancy <= 0.4)
-    //         return true;
-    // }
-    return false;
+    return true;
 }
 
 LocalGridMapStateValidityCheckerR2::~LocalGridMapStateValidityCheckerR2()

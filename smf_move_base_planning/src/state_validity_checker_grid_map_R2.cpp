@@ -104,7 +104,6 @@ bool GridMapStateValidityCheckerR2::isValid(const ob::State *state) const
 double GridMapStateValidityCheckerR2::checkSocialHeatmap(const ob::State *state,
                                                          const ob::SpaceInformationPtr space) const
 {
-    // ROS_INFO_STREAM("Running social costmap cost objective");
 
     double state_risk = 1.0;
 
@@ -116,7 +115,7 @@ double GridMapStateValidityCheckerR2::checkSocialHeatmap(const ob::State *state,
 
     if (grid_map_.getIndex(query, index))
     {
-        state_risk = social_heatmap_grid_map_(index(0), index(1));
+        state_risk = (social_heatmap_grid_map_(index(0), index(1)) / 10);
     }
 
     if (state_risk < 1 || isnan(state_risk))
@@ -134,11 +133,17 @@ bool GridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
 
     grid_map::Position query(state_r2->values[0], state_r2->values[1]);
 
-    if (grid_map_.atPosition("obstacles", query) > 50)
+    grid_map::Index index;
+
+    if (grid_map_.getIndex(query, index))
     {
-        return false;
+        if (obstacles_grid_map_(index(0), index(1)) > 50)
+        {
+            return false;
+        }
     }
-    return false;
+
+    return true;
 }
 
 GridMapStateValidityCheckerR2::~GridMapStateValidityCheckerR2()

@@ -15,15 +15,11 @@ optimization_objective: SocialCostmap #PathLength, RiskZones, SocialComfort, Ext
 # optimization_objective: RiskZones
 local_optimization_objective: SocialComfort
 motion_cost_interpolation: False
-start_prev_path_proj: False
 xy_goal_tolerance: 0.25
 local_xy_goal_tolerance: 1
 visualize_tree: False
 
 # Collision checking
-octomap_service: /octomap_binary
-global_map_topic: /map
-robot_base_height: 1.22
 robot_base_radius: 0.35
 
 odometry_topic: /pepper/odom_groundtruth
@@ -33,16 +29,10 @@ solution_path_topic: /smf_move_base_planner/solution_path
 goto_action: /smf_goto_action
 goto_region_action: /smf_goto_region_action
 
-# Social agents data topics
-sim_agents_topic: /pedsim_simulator/simulated_agents_overwritten
-
-# extra frame option
-main_frame: world
-
-social_costmap_topic: "/social_costmap"
-
 local_path_range: 4
 
-social_relevance_validity_checking: True
-
 local_reuse_last_best_solution: True
+
+local_use_social_heatmap: True
+
+grid_map_service: "/smf_move_base_mapping/get_grid_map"
