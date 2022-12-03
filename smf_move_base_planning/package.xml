@@ -21,12 +21,6 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
-
-  <build_depend condition="$ROS_DISTRO != noetic">libfcl-dev</build_depend>
-  <exec_depend condition="$ROS_DISTRO != noetic">libfcl-dev</exec_depend>
-  <build_depend condition="$ROS_DISTRO == noetic">fcl</build_depend>
-  <exec_depend condition="$ROS_DISTRO == noetic">fcl</exec_depend>
-
   <depend>actionlib</depend>
   <depend>actionlib_msgs</depend>
 

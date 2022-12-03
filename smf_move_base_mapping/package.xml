@@ -26,14 +26,13 @@
   <depend>smf_move_base_msgs</depend>
   <depend>pedsim_ros</depend>
 
-  <build_depend condition="$ROS_DISTRO != noetic">libfcl-dev</build_depend>
-  <exec_depend condition="$ROS_DISTRO != noetic">libfcl-dev</exec_depend>
-  <build_depend condition="$ROS_DISTRO == noetic">fcl</build_depend>
-  <exec_depend condition="$ROS_DISTRO == noetic">fcl</exec_depend>
 
   <depend>tf</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+
+  <depend>pedsim_msgs</depend>
+  <depend>grid_map</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
