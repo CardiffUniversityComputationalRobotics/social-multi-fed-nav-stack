@@ -1,41 +1,41 @@
 # Fedback Social Comfort Robot Navigation Framework
 
-This is an online social robot navigation framework for indoor social scenarios. From this work a paper conference was submitted [Towards Online Socially Acceptable Robot Navigation](https://ieeexplore.ieee.org/document/9926686).
+This is an online social robot navigation framework for indoor social scenarios that uses a Social Heatmap to represent crowded areas in an environment and also uses a multilayer technique for the planning module.
 
 It is composed of four different packages:
 
-- `esc_move_base_control`: it is a simple differential control method.
-- `esc_move_base_mapping`: is in charge of the perception of the space.
-- `esc_move_base_msgs`: contains the messages needed for the framework and the start-goal queries.
-- `esc_move_base_planning`: responsible for finding solution paths for the navigation query requested.
-
-To understand more about how the framework works, you are highly encouraged to take a look at the paper.
+- `smf_move_base_control`: it is a simple differential control method.
+- `smf_move_base_mapping`: is in charge of the perception of the space.
+- `smf_move_base_planning`: responsible for finding solution paths for the navigation query requested.
+- `smf_move_base_msgs`: contains the messages needed for the framework and the start-goal queries.
 
 To run the framework, there is a launch file example in every package with example configurations.
 
 ![FrameworkConnections](https://i.imgur.com/JgMGqJW.png)
 
 - [Fedback Social Comfort Robot Navigation Framework](#fedback-social-comfort-robot-navigation-framework)
-  - [World Modeling (`esc_move_base_mapping`)](#world-modeling-esc_move_base_mapping)
+  - [World Modeling (`smf_move_base_mapping`)](#world-modeling-smf_move_base_mapping)
     - [Parameters](#parameters)
     - [Subscribers](#subscribers)
     - [Publishers](#publishers)
     - [Services](#services)
-  - [Online Social Robot Path Planning (`esc_move_base_planning`)](#online-social-robot-path-planning-esc_move_base_planning)
+  - [Online Social Robot Path Planning (`smf_move_base_planning`)](#online-social-robot-path-planning-smf_move_base_planning)
     - [Parameters](#parameters-1)
     - [Subscribers](#subscribers-1)
     - [Publishers](#publishers-1)
     - [Actions](#actions)
-  - [Path Following Control (`esc_move_base_control`)](#path-following-control-esc_move_base_control)
+  - [Path Following Control (`smf_move_base_control`)](#path-following-control-smf_move_base_control)
     - [Parameters](#parameters-2)
     - [Subscribers](#subscribers-2)
     - [Publishers](#publishers-2)
 
-## World Modeling (`esc_move_base_mapping`)
+## World Modeling (`smf_move_base_mapping`)
 
 This package is in charge of the perception for the robot. For that, a depth camera is used, which helps to generate a 3D map of the space by using Octomap.
 
 This 3D map is combined in a multilayer GridMap with the position of the social agents detected in the space.
+
+Alditionally, this package also provides an idea of the crowded areas in the social environment.
 
 ### Parameters
 
@@ -59,7 +59,7 @@ This 3D map is combined in a multilayer GridMap with the position of the social 
 
 - visualize_free_space (bool, default: True)
 
-  Wether you would like to see the 3D map and grid_map. If `False`, nothing is published at `/esc_move_base_mapping/social_grid_map` and `/esc_move_base_mapping/octomap_map`.
+  Wether you would like to see the 3D map and grid_map. If `False`, nothing is published at `/smf_move_base_mapping/social_grid_map` and `/smf_move_base_mapping/octomap_map`.
 
 - mapping_max_range (double, default: 5.0)
 
@@ -89,7 +89,7 @@ This 3D map is combined in a multilayer GridMap with the position of the social 
 
 - social_relevance_validity_checking (bool, default: False)
 
-  Wether or not it is desired to only consider the relevant agents.
+  Whether or not it is desired to only consider the relevant agents.
 
 - robot_distance_view_max (double, default: 6.0)
 
@@ -106,6 +106,10 @@ This 3D map is combined in a multilayer GridMap with the position of the social 
 - robot_velocity_threshold (double, default: 0.3)
 
   Maximum velocity that the robot can have.
+
+- social_heatmap_decay_factor (double, default: 65)
+
+  It is recommended a value in between 60 and 75.
 
 ### Subscribers
 
@@ -127,25 +131,21 @@ The name of the subscribers' topics are just defined as an example, but they may
 
 The name of the publishers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /esc_move_base_mapping/octomap_map ([visualization_msgs/MarkerArray](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/MarkerArray.html))
+- /smf_move_base_mapping/octomap_map ([visualization_msgs/MarkerArray](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/MarkerArray.html))
 
   Visual representation of the 3D map created.
 
-- /esc_move_base_mapping/relevant_agents ([pedsim_msgs/AgentStates](https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros/blob/noetic-devel/pedsim_msgs/msg/AgentStates.msg))
+- /smf_move_base_mapping/social_grid_map ([grid_map_msgs/GridMap](http://docs.ros.org/en/kinetic/api/grid_map_msgs/html/msg/GridMap.html))
 
-  If parameter `social_relevance_validity_checking` is `true`, then only the filtered relevant agents are published. Otherwise, all agents are re-published.
-
-- /esc_move_base_mapping/social_grid_map ([grid_map_msgs/GridMap](http://docs.ros.org/en/kinetic/api/grid_map_msgs/html/msg/GridMap.html))
-
-  Grid map with 2 layers, one for obstacles and another for social agents.
+  Grid map with 4 layers, one for obstacles and one including obstacles and social agents, one for comfort and another for social heatmap.
 
 ### Services
 
-- /esc_move_base_mapping/get_grid_map ([grid_map_msgs/GetGridMap](http://docs.ros.org/en/indigo/api/grid_map_msgs/html/srv/GetGridMap.html))
+- /smf_move_base_mapping/get_grid_map ([grid_map_msgs/GetGridMap](http://docs.ros.org/en/indigo/api/grid_map_msgs/html/srv/GetGridMap.html))
 
   Fetches the grid map from the World Modeling.
 
-## Online Social Robot Path Planning (`esc_move_base_planning`)
+## Online Social Robot Path Planning (`smf_move_base_planning`)
 
 This package is in charge of finding socially acceptable solution paths for the robot to follow.
 
@@ -159,7 +159,11 @@ All of the following parameters have to be defined since they have no default va
 
 - planner_name (string)
 
-  Planner to be used, can be RRT, RRTstar or PRMstar.
+  Planner to be used for global, can be RRT, RRTstar or PRMstar.
+
+- local_planner_name (string)
+
+  Planner to be used for local, can be RRT, RRTstar or PRMstar, InformedRRTstarMod, InformedRRTstar.
 
 - planning_bounds_x (list: [x_min, x_max])
 
@@ -187,7 +191,7 @@ All of the following parameters have to be defined since they have no default va
 
 - solving_time (double)
 
-  Time given to the planner to solve the navigation query.
+  Time given to the planner to solve the navigation query, both for the global and the local layer.
 
 - opport_collision_check (bool)
 
@@ -195,11 +199,19 @@ All of the following parameters have to be defined since they have no default va
 
 - reuse_last_best_solution (bool)
 
-  Whether it is wanted to apply the reuse of the last best known solution.
+  Whether it is wanted to apply the reuse of the last best known solution for the global planner.
+
+- local_reuse_last_best_solution (bool)
+
+  Whether it is wanted to apply the reuse of the last best known solution for the local planner.
 
 - optimization_objective (string)
 
-  Defines which optimization objective to use is desired. Currently, only supported PathLength and ExtendedSocialComfort.
+  Defines which optimization objective to use is desired for the global planner. Currently, only supported PathLength and SocialHeatmap.
+
+- local_optimization_objective (string)
+
+  Defines which optimization objective to use is desired for the local planner. Currently, only supported PathLength and SocialComfort.
 
 - motion_cost_interpolation (bool)
 
@@ -207,7 +219,11 @@ All of the following parameters have to be defined since they have no default va
 
 - xy_goal_tolerance (double)
 
-  Tolerance in the XY axis for the goal state.
+  Tolerance in the XY axis for the global goal state.
+
+- local_xy_goal_tolerance (double)
+
+  Tolerance in the XY axis for the local goal state.
 
 - visualize_tree: (bool)
 
@@ -235,18 +251,22 @@ All of the following parameters have to be defined since they have no default va
 
   Action name to run a navigation query.
 
+- local_path_range (double)
+
+  Distance from the robot position to the decided local goal.
+
+- global_time_percent (double)
+
+  Percentage given to the global planner from the time budget.
+
 ### Subscribers
 
 The name of the subscribers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /esc_move_base_planner/query_goal ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
+- /smf_move_base_planner/query_goal ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
 - /pepper/odom_groundtruth ([nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html))
 
   Robot odometry.
-
-- /esc_move_base_mapping/relevant_agents ([pedsim_msgs/AgentStates](https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros/blob/noetic-devel/pedsim_msgs/msg/AgentStates.msg))
-
-  Agents considered by the mapping module.
 
 - /control_active_topic ([std_msgs/Bool](http://docs.ros.org/en/noetic/api/std_msgs/html/msg/Bool.html))
 
@@ -254,33 +274,33 @@ The name of the subscribers' topics are just defined as an example, but they may
 
 The name of the publishers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /esc_move_base_planner/esc_move_base_solution_path ([esc_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/esc-nav-stack/blob/world_modeling/esc_move_base_msgs/msg/Path2D.msg))
+- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/msg/Path2D.msg))
 
   Solution path found by the planner. It is passed to the control module.
 
-- /esc_move_base_planner/esc_num_nodes ([std_msgs/Int32](http://docs.ros.org/en/melodic/api/std_msgs/html/msg/Int32.html))
+- /smf_move_base_planner/smf_num_nodes ([std_msgs/Int32](http://docs.ros.org/en/melodic/api/std_msgs/html/msg/Int32.html))
 
-  Number of valid nodes sampled by the planner.
+  Number of valid nodes sampled by the local planner.
 
-- /esc_move_base_planner/query_goal_pose_rviz ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
+- /smf_move_base_planner/query_goal_pose_rviz ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
 
   Shows in RViz the query pose requested to the planner.
 
-- /esc_move_base_planner/query_goal_radius_rviz ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
+- /smf_move_base_planner/query_goal_radius_rviz ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
 
   Shows in RViz the radius of the query requested to the planner.
 
-- /esc_move_base_planner/solution_path ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
+- /smf_move_base_planner/solution_path ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
 
   Visual solution path to be seen in RViz.
 
 ### Actions
 
-- `/goto_action` ([esc_move_base_msgs/GoTo2D](https://github.com/CardiffUniversityComputationalRobotics/esc-nav-stack/blob/world_modeling/esc_move_base_msgs/action/Goto2D.action))
+- `/goto_action` ([smf_move_base_msgs/GoTo2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/action/Goto2D.action))
 
   Action to request navigation query. The name of the action server depends on the parameter `goto_action`.
 
-## Path Following Control (`esc_move_base_control`)
+## Path Following Control (`smf_move_base_control`)
 
 This module is in charge of sending the velocities to the robot according to the path obtained so that the robot goes through that path.
 
@@ -320,7 +340,7 @@ This module is in charge of sending the velocities to the robot according to the
 
 The name of the subscribers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /esc_move_base_planner/esc_move_base_solution_path ([esc_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/esc-nav-stack/blob/world_modeling/esc_move_base_msgs/msg/Path2D.msg))
+- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/msg/Path2D.msg))
 - /pepper/odom_groundtruth ([nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html))
 
 ### Publishers

@@ -1622,7 +1622,7 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
     while (i < 50)
     {
 
-        double r = 1.0 * std::sqrt(((double)rand() / (RAND_MAX)));
+        double r = local_goal_radius_ * std::sqrt(((double)rand() / (RAND_MAX)));
         double theta = (((double)rand() / (RAND_MAX))) * 2 * M_PI;
         double x = goal_candidate[0] + r * cos(theta);
         double y = goal_candidate[1] + r * sin(theta);

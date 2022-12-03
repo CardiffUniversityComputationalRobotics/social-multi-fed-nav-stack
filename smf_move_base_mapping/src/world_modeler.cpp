@@ -273,7 +273,8 @@ WorldModeler::WorldModeler()
       robot_velocity_threshold_(0.3),
       social_agent_radius_(0.4),
       social_agents_topic_("/pedsim_simulator/simulated_agents"),
-      social_relevance_validity_checking_(false)
+      social_relevance_validity_checking_(false),
+      social_heatmap_decay_factor_(65)
 {
     //=======================================================================
     // Get parameters
