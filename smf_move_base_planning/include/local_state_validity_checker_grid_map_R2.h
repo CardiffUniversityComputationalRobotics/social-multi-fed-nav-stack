@@ -104,11 +104,12 @@ private:
   grid_map_msgs::GridMap grid_map_msgs_;
   grid_map::GridMap grid_map_;
 
-  bool opport_collision_check_, local_use_social_heatmap_;
+  bool opport_collision_check_, local_use_social_heatmap_, use_risk_zones_;
 
   grid_map::Matrix full_grid_map_;
   grid_map::Matrix comfort_grid_map_;
   grid_map::Matrix social_heatmap_grid_map_;
+  grid_map::Matrix obstacles_grid_map_;
 };
 
 #endif

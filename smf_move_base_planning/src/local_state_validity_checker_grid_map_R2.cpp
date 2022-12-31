@@ -29,6 +29,7 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     local_nh_.param("robot_base_radius", robot_base_radius_, robot_base_radius_);
     local_nh_.param("grid_map_service", grid_map_service_, grid_map_service_);
     local_nh_.param("local_use_social_heatmap", local_use_social_heatmap_, local_use_social_heatmap_);
+    local_nh_.param("use_risk_zones", use_risk_zones_, use_risk_zones_);
 
     // ! GRID MAP REQUEST
     ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
@@ -57,6 +58,7 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
         full_grid_map_ = grid_map_["full"];
         comfort_grid_map_ = grid_map_["comfort"];
         social_heatmap_grid_map_ = grid_map_["social_heatmap"];
+        obstacles_grid_map_ = grid_map_["obstacles"];
     }
     catch (...)
     {
@@ -128,6 +130,36 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
             if (!isnan(social_heatmap_risk) && !social_heatmap_risk <= 1)
             {
                 state_risk += social_heatmap_risk / 100;
+            }
+        }
+
+        //! use of risk zones
+
+        if (use_risk_zones_)
+        {
+
+            for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.2);
+                 !iterator.isPastEnd(); ++iterator)
+            {
+                const grid_map::Index index(*iterator);
+
+                if (obstacles_grid_map_(index(0), index(1)) > 50)
+                {
+                    state_risk += 5;
+                }
+                else
+                {
+                    for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.4);
+                         !iterator.isPastEnd(); ++iterator)
+                    {
+                        const grid_map::Index index(*iterator);
+
+                        if (obstacles_grid_map_(index(0), index(1)) > 50)
+                        {
+                            state_risk += 2;
+                        }
+                    }
+                }
             }
         }
     }
