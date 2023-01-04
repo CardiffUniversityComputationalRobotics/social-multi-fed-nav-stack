@@ -183,7 +183,7 @@ private:
     octomap::OcTreeKey m_updateBBXMin;
     octomap::OcTreeKey m_updateBBXMax;
     octomap::KeyRay m_keyRay; // temp storage for ray casting
-    double mapping_max_range_;
+    double mapping_max_range_, min_z_pc_, max_z_pc_;
 
     // grid map
     grid_map::GridMap grid_map_;
@@ -274,7 +274,9 @@ WorldModeler::WorldModeler()
       social_agent_radius_(0.4),
       social_agents_topic_("/pedsim_simulator/simulated_agents"),
       social_relevance_validity_checking_(false),
-      social_heatmap_decay_factor_(65)
+      social_heatmap_decay_factor_(65),
+      min_z_pc_(0.05),
+      max_z_pc_(1.0)
 {
     //=======================================================================
     // Get parameters
@@ -304,6 +306,8 @@ WorldModeler::WorldModeler()
     local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
     local_nh_.param("social_heatmap_decay_factor", social_heatmap_decay_factor_,
                     social_heatmap_decay_factor_);
+    local_nh_.param("min_z_pc", min_z_pc_, min_z_pc_);
+    local_nh_.param("max_z_pc", max_z_pc_, max_z_pc_);
 
     // Transforms TF and catch the static transform from vehicle to laser_scan
     // sensor
@@ -551,7 +555,7 @@ void WorldModeler::pointCloudCallback(
     // pass_y.setFilterLimits(0.15, 4.0);
     pcl::PassThrough<PCLPoint> pass_z;
     pass_z.setFilterFieldName("z");
-    pass_z.setFilterLimits(0.1, 0.7); // TODO
+    pass_z.setFilterLimits(min_z_pc_, max_z_pc_); // TODO
 
     PCLPointCloud pc_ground;    // segmented ground plane
     PCLPointCloud pc_nonground; // everything else
