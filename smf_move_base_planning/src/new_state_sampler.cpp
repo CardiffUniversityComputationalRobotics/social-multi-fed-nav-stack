@@ -38,7 +38,6 @@
 /* Author: Javier V. Gómez*/
 
 #include <new_state_sampler.h>
-#include <ompl/base/spaces/ReedsSheppStateSpace.h>
 
 ob::StateSamplerPtr newAllocStateSampler(const ob::StateSpace *space, const ob::PlannerPtr &planner,
                                          const std::vector<const ob::State *> &start_states)
@@ -64,22 +63,13 @@ void NewStateSampler::sampleUniform(ob::State *state)
         // simple_setup_->get()->getPlanner()->as<og::RRTstar>()->setGoalBias(0.0);
         planner_->as<og::RRTstar>()->setGoalBias(0.0);
         getNextSample(state);
-        // std::cout << "reusing state: " << state->as<ob::ReedsSheppStateSpace::StateType>()->getX() << ", "
-        // << state->as<ob::ReedsSheppStateSpace::StateType>()->getY() << std::endl; std::cout << "bias: " <<
-        // planner_->as<og::RRTstar>()->getGoalBias() << std::endl;
     }
     else
     { // if(!reusing_){
         // simple_setup_->get()->getPlanner()->as<og::RRTstar>();//->setGoalBias(0.05);
         planner_->as<og::RRTstar>()->setGoalBias(0.05);
         sampler_->sampleUniform(state);
-        //		std::cout << "state: " << state->as<ob::ReedsSheppStateSpace::StateType>()->getX() << ", " <<
-        // state->as<ob::ReedsSheppStateSpace::StateType>()->getY() << std::endl; std::cout << "bias: " <<
-        // planner_->as<og::RRTstar>()->getGoalBias() << std::endl;
     }
-    //	else
-    //		std::cout << "reusing state: " << state->as<ob::RealVectorStateSpace::StateType>()->values[0] << ",
-    //" << state->as<ob::RealVectorStateSpace::StateType>()->values[1] << std::endl;
 }
 
 void NewStateSampler::sampleUniformNear(ob::State *state, const ob::State *near, const double distance)
