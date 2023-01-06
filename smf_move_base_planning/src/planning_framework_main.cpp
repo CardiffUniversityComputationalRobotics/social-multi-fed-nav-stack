@@ -137,7 +137,7 @@ private:
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, turning_radius_;
-    std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
+    std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_, state_space_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
@@ -190,6 +190,12 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("local_path_range", local_path_range_, local_path_range_);
     local_nh_.param("global_time_percent", global_time_percent_, global_time_percent_);
     local_nh_.param("turning_radius", turning_radius_, turning_radius_);
+    local_nh_.param("state_space", state_space_, state_space_);
+
+    if (state_space_.compare("dubins") == 0)
+    {
+        start_state_.resize(3);
+    }
 
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
@@ -458,7 +464,15 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::StateSpacePtr space = ob::StateSpacePtr(new ob::RealVectorStateSpace(2));
 
     ob::StateSpacePtr local_space;
-    local_space = ob::StateSpacePtr(new ob::DubinsStateSpace(turning_radius_));
+
+    if (state_space_.compare("dubins") == 0)
+    {
+        local_space = ob::StateSpacePtr(new ob::DubinsStateSpace(turning_radius_));
+    }
+    else
+    {
+        local_space = ob::StateSpacePtr(new ob::RealVectorStateSpace(2));
+    }
 
     //=======================================================================
     // Set the bounds for the state space
@@ -472,7 +486,15 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     space->as<ob::RealVectorStateSpace>()->setBounds(bounds);
 
-    local_space->as<ob::DubinsStateSpace>()->setBounds(bounds);
+    if (state_space_.compare("dubins") == 0)
+    {
+        local_space->as<ob::DubinsStateSpace>()->setBounds(bounds);
+    }
+    else
+    {
+        local_space->as<ob::RealVectorStateSpace>()->setBounds(bounds);
+    }
+
     //=======================================================================
     // Define a simple setup class
     //=======================================================================
@@ -484,9 +506,14 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
 
     // ! DUBINS MOTION VALIDATOR
-    ob::MotionValidatorPtr motion_validator;
-    motion_validator = ob::MotionValidatorPtr(new ob::DubinsMotionValidator(si_local));
-    si_local->setMotionValidator(motion_validator);
+
+    if (state_space_.compare("dubins") == 0)
+    {
+        ob::MotionValidatorPtr motion_validator;
+        motion_validator = ob::MotionValidatorPtr(new ob::DubinsMotionValidator(si_local));
+        si_local->setMotionValidator(motion_validator);
+    }
+
     // ! ==================================
 
     //=======================================================================
@@ -535,7 +562,11 @@ void OnlinePlannFramework::planWithSimpleSetup()
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
     start_state_[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
     start_state_[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
-    start_state_[2] = double(yaw);
+
+    if (state_space_.compare("dubins") == 0)
+    {
+        start_state_[2] = double(yaw);
+    }
 
     // create a start state
     //! GLOBAL START STATE
@@ -547,7 +578,10 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::ScopedState<> local_start(local_space);
     local_start[0] = double(start_state_[0]); // x
     local_start[1] = double(start_state_[1]); // y
-    local_start[2] = double(start_state_[2]); // yaw
+    if (state_space_.compare("dubins") == 0)
+    {
+        local_start[2] = double(start_state_[2]); // yaw
+    }
 
     // create a goal state
     //! GLOBAL GOAL STATE
@@ -559,7 +593,10 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::ScopedState<> local_goal(local_space);
     local_goal[0] = double(goal_map_frame_[0]); // x
     local_goal[1] = double(goal_map_frame_[1]); // y
-    local_goal[2] = double(goal_map_frame_[2]); // yaw
+    if (state_space_.compare("dubins") == 0)
+    {
+        local_goal[2] = double(goal_map_frame_[2]); // yaw
+    }
 
     //=======================================================================
     // Set the start and goal states
@@ -734,7 +771,14 @@ void OnlinePlannFramework::planningTimerCallback()
 
             simple_setup_global_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
 
-            simple_setup_local_->getStateSpace()->as<ob::DubinsStateSpace>()->setBounds(bounds);
+            if (state_space_.compare("dubins") == 0)
+            {
+                simple_setup_local_->getStateSpace()->as<ob::DubinsStateSpace>()->setBounds(bounds);
+            }
+            else
+            {
+                simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
+            }
         }
         //=======================================================================
         // Set new start state
@@ -744,8 +788,6 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::ScopedState<> goal(simple_setup_global_->getSpaceInformation()->getStateSpace());
 
         last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-
-        ROS_INFO_STREAM("DEFINING START VALUES");
 
         start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
         start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
@@ -807,7 +849,10 @@ void OnlinePlannFramework::planningTimerCallback()
 
         local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
         local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
-        local_start[2] = double(yaw);
+        if (state_space_.compare("dubins") == 0)
+        {
+            local_start[2] = double(yaw); // yaw
+        }
 
         simple_setup_local_->clear();
         simple_setup_local_->setStartState(local_start);
@@ -930,23 +975,29 @@ void OnlinePlannFramework::planningTimerCallback()
                     double local_path_distance = std::sqrt(std::pow(start[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
 
                     ob::State *s = local_space->allocState();
-                    // local_space->copyState(s, solution_path_states_[i]);
 
-                    s->as<ob::DubinsStateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                    s->as<ob::DubinsStateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        s->as<ob::DubinsStateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        s->as<ob::DubinsStateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                    double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                        solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
-                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                            solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
+                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
 
-                    s->as<ob::DubinsStateSpace::StateType>()->setYaw(state_angle);
+                        s->as<ob::DubinsStateSpace::StateType>()->setYaw(state_angle);
+                        local_goal[2] = double(state_angle);
+                    }
+                    else
+                    {
+                        local_space->copyState(s, solution_path_states_[i]);
+                    }
 
                     global_path_feedback.push_back(s);
 
                     local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                     local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-                    local_goal[2] = double(state_angle);
 
                     if (local_path_distance >= local_path_range_)
                     {
@@ -979,7 +1030,11 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         local_goal[0] = double(goal[0]); // x
                         local_goal[1] = double(goal[1]); // y
-                        local_goal[2] = double(goal[2]); // yaw
+
+                        if (state_space_.compare("dubins") == 0)
+                        {
+                            local_goal[2] = double(goal[2]); // yaw
+                        }
 
                         simple_setup_local_->setGoalState(local_goal, goal_radius_);
                     }
@@ -1043,15 +1098,31 @@ void OnlinePlannFramework::planningTimerCallback()
                     std::vector<ob::State *> local_path_states;
                     local_path_states = path_local.getStates();
 
-                    double distance_to_goal =
-                        sqrt(pow(local_goal[0] - local_path_states[local_path_states.size() - 1]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getX(),
-                                 2.0) +
-                             pow(local_goal[1] - local_path_states[local_path_states.size() - 1]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getY(),
-                                 2.0));
+                    double distance_to_goal;
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        distance_to_goal =
+                            sqrt(pow(local_goal[0] - local_path_states[local_path_states.size() - 1]
+                                                         ->as<ob::DubinsStateSpace::StateType>()
+                                                         ->getX(),
+                                     2.0) +
+                                 pow(local_goal[1] - local_path_states[local_path_states.size() - 1]
+                                                         ->as<ob::DubinsStateSpace::StateType>()
+                                                         ->getY(),
+                                     2.0));
+                    }
+                    else
+                    {
+                        distance_to_goal =
+                            sqrt(pow(goal_odom_frame_[0] - path_states[path_states.size() - 1]
+                                                               ->as<ob::RealVectorStateSpace::StateType>()
+                                                               ->values[0],
+                                     2.0) +
+                                 pow(goal_odom_frame_[1] - path_states[path_states.size() - 1]
+                                                               ->as<ob::RealVectorStateSpace::StateType>()
+                                                               ->values[1],
+                                     2.0));
+                    }
 
                     std::vector<ob::State *> controller_local_path_states;
 

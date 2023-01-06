@@ -101,7 +101,7 @@ private:
   double grid_map_max_x_, grid_map_max_y_, grid_map_max_z_;
   std::vector<double> planning_bounds_x_, planning_bounds_y_;
   double robot_base_radius_;
-  std::string grid_map_service_;
+  std::string grid_map_service_, state_space_;
   grid_map_msgs::GridMap grid_map_msgs_;
   grid_map::GridMap grid_map_;
 
