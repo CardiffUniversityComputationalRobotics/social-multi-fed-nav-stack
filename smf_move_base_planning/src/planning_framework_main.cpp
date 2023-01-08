@@ -1780,8 +1780,6 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
     visual_rrt.color.b = 0.0;
     visual_rrt.color.a = 1.0;
 
-    const ob::DubinsStateSpace::StateType *state_r2;
-
     geometry_msgs::Point p;
 
     ob::PlannerData planner_data(simple_setup_local_->getSpaceInformation());
@@ -1803,17 +1801,40 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
         {
             if (planner_data.getVertex(i).getState() && planner_data.getIncomingEdges(i, edgeList) > 0)
             {
-                state_r2 = planner_data.getVertex(i).getState()->as<ob::DubinsStateSpace::StateType>();
-                p.x = state_r2->getX();
-                p.y = state_r2->getY();
+                if (state_space_.compare("dubins") == 0)
+                {
+                    const ob::DubinsStateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(i).getState()->as<ob::DubinsStateSpace::StateType>();
+                    p.x = state_r2->getX();
+                    p.y = state_r2->getY();
+                }
+                else
+                {
+                    const ob::RealVectorStateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(i).getState()->as<ob::RealVectorStateSpace::StateType>();
+                    p.x = state_r2->values[0];
+                    p.y = state_r2->values[1];
+                }
+
                 p.z = 0.1;
 
                 visual_rrt.points.push_back(p);
 
-                state_r2 =
-                    planner_data.getVertex(edgeList[0]).getState()->as<ob::DubinsStateSpace::StateType>();
-                p.x = state_r2->getX();
-                p.y = state_r2->getY();
+                if (state_space_.compare("dubins") == 0)
+                {
+                    const ob::DubinsStateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(edgeList[0]).getState()->as<ob::DubinsStateSpace::StateType>();
+                    p.x = state_r2->getX();
+                    p.y = state_r2->getY();
+                }
+                else
+                {
+                    const ob::RealVectorStateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(edgeList[0]).getState()->as<ob::RealVectorStateSpace::StateType>();
+                    p.x = state_r2->values[0];
+                    p.y = state_r2->values[1];
+                }
+
                 p.z = 0.1;
 
                 visual_rrt.points.push_back(p);
@@ -1827,18 +1848,42 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
     {
         // extract the component of the state and cast it to what we expect
 
-        state_r2 = states[i]->as<ob::DubinsStateSpace::StateType>();
-        p.x = state_r2->getX();
-        p.y = state_r2->getY();
+        if (state_space_.compare("dubins") == 0)
+        {
+            const ob::DubinsStateSpace::StateType *state_r2;
+            state_r2 = states[i]->as<ob::DubinsStateSpace::StateType>();
+            p.x = state_r2->getX();
+            p.y = state_r2->getY();
+        }
+        else
+        {
+            const ob::RealVectorStateSpace::StateType *state_r2;
+            state_r2 = states[i]->as<ob::RealVectorStateSpace::StateType>();
+            p.x = state_r2->values[0];
+            p.y = state_r2->values[1];
+        }
+
         p.z = 0.1;
 
         if (i > 0)
         {
             visual_result_path.points.push_back(p);
 
-            state_r2 = states[i - 1]->as<ob::DubinsStateSpace::StateType>();
-            p.x = state_r2->getX();
-            p.y = state_r2->getY();
+            if (state_space_.compare("dubins") == 0)
+            {
+                const ob::DubinsStateSpace::StateType *state_r2;
+                state_r2 = states[i - 1]->as<ob::DubinsStateSpace::StateType>();
+                p.x = state_r2->getX();
+                p.y = state_r2->getY();
+            }
+            else
+            {
+                const ob::RealVectorStateSpace::StateType *state_r2;
+                state_r2 = states[i - 1]->as<ob::RealVectorStateSpace::StateType>();
+                p.x = state_r2->values[0];
+                p.y = state_r2->values[1];
+            }
+
             p.z = 0.1;
 
             visual_result_path.points.push_back(p);
@@ -1878,7 +1923,12 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
 
         new_goal_local[0] = x;
         new_goal_local[1] = y;
-        new_goal_local[2] = goal_candidate[2];
+
+        if (state_space_.compare("dubins") == 0)
+        {
+            new_goal_local[2] = goal_candidate[2];
+        }
+
         if (simple_setup_local_->getStateValidityChecker()->isValid(new_goal_local->as<ob::State>()))
         {
             if (simple_setup_local_->getSpaceInformation()->checkMotion(goal_candidate->as<ob::State>(), new_goal_local->as<ob::State>()))
