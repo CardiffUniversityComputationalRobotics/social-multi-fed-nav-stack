@@ -1293,8 +1293,17 @@ void OnlinePlannFramework::planningTimerCallback()
                         for (unsigned int i = 0; i < controller_local_path_states.size(); i++)
                         {
                             geometry_msgs::Pose2D p;
-                            p.x = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX();
-                            p.y = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY();
+
+                            if (state_space_.compare("dubins") == 0)
+                            {
+                                p.x = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX();
+                                p.y = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY();
+                            }
+                            else
+                            {
+                                p.x = controller_local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                                p.y = controller_local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                            }
 
                             if (i == (controller_local_path_states.size() - 1))
                             {
@@ -1363,8 +1372,20 @@ void OnlinePlannFramework::planningTimerCallback()
                 int less_distance_index = 0;
                 for (int i = 0; i < past_local_solution_path_states_.size(); i++)
                 {
-                    double current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                    double current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+
+                    double current_distance_x;
+                    double current_distance_y;
+
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                        current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                    }
+                    else
+                    {
+                        current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                    }
 
                     if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                     {
@@ -1398,8 +1419,16 @@ void OnlinePlannFramework::planningTimerCallback()
                     // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
 
                     geometry_msgs::Pose2D p;
-                    p.x = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getX();
-                    p.y = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getY();
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        p.x = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getX();
+                        p.y = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getY();
+                    }
+                    else
+                    {
+                        p.x = local_solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0];
+                        p.y = local_solution_path_states_copy_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1];
+                    }
 
                     if (0 == (local_solution_path_states_copy_.size() - 1))
                     {
@@ -1432,12 +1461,25 @@ void OnlinePlannFramework::planningTimerCallback()
                         // ROS_INFO("%s:\n\tadding possible waypoint\n", ros::this_node::getName().c_str());
 
                         geometry_msgs::Pose2D p;
-                        p.x = local_solution_path_states_copy_[i + 1]
-                                  ->as<ob::DubinsStateSpace::StateType>()
-                                  ->getX();
-                        p.y = local_solution_path_states_copy_[i + 1]
-                                  ->as<ob::DubinsStateSpace::StateType>()
-                                  ->getY();
+
+                        if (state_space_.compare("dubins") == 0)
+                        {
+                            p.x = local_solution_path_states_copy_[i + 1]
+                                      ->as<ob::DubinsStateSpace::StateType>()
+                                      ->getX();
+                            p.y = local_solution_path_states_copy_[i + 1]
+                                      ->as<ob::DubinsStateSpace::StateType>()
+                                      ->getY();
+                        }
+                        else
+                        {
+                            p.x = local_solution_path_states_copy_[i + 1]
+                                      ->as<ob::RealVectorStateSpace::StateType>()
+                                      ->values[0];
+                            p.y = local_solution_path_states_copy_[i + 1]
+                                      ->as<ob::RealVectorStateSpace::StateType>()
+                                      ->values[1];
+                        }
 
                         if (i == (local_solution_path_states_copy_.size() - 1))
                         {
