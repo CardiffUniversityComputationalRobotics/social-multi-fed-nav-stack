@@ -1158,8 +1158,19 @@ void OnlinePlannFramework::planningTimerCallback()
                             int less_distance_index = 0;
                             for (int i = 0; i < past_local_solution_path_states_.size(); i++)
                             {
-                                double current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                double current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                double current_distance_x;
+                                double current_distance_y;
+
+                                if (state_space_.compare("dubins") == 0)
+                                {
+                                    current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                                    current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                }
+                                else
+                                {
+                                    current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                    current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                                }
 
                                 if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                                 {
@@ -1205,8 +1216,19 @@ void OnlinePlannFramework::planningTimerCallback()
                         int less_distance_index = 0;
                         for (int i = (local_path_states.size() - 1); i > -1; i--)
                         {
-                            double current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                            double current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                            double current_distance_x;
+                            double current_distance_y;
+
+                            if (state_space_.compare("dubins") == 0)
+                            {
+                                current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                                current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                            }
+                            else
+                            {
+                                current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                            }
 
                             if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
                             {
