@@ -1026,7 +1026,21 @@ void OnlinePlannFramework::planningTimerCallback()
                 if (validateGoalCandidate(local_goal))
                 {
 
-                    if (abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getX() - goal[0]) < 3 && abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getY() - goal[1]) < 3)
+                    double waypoints_diff_x;
+                    double waypoints_diff_y;
+
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getX() - goal[0]);
+                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getY() - goal[1]);
+                    }
+                    else
+                    {
+                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - goal[0]);
+                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - goal[1]);
+                    }
+
+                    if (waypoints_diff_x < 3 && waypoints_diff_y < 3)
                     {
                         local_goal[0] = double(goal[0]); // x
                         local_goal[1] = double(goal[1]); // y
