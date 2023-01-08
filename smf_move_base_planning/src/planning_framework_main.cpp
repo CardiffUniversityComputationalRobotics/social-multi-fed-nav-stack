@@ -1503,30 +1503,66 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         // ROS_INFO("%s:\n\tfound not possible motion\n", ros::this_node::getName().c_str());
 
-                        double angle = atan2(local_solution_path_states_copy_[i + 1]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getY() -
-                                                 local_solution_path_states_copy_[i]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getY(),
-                                             local_solution_path_states_copy_[i + 1]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getX() -
-                                                 local_solution_path_states_copy_[i]
-                                                     ->as<ob::DubinsStateSpace::StateType>()
-                                                     ->getX());
+                        double angle;
+
+                        if (state_space_.compare("dubins") == 0)
+                        {
+                            angle = atan2(local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->getY() -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->getY(),
+                                          local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->getX() -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->getX());
+                        }
+                        else
+                        {
+                            angle = atan2(local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::RealVectorStateSpace::StateType>()
+                                                  ->values[1] -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::RealVectorStateSpace::StateType>()
+                                                  ->values[1],
+                                          local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::RealVectorStateSpace::StateType>()
+                                                  ->values[0] -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::RealVectorStateSpace::StateType>()
+                                                  ->values[0]);
+                        }
+
                         int counter = 1;
                         while (!lastNode)
                         {
                             ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
-                            posEv[0] = double(local_solution_path_states_copy_[i]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
-                                                  ->getX() +
-                                              counter * robot_base_radius * std::cos(angle)); // x
-                            posEv[1] = double(local_solution_path_states_copy_[i]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
-                                                  ->getY() +
-                                              counter * robot_base_radius * std::sin(angle)); // y
+
+                            if (state_space_.compare("dubins") == 0)
+                            {
+                                posEv[0] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::DubinsStateSpace::StateType>()
+                                                      ->getX() +
+                                                  counter * robot_base_radius * std::cos(angle)); // x
+                                posEv[1] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::DubinsStateSpace::StateType>()
+                                                      ->getY() +
+                                                  counter * robot_base_radius * std::sin(angle)); // y
+                            }
+                            else
+                            {
+                                posEv[0] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::RealVectorStateSpace::StateType>()
+                                                      ->values[0] +
+                                                  counter * robot_base_radius * std::cos(angle)); // x
+                                posEv[1] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::RealVectorStateSpace::StateType>()
+                                                      ->values[1] +
+                                                  counter * robot_base_radius * std::sin(angle)); // y
+                            }
 
                             if (!simple_setup_local_->getSpaceInformation()->checkMotion(
                                     local_solution_path_states_copy_[i], posEv->as<ob::State>()))
@@ -1534,14 +1570,29 @@ void OnlinePlannFramework::planningTimerCallback()
                                 // ROS_INFO("%s:\n\tadding last position\n",
                                 // ros::this_node::getName().c_str());
                                 ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
-                                posEv[0] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::DubinsStateSpace::StateType>()
-                                                      ->getX() +
-                                                  (counter - 1) * robot_base_radius * std::cos(angle)); // x
-                                posEv[1] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::DubinsStateSpace::StateType>()
-                                                      ->getY() +
-                                                  (counter - 1) * robot_base_radius * std::sin(angle));
+
+                                if (state_space_.compare("dubins") == 0)
+                                {
+                                    posEv[0] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::DubinsStateSpace::StateType>()
+                                                          ->getX() +
+                                                      (counter - 1) * robot_base_radius * std::cos(angle)); // x
+                                    posEv[1] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::DubinsStateSpace::StateType>()
+                                                          ->getY() +
+                                                      (counter - 1) * robot_base_radius * std::sin(angle));
+                                }
+                                else
+                                {
+                                    posEv[0] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::RealVectorStateSpace::StateType>()
+                                                          ->values[0] +
+                                                      (counter - 1) * robot_base_radius * std::cos(angle)); // x
+                                    posEv[1] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::RealVectorStateSpace::StateType>()
+                                                          ->values[1] +
+                                                      (counter - 1) * robot_base_radius * std::sin(angle));
+                                }
 
                                 geometry_msgs::Pose2D p;
                                 p.x = posEv[0];
@@ -1561,7 +1612,16 @@ void OnlinePlannFramework::planningTimerCallback()
                                 }
 
                                 lastNode = true;
-                                path_visualize.append(posEv->as<ob::DubinsStateSpace::StateType>());
+
+                                if (state_space_.compare("dubins") == 0)
+                                {
+                                    path_visualize.append(posEv->as<ob::DubinsStateSpace::StateType>());
+                                }
+                                else
+                                {
+                                    path_visualize.append(posEv->as<ob::DubinsStateSpace::StateType>());
+                                }
+
                                 solution_path_for_control.waypoints.push_back(p);
                             }
                             counter += 1;
