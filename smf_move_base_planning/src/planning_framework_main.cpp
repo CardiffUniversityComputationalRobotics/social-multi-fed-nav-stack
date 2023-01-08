@@ -1211,46 +1211,60 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         // !NEAREST POINT FROM CURRENT LOCAL PATH SOLUTION
 
-                        double init_x_distance = 10000;
-                        double init_y_distance = 10000;
-                        int less_distance_index = 0;
-                        for (int i = (local_path_states.size() - 1); i > -1; i--)
+                        // ! TRIM LOCAL FOUND IF DUBINS NOT USED
+
+                        if (state_space_.compare("dubins") == 0)
                         {
-                            double current_distance_x;
-                            double current_distance_y;
-
-                            if (state_space_.compare("dubins") == 0)
+                            for (int i = 0; i < local_path_states.size(); i++)
                             {
-                                current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                ob::State *s = space->allocState();
+                                space->copyState(s, local_path_states[i]);
+                                controller_local_path_states.push_back(s);
                             }
-                            else
+                        }
+                        else
+                        {
+                            double init_x_distance = 10000;
+                            double init_y_distance = 10000;
+                            int less_distance_index = 0;
+                            for (int i = (local_path_states.size() - 1); i > -1; i--)
                             {
-                                current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                                current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
-                            }
+                                double current_distance_x;
+                                double current_distance_y;
 
-                            if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
-                            {
-                                if (simple_setup_local_->getSpaceInformation()->checkMotion(local_path_states[i], current_robot_state->as<ob::State>()))
+                                if (state_space_.compare("dubins") == 0)
                                 {
-                                    init_x_distance = current_distance_x;
-                                    init_y_distance = current_distance_y;
-                                    less_distance_index = i;
+                                    current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                                    current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                }
+                                else
+                                {
+                                    current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                    current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                                }
 
-                                    if (current_distance_x < 0.4 && current_distance_y < 0.4)
+                                if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
+                                {
+                                    if (simple_setup_local_->getSpaceInformation()->checkMotion(local_path_states[i], current_robot_state->as<ob::State>()))
                                     {
-                                        break;
+                                        init_x_distance = current_distance_x;
+                                        init_y_distance = current_distance_y;
+                                        less_distance_index = i;
+
+                                        if (current_distance_x < 0.4 && current_distance_y < 0.4)
+                                        {
+                                            break;
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        for (int i = less_distance_index; i < local_path_states.size(); i++)
-                        {
-                            ob::State *s = space->allocState();
-                            space->copyState(s, local_path_states[i]);
-                            controller_local_path_states.push_back(s);
+                            for (int i = less_distance_index; i < local_path_states.size(); i++)
+                            {
+                                ob::State *s = space->allocState();
+                                space->copyState(s, local_path_states[i]);
+                                controller_local_path_states.push_back(s);
+                            }
                         }
 
                         std::vector<ob::State *> controller_path_feedback_states = controller_local_path_states;
