@@ -364,7 +364,7 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     if ((goal_available_) &&
         sqrt(pow(goal_odom_frame_[0] - last_robot_pose_.getOrigin().getX(), 2.0) +
-             pow(goal_odom_frame_[1] - last_robot_pose_.getOrigin().getY(), 2.0)) < (goal_radius_ + 0.1))
+             pow(goal_odom_frame_[1] - last_robot_pose_.getOrigin().getY(), 2.0)) < (goal_radius_ + 0.5))
     {
         goal_available_ = false;
     }
@@ -1017,7 +1017,7 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                 }
 
-                std::reverse(global_path_feedback.begin(), global_path_feedback.end());
+                // std::reverse(global_path_feedback.begin(), global_path_feedback.end());
 
                 //======================================================================
                 // Set the start and goal states

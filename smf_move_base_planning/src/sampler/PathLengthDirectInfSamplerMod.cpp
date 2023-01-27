@@ -357,6 +357,11 @@ namespace ompl
         void PathLengthDirectInfSamplerMod::getNextSample(State *state)
         {
             InformedSampler::space_->copyState(state, solution_start_states_.back());
+
+            // std::cout << "node sampled x: " << solution_start_states_.back()->as<ompl::base::RealVectorStateSpace::StateType>()->values[0] << std::endl;
+            // std::cout << "node sampled y: " << solution_start_states_.back()->as<ompl::base::RealVectorStateSpace::StateType>()->values[1] << std::endl;
+            // std::cout << "============" << std::endl;
+
             InformedSampler::space_->freeState(solution_start_states_.back());
             solution_start_states_.pop_back();
         }
