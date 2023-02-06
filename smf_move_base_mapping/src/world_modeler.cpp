@@ -276,7 +276,8 @@ WorldModeler::WorldModeler()
       social_relevance_validity_checking_(false),
       social_heatmap_decay_factor_(65),
       min_z_pc_(0.05),
-      max_z_pc_(1.0)
+      max_z_pc_(1.0),
+      social_comfort_amplitude_(6)
 {
     //=======================================================================
     // Get parameters
