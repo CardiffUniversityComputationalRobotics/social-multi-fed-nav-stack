@@ -199,7 +199,7 @@ private:
     /*
      * amplitude of basic social personal space function
      */
-    double Ap = 4;
+    double social_comfort_amplitude_ = 4;
 
     /*
      * standard deviation in X of gaussian basic social personal space function
@@ -308,6 +308,7 @@ WorldModeler::WorldModeler()
                     social_heatmap_decay_factor_);
     local_nh_.param("min_z_pc", min_z_pc_, min_z_pc_);
     local_nh_.param("max_z_pc", max_z_pc_, max_z_pc_);
+    local_nh_.param("social_comfort_amplitude", social_comfort_amplitude_, social_comfort_amplitude_);
 
     // Transforms TF and catch the static transform from vehicle to laser_scan
     // sensor
@@ -474,6 +475,8 @@ WorldModeler::~WorldModeler()
 void WorldModeler::pointCloudCallback(
     const sensor_msgs::PointCloud2::ConstPtr &cloud)
 {
+
+    // ROS_INFO_STREAM("PROCESSING POINTCLOUD");
     //
     // ground filtering in base frame
     //
@@ -482,6 +485,8 @@ void WorldModeler::pointCloudCallback(
 
     float minX = -0.6, minY = -12, minZ = -0.6;
     float maxX = 0.6, maxY = 12, maxZ = 0.6;
+
+    // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS");
 
     if (social_agents_in_radius_.agent_states.size() > 0)
     {
@@ -520,6 +525,7 @@ void WorldModeler::pointCloudCallback(
             }
         }
     }
+    // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS FINISHED");
 
     ros::Time t;
     std::string err = "cannot find transform from robot_frame to scan frame";
@@ -577,6 +583,8 @@ void WorldModeler::pointCloudCallback(
     pc_ground.header = pc.header;
     pc_nonground.header = pc.header;
 
+    // ROS_INFO_STREAM("INSERT SCAN START");
+
     insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
     //
     //    double total_elapsed = (ros::WallTime::now() - startTime).toSec();
@@ -585,6 +593,8 @@ void WorldModeler::pointCloudCallback(
     //              pc_ground.size(), pc_nonground.size(), total_elapsed);
     //
     //    publishAll(cloud->header.stamp);
+
+    // ROS_INFO_STREAM("INSERT SCAN FINISHED");
 
     // ! OCTOMAP PREPARATION
 
@@ -661,6 +671,8 @@ void WorldModeler::pointCloudCallback(
     grid_map_["comfort"] = comfort_grid_map;
 
     grid_map_["social_heatmap"] = social_heatmap_.getSocialHeatmap();
+
+    // ROS_INFO_STREAM("PROCESSING POINTCLOUD FINISHED");
 }
 
 void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
@@ -961,7 +973,7 @@ double WorldModeler::getExtendedPersonalSpace(pedsim_msgs::AgentState agent_stat
     }
 
     double basic_personal_space_value =
-        Ap *
+        social_comfort_amplitude_ *
         std::exp(-(
             std::pow(distance_robot_agent * std::cos(tetha_robot_agent - tetha_orientation) / (std::sqrt(2) * sigma_x),
                      2) +
