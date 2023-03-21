@@ -1017,7 +1017,7 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                 }
 
-                // std::reverse(global_path_feedback.begin(), global_path_feedback.end());
+                std::reverse(global_path_feedback.begin(), global_path_feedback.end());
 
                 //======================================================================
                 // Set the start and goal states
