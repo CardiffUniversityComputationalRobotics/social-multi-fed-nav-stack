@@ -1,10 +1,10 @@
-/*! \file state_validity_checker_octomap_fcl_R2.cpp
+/*! \file state_validity_checker_octomap_fcl_Dubins.cpp
  * \brief State validity checker.
  *
  * \date March 5, 2015
  * \author Juan David Hernandez Vega, juandhv@rice.edu
  *
- * \details Check is a given configuration R2 is collision-free.
+ * \details Check is a given configuration Dubins is collision-free.
  *  The workspace is represented by an Octomap and collision check is done with FCL.
  *
  * Based on Juan D. Hernandez Vega's PhD thesis, University of Girona
@@ -13,14 +13,12 @@
 
 #include <local_state_validity_checker_grid_map_dubins.h>
 
-LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
-                                                                       const bool opport_collision_check,
-                                                                       std::vector<double> planning_bounds_x,
-                                                                       std::vector<double> planning_bounds_y)
+LocalGridMapStateValidityCheckerDubins::LocalGridMapStateValidityCheckerDubins(const ob::SpaceInformationPtr &si,
+                                                                               const bool opport_collision_check,
+                                                                               std::vector<double> planning_bounds_x,
+                                                                               std::vector<double> planning_bounds_y, grid_map_msgs::GridMap grid_map)
     : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4)
 {
-    GetGridMap::Request req;
-    GetGridMap::Response resp;
 
     opport_collision_check_ = opport_collision_check;
     planning_bounds_x_ = planning_bounds_x;
@@ -31,16 +29,10 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     local_nh_.param("local_use_social_heatmap", local_use_social_heatmap_, local_use_social_heatmap_);
     local_nh_.param("state_space", state_space_, state_space_);
 
-    // ! GRID MAP REQUEST
-    ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
-              nh_.resolveName(grid_map_service_).c_str());
-
-    ros::service::call(grid_map_service_, req, resp);
-
-    if (grid_map::GridMapRosConverter::fromMessage(resp.map, grid_map_))
+    if (grid_map::GridMapRosConverter::fromMessage(grid_map, grid_map_))
     {
         ROS_DEBUG("Obtained gridmap successfully");
-        grid_map_msgs_ = resp.map;
+        grid_map_msgs_ = grid_map;
 
         grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
         grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);
@@ -64,27 +56,27 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     }
 }
 
-bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerDubins::isValid(const ob::State *state) const
 {
 
     if (state_space_.compare("dubins") == 0)
     {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
+        const ob::DubinsStateSpace::StateType *state_dubins = state->as<ob::DubinsStateSpace::StateType>();
 
         if (opport_collision_check_ &&
-            (state_r2->getX() < grid_map_min_x_ || state_r2->getY() < grid_map_min_y_ ||
-             state_r2->getX() > grid_map_max_x_ || state_r2->getY() > grid_map_max_y_))
+            (state_dubins->getX() < grid_map_min_x_ || state_dubins->getY() < grid_map_min_y_ ||
+             state_dubins->getX() > grid_map_max_x_ || state_dubins->getY() > grid_map_max_y_))
         {
             return true;
         }
 
-        if (state_r2->getX() < planning_bounds_x_[0] || state_r2->getY() < planning_bounds_y_[0] ||
-            state_r2->getX() > planning_bounds_x_[1] || state_r2->getY() > planning_bounds_y_[1])
+        if (state_dubins->getX() < planning_bounds_x_[0] || state_dubins->getY() < planning_bounds_y_[0] ||
+            state_dubins->getX() > planning_bounds_x_[1] || state_dubins->getY() > planning_bounds_y_[1])
         {
             return false;
         }
 
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
+        grid_map::Position query(state_dubins->getX(), state_dubins->getY());
 
         for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
              !iterator.isPastEnd(); ++iterator)
@@ -100,21 +92,21 @@ bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
     else
     {
 
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+        const ob::RealVectorStateSpace::StateType *state_dubins = state->as<ob::RealVectorStateSpace::StateType>();
 
         if (opport_collision_check_ &&
-            (state_r2->values[0] < grid_map_min_x_ || state_r2->values[1] < grid_map_min_y_ ||
-             state_r2->values[0] > grid_map_max_x_ || state_r2->values[1] > grid_map_max_y_))
+            (state_dubins->values[0] < grid_map_min_x_ || state_dubins->values[1] < grid_map_min_y_ ||
+             state_dubins->values[0] > grid_map_max_x_ || state_dubins->values[1] > grid_map_max_y_))
         {
             return true;
         }
 
-        if (state_r2->values[0] < planning_bounds_x_[0] || state_r2->values[1] < planning_bounds_y_[0] ||
-            state_r2->values[0] > planning_bounds_x_[1] || state_r2->values[1] > planning_bounds_y_[1])
+        if (state_dubins->values[0] < planning_bounds_x_[0] || state_dubins->values[1] < planning_bounds_y_[0] ||
+            state_dubins->values[0] > planning_bounds_x_[1] || state_dubins->values[1] > planning_bounds_y_[1])
         {
             return false;
         }
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
+        grid_map::Position query(state_dubins->values[0], state_dubins->values[1]);
 
         for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
              !iterator.isPastEnd(); ++iterator)
@@ -131,8 +123,8 @@ bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
     return true;
 }
 
-double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
-                                                                      const ob::SpaceInformationPtr space) const
+double LocalGridMapStateValidityCheckerDubins::checkExtendedSocialComfort(const ob::State *state,
+                                                                          const ob::SpaceInformationPtr space) const
 {
 
     double state_risk = 0.0;
@@ -140,8 +132,8 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
 
     if (state_space_.compare("dubins") == 0)
     {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
+        const ob::DubinsStateSpace::StateType *state_dubins = state->as<ob::DubinsStateSpace::StateType>();
+        grid_map::Position query(state_dubins->getX(), state_dubins->getY());
 
         if (grid_map_.getIndex(query, index))
         {
@@ -164,8 +156,8 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
     }
     else
     {
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
+        const ob::RealVectorStateSpace::StateType *state_dubins = state->as<ob::RealVectorStateSpace::StateType>();
+        grid_map::Position query(state_dubins->values[0], state_dubins->values[1]);
 
         if (grid_map_.getIndex(query, index))
         {
@@ -190,7 +182,7 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
     return state_risk;
 }
 
-bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerDubins::isValidPoint(const ob::State *state) const
 {
     // extract the component of the state and cast it to what we expect
 
@@ -198,8 +190,8 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
 
     if (state_space_.compare("dubins") == 0)
     {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
+        const ob::DubinsStateSpace::StateType *state_dubins = state->as<ob::DubinsStateSpace::StateType>();
+        grid_map::Position query(state_dubins->getX(), state_dubins->getY());
 
         if (grid_map_.getIndex(query, index))
         {
@@ -211,8 +203,8 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
     }
     else
     {
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
+        const ob::RealVectorStateSpace::StateType *state_dubins = state->as<ob::RealVectorStateSpace::StateType>();
+        grid_map::Position query(state_dubins->values[0], state_dubins->values[1]);
 
         if (grid_map_.getIndex(query, index))
         {
@@ -226,6 +218,6 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
     return true;
 }
 
-LocalGridMapStateValidityCheckerR2::~LocalGridMapStateValidityCheckerR2()
+LocalGridMapStateValidityCheckerDubins::~LocalGridMapStateValidityCheckerDubins()
 {
 }

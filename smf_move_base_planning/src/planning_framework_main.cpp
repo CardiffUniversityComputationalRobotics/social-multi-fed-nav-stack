@@ -138,7 +138,7 @@ private:
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, turning_radius_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_, state_space_,
-        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
+        solution_path_topic_, world_frame_, octomap_service_, control_active_topic_, grid_map_service_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
     geometry_msgs::Twist current_robot_velocity;
@@ -191,6 +191,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("global_time_percent", global_time_percent_, global_time_percent_);
     local_nh_.param("turning_radius", turning_radius_, turning_radius_);
     local_nh_.param("state_space", state_space_, state_space_);
+    local_nh_.param("grid_map_service", grid_map_service_, grid_map_service_);
 
     if (state_space_.compare("dubins") == 0)
     {
@@ -317,8 +318,8 @@ void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGo
     //=======================================================================
     // Clean and merge octomap
     //=======================================================================
-    std_srvs::Empty::Request req;
-    std_srvs::Empty::Response resp;
+    // std_srvs::Empty::Request req;
+    // std_srvs::Empty::Response resp;
 
     // ! COMMENTED TO AVOID UNNEEDED PROCESSING
     // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
@@ -414,8 +415,8 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::PoseStampedCon
     //=======================================================================
     // Clean and merge octomap
     //=======================================================================
-    std_srvs::Empty::Request req;
-    std_srvs::Empty::Response resp;
+    // std_srvs::Empty::Request req;
+    // std_srvs::Empty::Response resp;
     // ! COMMENTED TO AVOID UNNEEDED PROCESSING
     // while (nh_.ok() && !ros::service::call("/smf_move_base_mapper/clean_merge_octomap", req, resp))  //
     // TODO
@@ -609,20 +610,28 @@ void OnlinePlannFramework::planWithSimpleSetup()
     simple_setup_local_->setStartState(local_start);
     simple_setup_local_->setGoalState(local_goal, local_goal_radius_);
 
+    GetGridMap::Request req;
+    GetGridMap::Response resp;
+
+    ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
+              nh_.resolveName(grid_map_service_).c_str());
+
+    ros::service::call(grid_map_service_, req, resp);
+
     //=======================================================================
     // Set state validity checking for this space
     //=======================================================================
     ob::StateValidityCheckerPtr om_stat_val_check;
     om_stat_val_check = ob::StateValidityCheckerPtr(
         new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                          planning_bounds_x_, planning_bounds_y_));
+                                          planning_bounds_x_, planning_bounds_y_, resp.map));
     simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
     // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr local_om_stat_val_check;
     local_om_stat_val_check = ob::StateValidityCheckerPtr(
         new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                               planning_bounds_x_, planning_bounds_y_));
+                                               planning_bounds_x_, planning_bounds_y_, resp.map));
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
     //=======================================================================
@@ -819,13 +828,21 @@ void OnlinePlannFramework::planningTimerCallback()
                     std::bind(newAllocStateSampler, std::placeholders::_1, simple_setup_global_->getPlanner(),
                               solution_path_states_));
 
+        GetGridMap::Request req;
+        GetGridMap::Response resp;
+
+        ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
+                  nh_.resolveName(grid_map_service_).c_str());
+
+        ros::service::call(grid_map_service_, req, resp);
+
         //=======================================================================
         // Set state validity checking for this space
         //=======================================================================
         ob::StateValidityCheckerPtr om_stat_val_check;
         om_stat_val_check = ob::StateValidityCheckerPtr(
             new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                              planning_bounds_x_, planning_bounds_y_));
+                                              planning_bounds_x_, planning_bounds_y_, resp.map));
         simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
         //=======================================================================
@@ -866,7 +883,7 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::StateValidityCheckerPtr local_om_stat_val_check;
         local_om_stat_val_check = ob::StateValidityCheckerPtr(
             new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                   planning_bounds_x_, planning_bounds_y_));
+                                                   planning_bounds_x_, planning_bounds_y_, resp.map));
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
         //=======================================================================
@@ -1367,7 +1384,7 @@ void OnlinePlannFramework::planningTimerCallback()
             ob::StateValidityCheckerPtr local_om_stat_val_check;
             local_om_stat_val_check = ob::StateValidityCheckerPtr(
                 new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                       planning_bounds_x_, planning_bounds_y_));
+                                                       planning_bounds_x_, planning_bounds_y_, resp.map));
             simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
             if (past_local_solution_path_states_.size() > 0)

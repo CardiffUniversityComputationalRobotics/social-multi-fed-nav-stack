@@ -16,7 +16,7 @@
 LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
                                                                        const bool opport_collision_check,
                                                                        std::vector<double> planning_bounds_x,
-                                                                       std::vector<double> planning_bounds_y)
+                                                                       std::vector<double> planning_bounds_y, grid_map_msgs::GridMap grid_map)
     : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4)
 {
     GetGridMap::Request req;
@@ -31,16 +31,10 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     local_nh_.param("local_use_social_heatmap", local_use_social_heatmap_, local_use_social_heatmap_);
     local_nh_.param("state_space", state_space_, state_space_);
 
-    // ! GRID MAP REQUEST
-    ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
-              nh_.resolveName(grid_map_service_).c_str());
-
-    ros::service::call(grid_map_service_, req, resp);
-
-    if (grid_map::GridMapRosConverter::fromMessage(resp.map, grid_map_))
+    if (grid_map::GridMapRosConverter::fromMessage(grid_map, grid_map_))
     {
         ROS_DEBUG("Obtained gridmap successfully");
-        grid_map_msgs_ = resp.map;
+        grid_map_msgs_ = grid_map;
 
         grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
         grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);

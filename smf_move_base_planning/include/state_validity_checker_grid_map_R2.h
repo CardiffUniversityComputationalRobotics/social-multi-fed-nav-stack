@@ -81,7 +81,7 @@ public:
    * Besides of initializing the private attributes, it loads the octomap.
    */
   GridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
-                                std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
+                                std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y, grid_map_msgs::GridMap grid_map);
 
   //! GridMapStateValidityCheckerR2 destructor.
   /*!
