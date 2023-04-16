@@ -95,7 +95,7 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
                                                                       const ob::SpaceInformationPtr space) const
 {
 
-    double state_risk = 0.0;
+    double state_risk = 1.0;
     grid_map::Index index;
 
     const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
@@ -118,6 +118,14 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
                 state_risk += social_heatmap_risk / 100;
             }
         }
+    }
+
+    // return 1;
+    if (state_risk > 5)
+    {
+        state_risk = 5;
+        // ROS_INFO_STREAM("=============================");
+        // ROS_INFO_STREAM("NODE COST" << state_risk);
     }
 
     return state_risk;

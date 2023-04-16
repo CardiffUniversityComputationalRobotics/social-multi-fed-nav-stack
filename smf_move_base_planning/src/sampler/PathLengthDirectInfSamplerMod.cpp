@@ -160,6 +160,8 @@ namespace ompl
                 {
                     throw Exception("PathLengthDirectInfSamplerMod only supports RealVector, SE2 and SE3 statespaces.");
                 }
+
+                std::cout << "###############################" << std::endl;
             }
 
             // Create a sampler for the whole space that we can use if we have no information
@@ -255,12 +257,10 @@ namespace ompl
             if (!solution_start_states_.empty())
             {
                 getNextSample(statePtr);
-                // OMPL_INFORM("ADDING SOLUTION NODE STATE");
                 return true;
             }
             else
             {
-                // OMPL_INFORM("REGULAR SAMPLING GOING");
                 // Call the sampleUniform helper function with my iteration counter:
                 return sampleUniform(statePtr, maxCost, &iter);
             }
@@ -358,9 +358,10 @@ namespace ompl
         {
             InformedSampler::space_->copyState(state, solution_start_states_.back());
 
+            // std::cout << "============" << std::endl;
+
             // std::cout << "node sampled x: " << solution_start_states_.back()->as<ompl::base::RealVectorStateSpace::StateType>()->values[0] << std::endl;
             // std::cout << "node sampled y: " << solution_start_states_.back()->as<ompl::base::RealVectorStateSpace::StateType>()->values[1] << std::endl;
-            // std::cout << "============" << std::endl;
 
             InformedSampler::space_->freeState(solution_start_states_.back());
             solution_start_states_.pop_back();

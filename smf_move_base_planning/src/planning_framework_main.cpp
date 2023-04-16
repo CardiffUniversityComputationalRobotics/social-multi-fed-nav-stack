@@ -58,7 +58,6 @@
 
 // Planner
 #include <new_state_sampler.h>
-#include <informed_new_state_sampler.h>
 #include <state_cost_objective.h>
 #include <state_validity_checker_grid_map_R2.h>
 #include <local_state_validity_checker_grid_map_R2.h>
@@ -831,8 +830,8 @@ void OnlinePlannFramework::planningTimerCallback()
         GetGridMap::Request req;
         GetGridMap::Response resp;
 
-        ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
-                  nh_.resolveName(grid_map_service_).c_str());
+        ROS_INFO("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
+                 nh_.resolveName(grid_map_service_).c_str());
 
         ros::service::call(grid_map_service_, req, resp);
 

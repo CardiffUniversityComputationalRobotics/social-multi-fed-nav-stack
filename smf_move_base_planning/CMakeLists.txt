@@ -55,7 +55,6 @@ src/planning_framework_main.cpp
 src/state_validity_checker_grid_map_R2.cpp
 src/local_state_validity_checker_grid_map_R2.cpp
 src/new_state_sampler.cpp
-src/informed_new_state_sampler.cpp
 src/state_cost_objective.cpp
 )
 target_link_libraries(smf_move_base_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
