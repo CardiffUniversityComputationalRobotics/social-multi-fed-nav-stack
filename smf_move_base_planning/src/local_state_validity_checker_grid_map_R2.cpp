@@ -120,12 +120,9 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
         }
     }
 
-    // return 1;
     if (state_risk > 5)
     {
         state_risk = 5;
-        // ROS_INFO_STREAM("=============================");
-        // ROS_INFO_STREAM("NODE COST" << state_risk);
     }
 
     return state_risk;

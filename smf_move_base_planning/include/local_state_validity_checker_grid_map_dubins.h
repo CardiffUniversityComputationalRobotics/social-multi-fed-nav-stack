@@ -27,6 +27,7 @@
 #include <ompl/config.h>
 #include <ompl/base/SpaceInformation.h>
 #include <ompl/base/spaces/SE2StateSpace.h>
+#include <ompl/base/spaces/DubinsStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/tools/debug/Profiler.h>
 
@@ -69,7 +70,7 @@ public:
    * Besides of initializing the private attributes, it loads the octomap.
    */
   LocalGridMapStateValidityCheckerDubins(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
-                                         std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
+                                         std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y, grid_map_msgs::GridMap grid_map);
 
   //! LocalGridMapStateValidityCheckerDubins destructor.
   /*!
