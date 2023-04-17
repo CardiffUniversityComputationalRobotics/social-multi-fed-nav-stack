@@ -61,6 +61,7 @@
 #include <state_cost_objective.h>
 #include <state_validity_checker_grid_map_R2.h>
 #include <local_state_validity_checker_grid_map_R2.h>
+#include <local_state_validity_checker_grid_map_dubins.h>
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -628,9 +629,20 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr local_om_stat_val_check;
-    local_om_stat_val_check = ob::StateValidityCheckerPtr(
-        new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                               planning_bounds_x_, planning_bounds_y_, resp.map));
+
+    if (state_space_.compare("dubins") == 0)
+    {
+        local_om_stat_val_check = ob::StateValidityCheckerPtr(
+            new LocalGridMapStateValidityCheckerDubins(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                   planning_bounds_x_, planning_bounds_y_, resp.map));
+    }
+    else
+    {
+        local_om_stat_val_check = ob::StateValidityCheckerPtr(
+            new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                   planning_bounds_x_, planning_bounds_y_, resp.map));
+    }
+
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
     //=======================================================================
@@ -880,9 +892,20 @@ void OnlinePlannFramework::planningTimerCallback()
         // Set state validity checking for this space
         //=======================================================================
         ob::StateValidityCheckerPtr local_om_stat_val_check;
-        local_om_stat_val_check = ob::StateValidityCheckerPtr(
-            new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                   planning_bounds_x_, planning_bounds_y_, resp.map));
+
+        if (state_space_.compare("dubins") == 0)
+        {
+            local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                new LocalGridMapStateValidityCheckerDubins(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                           planning_bounds_x_, planning_bounds_y_, resp.map));
+        }
+        else
+        {
+            local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                       planning_bounds_x_, planning_bounds_y_, resp.map));
+        }
+
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
         //=======================================================================
@@ -1381,9 +1404,20 @@ void OnlinePlannFramework::planningTimerCallback()
             simple_setup_local_->clear();
 
             ob::StateValidityCheckerPtr local_om_stat_val_check;
-            local_om_stat_val_check = ob::StateValidityCheckerPtr(
-                new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                       planning_bounds_x_, planning_bounds_y_, resp.map));
+
+            if (state_space_.compare("dubins") == 0)
+            {
+                local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                    new LocalGridMapStateValidityCheckerDubins(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                               planning_bounds_x_, planning_bounds_y_, resp.map));
+            }
+            else
+            {
+                local_om_stat_val_check = ob::StateValidityCheckerPtr(
+                    new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
+                                                           planning_bounds_x_, planning_bounds_y_, resp.map));
+            }
+
             simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
             if (past_local_solution_path_states_.size() > 0)
