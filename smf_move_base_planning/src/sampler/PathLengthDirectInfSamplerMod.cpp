@@ -104,31 +104,34 @@ namespace ompl
                 else if (InformedSampler::space_->getType() == STATE_SPACE_UNKNOWN)
                 {
                     // Unknown, this is annoying. I hope the user knows what they're doing
-                    OMPL_WARN("PathLengthDirectInfSamplerMod: Treating the StateSpace of type \"STATE_SPACE_UNKNOWN\" as type \"STATE_SPACE_REAL_VECTOR\".");
+                    OMPL_WARN("PathLengthDirectInfSamplerMod: Treating the StateSpace of type \"STATE_SPACE_UNKNOWN\" as "
+                              "type \"STATE_SPACE_REAL_VECTOR\".");
                     informedIdx_ = 0u;
                     uninformedIdx_ = 0u;
                 }
                 else
                 {
-                    throw Exception("PathLengthDirectInfSamplerMod only supports Unknown, RealVector, SE2, and SE3 StateSpaces.");
+                    throw Exception("PathLengthDirectInfSamplerMod only supports Unknown, RealVector, SE2, and SE3 "
+                                    "StateSpaces.");
                 }
             }
             else if (InformedSampler::space_->isCompound())
             {
-                // Check that it is SE2 or SE3
-                if (InformedSampler::space_->getType() == STATE_SPACE_SE2 ||
-                    InformedSampler::space_->getType() == STATE_SPACE_SE3)
-                {
-                    // Variable:
-                    // An ease of use upcasted pointer to the space as a compound space
-                    const CompoundStateSpace *compoundSpace = InformedSampler::space_->as<CompoundStateSpace>();
+                // Variable:
+                // An ease of use upcasted pointer to the space as a compound space
+                const CompoundStateSpace *compoundSpace = InformedSampler::space_->as<CompoundStateSpace>();
 
+                // Check that the given space is SE2, SE3, Dubins, or Reeds-Shepp.
+                if (InformedSampler::space_->getType() == STATE_SPACE_SE2 ||
+                    InformedSampler::space_->getType() == STATE_SPACE_SE3 ||
+                    InformedSampler::space_->getType() == STATE_SPACE_DUBINS ||
+                    InformedSampler::space_->getType() == STATE_SPACE_REEDS_SHEPP)
+                {
                     // Sanity check
                     if (compoundSpace->getSubspaceCount() != 2u)
                     {
                         // Pout
-                        throw Exception("The provided compound StateSpace is SE(2) or SE(3) but does not have exactly "
-                                        "2 subspaces.");
+                        throw Exception("The provided compound state space does not have exactly 2 subspaces.");
                     }
 
                     // Iterate over the state spaces, finding the real vector and SO components.
@@ -151,17 +154,29 @@ namespace ompl
                         else
                         {
                             // Pout
-                            throw Exception("The provided compound StateSpace is SE(2) or SE(3) but contains a "
-                                            "subspace that is not R^2, R^3, SO(2), or SO(3).");
+                            throw Exception("The provided compound state space contains a subspace (" +
+                                            std::to_string(idx) + ") that is not R^N, SO(2), or SO(3): " +
+                                            std::to_string(compoundSpace->getSubspace(idx)->getType()));
                         }
                     }
                 }
                 else
                 {
-                    throw Exception("PathLengthDirectInfSamplerMod only supports RealVector, SE2 and SE3 statespaces.");
+                    // Case where we have a compound state space with only one subspace, and said subspace being R^N
+                    if (compoundSpace->getSubspaceCount() == 1u &&
+                        compoundSpace->getSubspace(0)->getType() == STATE_SPACE_REAL_VECTOR)
+                    {
+                        informedIdx_ = 0u;
+                        uninformedIdx_ = 0u;
+                    }
+                    else
+                    {
+                        throw Exception("PathLengthDirectInfSampler only supports RealVector, SE2, SE3, Dubins, and "
+                                        "ReedsShepp state spaces. Provided compound state space of type: " +
+                                        std::to_string(InformedSampler::space_->getType()) + " with " +
+                                        std::to_string(compoundSpace->getSubspaceCount()) + " subspaces.");
+                    }
                 }
-
-                std::cout << "###############################" << std::endl;
             }
 
             // Create a sampler for the whole space that we can use if we have no information
@@ -346,6 +361,8 @@ namespace ompl
             // Iterate over the separate subsets and return the minimum
             for (const auto &phsPtr : listPhsPtrs_)
             {
+                /** \todo Use a heuristic function for the full solution cost defined in OptimizationObjective or some
+                 * new Heuristic class once said function is defined. */
                 minCost = InformedSampler::opt_->betterCost(minCost, Cost(phsPtr->getPathLength(&rawData[0])));
             }
 
@@ -361,7 +378,9 @@ namespace ompl
             InformedSampler::space_->freeState(solution_start_states_.back());
             solution_start_states_.pop_back();
         }
+        /////////////////////////////////////////////////////////////////////////////////////////////
 
+        /////////////////////////////////////////////////////////////////////////////////////////////
         // Private functions:
         bool PathLengthDirectInfSamplerMod::sampleUniform(State *statePtr, const Cost &maxCost, unsigned int *iters)
         {
@@ -559,6 +578,7 @@ namespace ompl
                     // It can't, and it is not the last PHS, remove it
 
                     // Remove the iterator to delete from the list, this returns the next:
+                    /// \todo Make sure this doesn't cause problems for JIT sampling?
                     phsIter = listPhsPtrs_.erase(phsIter);
                 }
                 else
@@ -688,5 +708,6 @@ namespace ompl
 
             return numInclusions;
         }
-    }; // base
-};     // ompl
+        /////////////////////////////////////////////////////////////////////////////////////////////
+    }; // namespace base
+};     // namespace ompl

@@ -230,7 +230,7 @@ class Controller(object):
                         self.desired_orientation_ - self.current_orientation_
                     )
 
-                    if abs(yaw_error) > 0.2:
+                    if abs(yaw_error) > 0.8:
                         rospy.logdebug(
                             "%s: orienting towards the next waypoint: %s",
                             rospy.get_name(),
