@@ -351,14 +351,6 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
     if (!odom_available_)
         odom_available_ = true;
 
-    geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
-
-    predictedPose.position.x = odom_msg->pose.pose.position.x;
-
-    predictedPose.position.y = odom_msg->pose.pose.position.y;
-
-    tf::poseMsgToTF(predictedPose, last_robot_pose_);
-
     double useless_pitch,
         useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
@@ -566,7 +558,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     if (state_space_.compare("dubins") == 0)
     {
-        start_state_[2] = double(yaw);
+        start_state_[2] = double(yaw + double(current_robot_velocity.angular.z * (solving_time_ + 0.15)));
     }
 
     // create a start state
@@ -634,7 +626,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     {
         local_om_stat_val_check = ob::StateValidityCheckerPtr(
             new LocalGridMapStateValidityCheckerDubins(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                   planning_bounds_x_, planning_bounds_y_, resp.map));
+                                                       planning_bounds_x_, planning_bounds_y_, resp.map));
     }
     else
     {
@@ -1020,10 +1012,10 @@ void OnlinePlannFramework::planningTimerCallback()
                         s->as<ob::DubinsStateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
                         s->as<ob::DubinsStateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                        double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                        double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
                                                             solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
                                                             solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
-                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
                         s->as<ob::DubinsStateSpace::StateType>()->setYaw(state_angle);
                         local_goal[2] = double(state_angle);
