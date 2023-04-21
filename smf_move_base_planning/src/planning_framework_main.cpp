@@ -351,6 +351,14 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
     if (!odom_available_)
         odom_available_ = true;
 
+    geometry_msgs::Pose predictedPose = odom_msg->pose.pose;
+
+    predictedPose.position.x = odom_msg->pose.pose.position.x;
+
+    predictedPose.position.y = odom_msg->pose.pose.position.y;
+
+    tf::poseMsgToTF(predictedPose, last_robot_pose_);
+
     double useless_pitch,
         useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
