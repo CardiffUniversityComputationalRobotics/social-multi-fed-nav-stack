@@ -2025,7 +2025,8 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
 double OnlinePlannFramework::calculateAngle(double x1, double y1, double x2, double y2)
 {
     double angle = atan2(y2 - y1, x2 - x1);
-    return angle + (2.0 * M_PI * floor((M_PI - angle) / (2.0 * M_PI)));
+    // return angle + (2.0 * M_PI * floor((M_PI - angle) / (2.0 * M_PI)));
+    return angle;
 }
 
 //! Main function
