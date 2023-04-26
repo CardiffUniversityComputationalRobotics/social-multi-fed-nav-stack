@@ -134,3 +134,8 @@ void SocialHeatmap::setTimeDecayFactor(double time_decay_factor)
 {
     time_decay_factor_ = time_decay_factor;
 }
+
+void SocialHeatmap::setSocialComfortAmplitude(double social_comfort_amplitude)
+{
+    social_comfort_amplitude_ = social_comfort_amplitude;
+}

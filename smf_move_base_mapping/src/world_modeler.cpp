@@ -396,6 +396,7 @@ WorldModeler::WorldModeler()
 
     // SOCIAL HEATMAP
     social_heatmap_.setTimeDecayFactor(social_heatmap_decay_factor_);
+    social_heatmap_.setSocialComfortAmplitude(social_comfort_amplitude_);
 
     //=======================================================================
     // Publishers

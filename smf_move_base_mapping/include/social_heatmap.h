@@ -27,6 +27,8 @@ class SocialHeatmap
 private:
     double time_decay_factor_ = 1;
 
+    double social_comfort_amplitude_ = 1;
+
     unsigned int resolution_factor_ = 5;
 
     std::map<unsigned int, smf_move_base_msgs::RelevantAgentState> agent_states_record_;
@@ -57,6 +59,8 @@ public:
     //! SETTERS
 
     void setTimeDecayFactor(double time_decay_factor);
+
+    void setSocialComfortAmplitude(double social_comfort_amplitude);
 
     // ! EXTERNAL FUNCTIONS
 
@@ -96,7 +100,7 @@ public:
         }
 
         double basic_personal_space_val =
-            relevant_agent_state.relevance *
+            social_comfort_amplitude_ * relevant_agent_state.relevance *
             std::exp(-(
                 std::pow(distance * std::cos(tetha_robot_agent - tetha_orientation) / (std::sqrt(2) * 0.45),
                          2) +
