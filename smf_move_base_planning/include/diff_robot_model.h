@@ -15,56 +15,17 @@ namespace oc = ompl::control;
 class KinematicDiffModel : public oc::StatePropagator
 {
 public:
-    KinematicDiffModel(const oc::SpaceInformationPtr &si) : oc::StatePropagator(si)
-    {
-        space_ = si->getStateSpace();
-        timeStep_ = 0.01;
-    }
+    KinematicDiffModel(const oc::SpaceInformationPtr &si);
 
-    void propagate(const ob::State *state, const oc::Control *control, const double duration, ob::State *result) const override
-    {
-        EulerIntegration(state, control, duration, result);
-    }
+    void propagate(const ob::State *state, const oc::Control *control, const double duration, ob::State *result) const override;
 
 protected:
     // Explicit Euler Method for numerical integration.
-    void EulerIntegration(const ob::State *start, const oc::Control *control, const double duration, ob::State *result) const
-    {
-        double t = timeStep_;
-        std::valarray<double> dstate;
-        space_->copyState(result, start);
-        while (t < duration + std::numeric_limits<double>::epsilon())
-        {
-            ode(result, control, dstate);
-            update(result, timeStep_ * dstate);
-            t += timeStep_;
-        }
-        if (t + std::numeric_limits<double>::epsilon() > duration)
-        {
-            ode(result, control, dstate);
-            update(result, (t - duration) * dstate);
-        }
-    }
+    void EulerIntegration(const ob::State *start, const oc::Control *control, const double duration, ob::State *result) const;
 
-    void ode(const ob::State *state, const oc::Control *control, std::valarray<double> &dstate) const
-    {
-        const double *u = control->as<oc::RealVectorControlSpace::ControlType>()->values;
-        const double theta = state->as<ob::SE2StateSpace::StateType>()->getYaw();
+    void ode(const ob::State *state, const oc::Control *control, std::valarray<double> &dstate) const;
 
-        dstate.resize(3);
-        dstate[0] = u[0] * cos(theta);
-        dstate[1] = u[0] * sin(theta);
-        dstate[2] = u[0] * tan(u[1]);
-    }
-
-    void update(ob::State *state, const std::valarray<double> &dstate) const
-    {
-        ob::SE2StateSpace::StateType &s = *state->as<ob::SE2StateSpace::StateType>();
-        s.setX(s.getX() + dstate[0]);
-        s.setY(s.getY() + dstate[1]);
-        s.setYaw(s.getYaw() + dstate[2]);
-        space_->enforceBounds(state);
-    }
+    void update(ob::State *state, const std::valarray<double> &dstate) const;
 
     ob::StateSpacePtr space_;
     double timeStep_;
@@ -76,7 +37,6 @@ void KinematicCarODE(const oc::ODESolver::StateType &q, const oc::Control *contr
 {
     const double *u = control->as<oc::RealVectorControlSpace::ControlType>()->values;
     const double theta = q[2];
-    double carLength = 0.2;
 
     // Zero out qdot
     qdot.resize(q.size(), 0);
