@@ -1,4 +1,15 @@
-#include <diff_robot_model.h>
+#include <ompl/control/SpaceInformation.h>
+#include <ompl/base/spaces/SE2StateSpace.h>
+#include <ompl/control/ODESolver.h>
+#include <ompl/control/spaces/RealVectorControlSpace.h>
+#include <ompl/control/SimpleSetup.h>
+#include <ompl/config.h>
+#include <iostream>
+#include <valarray>
+#include <limits>
+
+namespace ob = ompl::base;
+namespace oc = ompl::control;
 
 // Kinematic car model object definition.  This class does NOT use ODESolver to propagate the system.
 class KinematicDiffModel : public oc::StatePropagator
@@ -83,19 +94,6 @@ void KinematicDiffPostIntegration(const ob::State * /*state*/, const oc::Control
     SO2.enforceBounds(result->as<ob::SE2StateSpace::StateType>()->as<ob::SO2StateSpace::StateType>(1));
 }
 
-bool isStateValid(const oc::SpaceInformation *si, const ob::State *state)
-{
-    //    ob::ScopedState<ob::SE2StateSpace>
-    const auto *se2state = state->as<ob::SE2StateSpace::StateType>();
-
-    const auto *pos = se2state->as<ob::RealVectorStateSpace::StateType>(0);
-
-    const auto *rot = se2state->as<ob::SO2StateSpace::StateType>(1);
-
-    // return a value that is always true but uses the two variables we define, so we avoid compiler warnings
-    return si->satisfiesBounds(state) && (const void *)rot != (const void *)pos;
-}
-
 class DemoControlSpace : public oc::RealVectorControlSpace
 {
 public:
@@ -103,76 +101,3 @@ public:
     {
     }
 };
-
-// void planWithSimpleSetup()
-// {
-//     auto space(std::make_shared<ob::SE2StateSpace>());
-
-//     ob::RealVectorBounds bounds(2);
-//     bounds.setLow(-1);
-//     bounds.setHigh(1);
-
-//     space->setBounds(bounds);
-
-//     // create a control space
-//     auto cspace(std::make_shared<DemoControlSpace>(space));
-
-//     // set the bounds for the control space
-//     ob::RealVectorBounds cbounds(2);
-//     cbounds.setLow(-0.3);
-//     cbounds.setHigh(0.3);
-
-//     cspace->setBounds(cbounds);
-
-//     // define a simple setup class
-//     oc::SimpleSetup ss(cspace);
-
-//     // set state validity checking for this space
-//     oc::SpaceInformation *si = ss.getSpaceInformation().get();
-//     ss.setStateValidityChecker(
-//         [si](const ob::State *state)
-//         { return isStateValid(si, state); });
-
-//     // Setting the propagation routine for this space:
-//     // KinematicDiffModel does NOT use ODESolver
-//     // ss.setStatePropagator(std::make_shared<KinematicDiffModel>(ss.getSpaceInformation()));
-
-//     // Use the ODESolver to propagate the system.  Call KinematicDiffPostIntegration
-//     // when integration has finished to normalize the orientation values.
-//     auto odeSolver(std::make_shared<oc::ODEBasicSolver<>>(ss.getSpaceInformation(), &KinematicCarODE));
-//     ss.setStatePropagator(oc::ODESolver::getStatePropagator(odeSolver, &KinematicDiffPostIntegration));
-
-//     ob::ScopedState<ob::SE2StateSpace> start(space);
-//     start->setX(-0.5);
-//     start->setY(0.0);
-//     start->setYaw(0.0);
-
-//     ob::ScopedState<ob::SE2StateSpace> goal(space);
-//     goal->setX(0.0);
-//     goal->setY(0.5);
-//     goal->setYaw(0.0);
-
-//     ss.setStartAndGoalStates(start, goal, 0.05);
-
-//     ss.setup();
-
-//     ob::PlannerStatus solved = ss.solve(10.0);
-
-//     if (solved)
-//     {
-//         std::cout << "Found solution:" << std::endl;
-
-//         ss.getSolutionPath().asGeometric().printAsMatrix(std::cout);
-//     }
-//     else
-//         std::cout << "No solution found" << std::endl;
-// }
-
-// int main(int /*argc*/, char ** /*argv*/)
-// {
-//     std::cout << "OMPL version: " << OMPL_VERSION << std::endl;
-
-//     planWithSimpleSetup();
-
-//     return 0;
-// }
