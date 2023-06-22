@@ -62,6 +62,7 @@
 #include <state_cost_objective.h>
 #include <state_validity_checker_grid_map_R2.h>
 #include <local_state_validity_checker_grid_map_R2.h>
+#include <kinematic_diff_model.h>
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -469,6 +470,10 @@ void OnlinePlannFramework::planWithSimpleSetup()
     {
         local_space = ob::StateSpacePtr(new ob::DubinsStateSpace(turning_radius_));
     }
+    if (planner_name_.compare("SST"))
+    {
+        local_space = ob::StateSpacePtr(new ob::SE2StateSpace());
+    }
     else
     {
         local_space = ob::StateSpacePtr(new ob::RealVectorStateSpace(2));
@@ -494,6 +499,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     {
         local_space->as<ob::RealVectorStateSpace>()->setBounds(bounds);
     }
+
+    // auto control_space(std::make_shared<DemoControlSpace>(local_space));
 
     //=======================================================================
     // Define a simple setup class
