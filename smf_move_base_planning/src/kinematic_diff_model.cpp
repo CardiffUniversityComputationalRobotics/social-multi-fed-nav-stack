@@ -60,7 +60,7 @@ void KinematicDiffPostIntegration(const ob::State * /*state*/, const oc::Control
 
 // Definition of the ODE for the kinematic car.
 // This method is analogous to the above KinematicDiffModel::ode function.
-void KinematicCarODE(const oc::ODESolver::StateType &q, const oc::Control *control, oc::ODESolver::StateType &qdot)
+void KinematicDiffODE(const oc::ODESolver::StateType &q, const oc::Control *control, oc::ODESolver::StateType &qdot)
 {
     const double *u = control->as<oc::RealVectorControlSpace::ControlType>()->values;
     const double theta = q[2];

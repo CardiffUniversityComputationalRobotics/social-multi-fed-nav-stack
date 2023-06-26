@@ -62,7 +62,7 @@
 #include <state_cost_objective.h>
 #include <state_validity_checker_grid_map_R2.h>
 #include <local_state_validity_checker_grid_map_R2.h>
-#include <kinematic_diff_model.h>
+#include "kinematic_diff_model.h"
 
 // smf base controller
 #include <smf_move_base_msgs/Path2D.h>
@@ -74,8 +74,10 @@
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
+namespace oc = ompl::control;
 
-typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> SmfBaseGoToActionServer;
+typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction>
+    SmfBaseGoToActionServer;
 
 //!  OnlinePlannFramework class.
 /*!
@@ -130,7 +132,8 @@ private:
     tf::TransformListener tf_listener_;
 
     // OMPL, online planner
-    og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
+    og::SimpleSetupPtr simple_setup_global_;
+    oc::SimpleSetupPtr simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
     bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
         goal_available_, dynamic_bounds_, visualize_tree_,
@@ -193,10 +196,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("turning_radius", turning_radius_, turning_radius_);
     local_nh_.param("state_space", state_space_, state_space_);
 
-    if (state_space_.compare("dubins") == 0)
-    {
-        start_state_.resize(3);
-    }
+    start_state_.resize(3);
 
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
@@ -466,18 +466,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     ob::StateSpacePtr local_space;
 
-    if (state_space_.compare("dubins") == 0)
-    {
-        local_space = ob::StateSpacePtr(new ob::DubinsStateSpace(turning_radius_));
-    }
-    if (planner_name_.compare("SST"))
-    {
-        local_space = ob::StateSpacePtr(new ob::SE2StateSpace());
-    }
-    else
-    {
-        local_space = ob::StateSpacePtr(new ob::RealVectorStateSpace(2));
-    }
+    local_space = ob::StateSpacePtr(new ob::SE2StateSpace());
 
     //=======================================================================
     // Set the bounds for the state space
@@ -491,14 +480,17 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     space->as<ob::RealVectorStateSpace>()->setBounds(bounds);
 
-    if (state_space_.compare("dubins") == 0)
-    {
-        local_space->as<ob::DubinsStateSpace>()->setBounds(bounds);
-    }
-    else
-    {
-        local_space->as<ob::RealVectorStateSpace>()->setBounds(bounds);
-    }
+    local_space->as<ob::SE2StateSpace>()->setBounds(bounds);
+
+    //! setup control space
+
+    auto control_space(std::make_shared<DemoControlSpace>(local_space));
+
+    ob::RealVectorBounds control_bounds(2);
+    control_bounds.setLow(-0.3);
+    control_bounds.setHigh(0.3);
+
+    control_space->setBounds(control_bounds);
 
     // auto control_space(std::make_shared<DemoControlSpace>(local_space));
 
@@ -509,17 +501,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::SpaceInformationPtr si_global = simple_setup_global_->getSpaceInformation();
 
     // !defining simple setup for local planner
-    simple_setup_local_ = og::SimpleSetupPtr(new og::SimpleSetup(local_space));
+    simple_setup_local_ = oc::SimpleSetupPtr(new oc::SimpleSetup(control_space));
     ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
-
-    // ! DUBINS MOTION VALIDATOR
-
-    if (state_space_.compare("dubins") == 0)
-    {
-        ob::MotionValidatorPtr motion_validator;
-        motion_validator = ob::MotionValidatorPtr(new ob::DubinsMotionValidator(si_local));
-        si_local->setMotionValidator(motion_validator);
-    }
 
     // ! ==================================
 
@@ -569,11 +552,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
     start_state_[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
     start_state_[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
-
-    if (state_space_.compare("dubins") == 0)
-    {
-        start_state_[2] = double(yaw);
-    }
+    start_state_[2] = double(yaw);
 
     // create a start state
     //! GLOBAL START STATE
@@ -585,10 +564,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::ScopedState<> local_start(local_space);
     local_start[0] = double(start_state_[0]); // x
     local_start[1] = double(start_state_[1]); // y
-    if (state_space_.compare("dubins") == 0)
-    {
-        local_start[2] = double(start_state_[2]); // yaw
-    }
+    local_start[2] = double(start_state_[2]); // yaw
 
     // create a goal state
     //! GLOBAL GOAL STATE
@@ -600,10 +576,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::ScopedState<> local_goal(local_space);
     local_goal[0] = double(goal_map_frame_[0]); // x
     local_goal[1] = double(goal_map_frame_[1]); // y
-    if (state_space_.compare("dubins") == 0)
-    {
-        local_goal[2] = double(goal_map_frame_[2]); // yaw
-    }
+    local_goal[2] = double(goal_map_frame_[2]); // yaw
 
     //=======================================================================
     // Set the start and goal states
@@ -631,6 +604,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
         new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
                                                planning_bounds_x_, planning_bounds_y_));
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
+
+    auto odeSolver(std::make_shared<oc::ODEBasicSolver<>>(simple_setup_local_->getSpaceInformation(), &KinematicDiffODE));
+    simple_setup_local_->setStatePropagator(oc::ODESolver::getStatePropagator(odeSolver, &KinematicDiffPostIntegration));
 
     //=======================================================================
     // Set optimization objective
@@ -786,6 +762,16 @@ void OnlinePlannFramework::planningTimerCallback()
             {
                 simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
             }
+
+            //! setup control space
+
+            auto control_space(std::make_shared<DemoControlSpace>(local_space));
+
+            ob::RealVectorBounds control_bounds(2);
+            control_bounds.setLow(-0.3);
+            control_bounds.setHigh(0.3);
+
+            control_space->setBounds(control_bounds);
         }
         //=======================================================================
         // Set new start state
@@ -856,10 +842,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
         local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
         local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
-        if (state_space_.compare("dubins") == 0)
-        {
-            local_start[2] = double(yaw); // yaw
-        }
+        local_start[2] = double(yaw);                                                                                                    // yaw
 
         simple_setup_local_->clear();
         simple_setup_local_->setStartState(local_start);
@@ -1106,7 +1089,7 @@ void OnlinePlannFramework::planningTimerCallback()
                     // get the goal representation from the problem definition (not the same as the goal state)
                     // and inquire about the found path
 
-                    og::PathGeometric path_local = simple_setup_local_->getSolutionPath();
+                    og::PathGeometric path_local = simple_setup_local_->getSolutionPath().asGeometric();
 
                     // generates varios little segments for the waypoints obtained from the planner
                     path_local.interpolate(int(path_local.length() / 0.2));

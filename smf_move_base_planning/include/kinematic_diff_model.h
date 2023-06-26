@@ -44,4 +44,7 @@ public:
     }
 };
 
+void KinematicDiffODE(const oc::ODESolver::StateType &q, const oc::Control *control, oc::ODESolver::StateType &qdot);
+void KinematicDiffPostIntegration(const ob::State * /*state*/, const oc::Control * /*control*/, const double /*duration*/, ob::State *result);
+
 #endif
