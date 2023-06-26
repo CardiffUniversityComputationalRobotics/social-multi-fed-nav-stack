@@ -3,7 +3,7 @@
 KinematicDiffModel::KinematicDiffModel(const oc::SpaceInformationPtr &si) : oc::StatePropagator(si)
 {
     space_ = si->getStateSpace();
-    timeStep_ = 0.01;
+    timeStep_ = 0.1;
 }
 
 void KinematicDiffModel::propagate(const ob::State *state, const oc::Control *control, const double duration, ob::State *result) const
@@ -38,7 +38,7 @@ void KinematicDiffModel::ode(const ob::State *state, const oc::Control *control,
     dstate.resize(3);
     dstate[0] = u[0] * cos(theta);
     dstate[1] = u[0] * sin(theta);
-    dstate[2] = u[0] * tan(u[1]);
+    dstate[2] = u[1];
 }
 
 void KinematicDiffModel::update(ob::State *state, const std::valarray<double> &dstate) const
@@ -70,5 +70,5 @@ void KinematicDiffODE(const oc::ODESolver::StateType &q, const oc::Control *cont
 
     qdot[0] = u[0] * cos(theta);
     qdot[1] = u[0] * sin(theta);
-    qdot[2] = u[0] * tan(u[1]);
+    qdot[2] = u[1];
 }

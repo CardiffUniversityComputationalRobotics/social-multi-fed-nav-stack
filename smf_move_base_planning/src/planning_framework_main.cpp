@@ -32,11 +32,11 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/config.h>
 #include <ompl/base/goals/GoalStates.h>
-#include <ompl/base/spaces/DubinsStateSpace.h>
+#include <ompl/base/spaces/SE2StateSpace.h>
 
 #include <planner/RRTstarMod.h>
 #include <planner/InformedRRTstarMod.h>
-
+#include <ompl/control/planners/sst/SST.h>
 // ROS
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -487,12 +487,12 @@ void OnlinePlannFramework::planWithSimpleSetup()
     auto control_space(std::make_shared<DemoControlSpace>(local_space));
 
     ob::RealVectorBounds control_bounds(2);
-    control_bounds.setLow(-0.3);
-    control_bounds.setHigh(0.3);
+    control_bounds.setLow(0, 0);
+    control_bounds.setHigh(0, 0.3);
+    control_bounds.setLow(1, -0.5);
+    control_bounds.setHigh(1, 0.5);
 
     control_space->setBounds(control_bounds);
-
-    // auto control_space(std::make_shared<DemoControlSpace>(local_space));
 
     //=======================================================================
     // Define a simple setup class
@@ -502,9 +502,15 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     // !defining simple setup for local planner
     simple_setup_local_ = oc::SimpleSetupPtr(new oc::SimpleSetup(control_space));
-    ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
+    oc::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
 
     // ! ==================================
+
+    si_local->setPropagationStepSize(0.1);
+
+    int _durationMin = 1;
+    int _durationMax = 10;
+    si_local->setMinMaxControlDuration(_durationMin, _durationMax);
 
     //=======================================================================
     // Create a planner for the defined space
@@ -512,7 +518,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::PlannerPtr planner;
     if (planner_name_.compare("RRT") == 0)
         planner = ob::PlannerPtr(new og::RRT(si_global));
-    if (planner_name_.compare("PRMstar") == 0)
+    else if (planner_name_.compare("PRMstar") == 0)
         planner = ob::PlannerPtr(new og::PRMstar(si_global));
     else if (planner_name_.compare("RRTstar") == 0)
         planner = ob::PlannerPtr(new og::RRTstar(si_global));
@@ -525,7 +531,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::PlannerPtr local_planner;
     if (local_planner_name_.compare("RRT") == 0)
         local_planner = ob::PlannerPtr(new og::RRT(si_local));
-    if (local_planner_name_.compare("PRMstar") == 0)
+    else if (local_planner_name_.compare("PRMstar") == 0)
         local_planner = ob::PlannerPtr(new og::PRMstar(si_local));
     else if (local_planner_name_.compare("RRTstar") == 0)
         local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
@@ -535,8 +541,13 @@ void OnlinePlannFramework::planWithSimpleSetup()
         local_planner = ob::PlannerPtr(new og::InformedRRTstar(si_local));
     else if (local_planner_name_.compare("InformedRRTstarMod") == 0)
         local_planner = ob::PlannerPtr(new og::InformedRRTstarMod(si_local));
+    else if (local_planner_name_.compare("SST") == 0)
+        local_planner = ob::PlannerPtr(new oc::SST(si_local));
     else
         local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
+
+    local_planner->as<oc::SST>()->setSelectionRadius(0.05);
+    local_planner->as<oc::SST>()->setPruningRadius(0.001);
 
     //=======================================================================
     // Set the setup planner
@@ -754,24 +765,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
             simple_setup_global_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
 
-            if (state_space_.compare("dubins") == 0)
-            {
-                simple_setup_local_->getStateSpace()->as<ob::DubinsStateSpace>()->setBounds(bounds);
-            }
-            else
-            {
-                simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
-            }
-
-            //! setup control space
-
-            auto control_space(std::make_shared<DemoControlSpace>(local_space));
-
-            ob::RealVectorBounds control_bounds(2);
-            control_bounds.setLow(-0.3);
-            control_bounds.setHigh(0.3);
-
-            control_space->setBounds(control_bounds);
+            simple_setup_local_->getStateSpace()->as<ob::SE2StateSpace>()->setBounds(bounds);
         }
         //=======================================================================
         // Set new start state
@@ -966,17 +960,17 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     ob::State *s = local_space->allocState();
 
-                    if (state_space_.compare("dubins") == 0)
+                    if (local_planner_name_.compare("SST") == 0)
                     {
-                        s->as<ob::DubinsStateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        s->as<ob::DubinsStateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                        s->as<ob::SE2StateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        s->as<ob::SE2StateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
                         double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
                                                             solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
                                                             solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
                                                             solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
 
-                        s->as<ob::DubinsStateSpace::StateType>()->setYaw(state_angle);
+                        s->as<ob::SE2StateSpace::StateType>()->setYaw(state_angle);
                         local_goal[2] = double(state_angle);
                     }
                     else
@@ -1019,10 +1013,10 @@ void OnlinePlannFramework::planningTimerCallback()
                     double waypoints_diff_x;
                     double waypoints_diff_y;
 
-                    if (state_space_.compare("dubins") == 0)
+                    if (local_planner_name_.compare("SST") == 0)
                     {
-                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getX() - goal[0]);
-                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::DubinsStateSpace::StateType>()->getY() - goal[1]);
+                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getX() - goal[0]);
+                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getY() - goal[1]);
                     }
                     else
                     {
@@ -1035,7 +1029,7 @@ void OnlinePlannFramework::planningTimerCallback()
                         local_goal[0] = double(goal[0]); // x
                         local_goal[1] = double(goal[1]); // y
 
-                        if (state_space_.compare("dubins") == 0)
+                        if (local_planner_name_.compare("SST") == 0)
                         {
                             local_goal[2] = double(goal[2]); // yaw
                         }
@@ -1103,15 +1097,15 @@ void OnlinePlannFramework::planningTimerCallback()
                     local_path_states = path_local.getStates();
 
                     double distance_to_goal;
-                    if (state_space_.compare("dubins") == 0)
+                    if (local_planner_name_.compare("SST") == 0)
                     {
                         distance_to_goal =
                             sqrt(pow(local_goal[0] - local_path_states[local_path_states.size() - 1]
-                                                         ->as<ob::DubinsStateSpace::StateType>()
+                                                         ->as<ob::SE2StateSpace::StateType>()
                                                          ->getX(),
                                      2.0) +
                                  pow(local_goal[1] - local_path_states[local_path_states.size() - 1]
-                                                         ->as<ob::DubinsStateSpace::StateType>()
+                                                         ->as<ob::SE2StateSpace::StateType>()
                                                          ->getY(),
                                      2.0));
                     }
@@ -1151,10 +1145,10 @@ void OnlinePlannFramework::planningTimerCallback()
                                 double current_distance_x;
                                 double current_distance_y;
 
-                                if (state_space_.compare("dubins") == 0)
+                                if (local_planner_name_.compare("SST") == 0)
                                 {
-                                    current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                    current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                    current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
+                                    current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
                                 }
                                 else
                                 {
@@ -1203,7 +1197,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         // ! TRIM LOCAL FOUND IF DUBINS NOT USED
 
-                        if (state_space_.compare("dubins") == 0)
+                        if (local_planner_name_.compare("SST") == 0)
                         {
                             for (int i = 0; i < local_path_states.size(); i++)
                             {
@@ -1222,10 +1216,10 @@ void OnlinePlannFramework::planningTimerCallback()
                                 double current_distance_x;
                                 double current_distance_y;
 
-                                if (state_space_.compare("dubins") == 0)
+                                if (local_planner_name_.compare("SST") == 0)
                                 {
-                                    current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                    current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                    current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX());
+                                    current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY());
                                 }
                                 else
                                 {
@@ -1298,10 +1292,10 @@ void OnlinePlannFramework::planningTimerCallback()
                         {
                             geometry_msgs::Pose2D p;
 
-                            if (state_space_.compare("dubins") == 0)
+                            if (local_planner_name_.compare("SST") == 0)
                             {
-                                p.x = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX();
-                                p.y = controller_local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY();
+                                p.x = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX();
+                                p.y = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY();
                             }
                             else
                             {
@@ -1380,10 +1374,10 @@ void OnlinePlannFramework::planningTimerCallback()
                     double current_distance_x;
                     double current_distance_y;
 
-                    if (state_space_.compare("dubins") == 0)
+                    if (local_planner_name_.compare("SST") == 0)
                     {
-                        current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                        current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                        current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
+                        current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
                     }
                     else
                     {
@@ -1423,10 +1417,10 @@ void OnlinePlannFramework::planningTimerCallback()
                     // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
 
                     geometry_msgs::Pose2D p;
-                    if (state_space_.compare("dubins") == 0)
+                    if (local_planner_name_.compare("SST") == 0)
                     {
-                        p.x = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getX();
-                        p.y = local_solution_path_states_copy_[0]->as<ob::DubinsStateSpace::StateType>()->getY();
+                        p.x = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getX();
+                        p.y = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getY();
                     }
                     else
                     {
@@ -1466,13 +1460,13 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         geometry_msgs::Pose2D p;
 
-                        if (state_space_.compare("dubins") == 0)
+                        if (local_planner_name_.compare("SST") == 0)
                         {
                             p.x = local_solution_path_states_copy_[i + 1]
-                                      ->as<ob::DubinsStateSpace::StateType>()
+                                      ->as<ob::SE2StateSpace::StateType>()
                                       ->getX();
                             p.y = local_solution_path_states_copy_[i + 1]
-                                      ->as<ob::DubinsStateSpace::StateType>()
+                                      ->as<ob::SE2StateSpace::StateType>()
                                       ->getY();
                         }
                         else
@@ -1509,19 +1503,19 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         double angle;
 
-                        if (state_space_.compare("dubins") == 0)
+                        if (local_planner_name_.compare("SST") == 0)
                         {
                             angle = atan2(local_solution_path_states_copy_[i + 1]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->as<ob::SE2StateSpace::StateType>()
                                                   ->getY() -
                                               local_solution_path_states_copy_[i]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->as<ob::SE2StateSpace::StateType>()
                                                   ->getY(),
                                           local_solution_path_states_copy_[i + 1]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->as<ob::SE2StateSpace::StateType>()
                                                   ->getX() -
                                               local_solution_path_states_copy_[i]
-                                                  ->as<ob::DubinsStateSpace::StateType>()
+                                                  ->as<ob::SE2StateSpace::StateType>()
                                                   ->getX());
                         }
                         else
@@ -1545,14 +1539,14 @@ void OnlinePlannFramework::planningTimerCallback()
                         {
                             ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
 
-                            if (state_space_.compare("dubins") == 0)
+                            if (local_planner_name_.compare("SST") == 0)
                             {
                                 posEv[0] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::DubinsStateSpace::StateType>()
+                                                      ->as<ob::SE2StateSpace::StateType>()
                                                       ->getX() +
                                                   counter * robot_base_radius * std::cos(angle)); // x
                                 posEv[1] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::DubinsStateSpace::StateType>()
+                                                      ->as<ob::SE2StateSpace::StateType>()
                                                       ->getY() +
                                                   counter * robot_base_radius * std::sin(angle)); // y
                             }
@@ -1575,14 +1569,14 @@ void OnlinePlannFramework::planningTimerCallback()
                                 // ros::this_node::getName().c_str());
                                 ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
 
-                                if (state_space_.compare("dubins") == 0)
+                                if (local_planner_name_.compare("SST") == 0)
                                 {
                                     posEv[0] = double(local_solution_path_states_copy_[i]
-                                                          ->as<ob::DubinsStateSpace::StateType>()
+                                                          ->as<ob::SE2StateSpace::StateType>()
                                                           ->getX() +
                                                       (counter - 1) * robot_base_radius * std::cos(angle)); // x
                                     posEv[1] = double(local_solution_path_states_copy_[i]
-                                                          ->as<ob::DubinsStateSpace::StateType>()
+                                                          ->as<ob::SE2StateSpace::StateType>()
                                                           ->getY() +
                                                       (counter - 1) * robot_base_radius * std::sin(angle));
                                 }
@@ -1617,13 +1611,13 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                 lastNode = true;
 
-                                if (state_space_.compare("dubins") == 0)
+                                if (local_planner_name_.compare("SST") == 0)
                                 {
-                                    path_visualize.append(posEv->as<ob::DubinsStateSpace::StateType>());
+                                    path_visualize.append(posEv->as<ob::SE2StateSpace::StateType>());
                                 }
                                 else
                                 {
-                                    path_visualize.append(posEv->as<ob::DubinsStateSpace::StateType>());
+                                    path_visualize.append(posEv->as<ob::SE2StateSpace::StateType>());
                                 }
 
                                 solution_path_for_control.waypoints.push_back(p);
@@ -1805,10 +1799,10 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
         {
             if (planner_data.getVertex(i).getState() && planner_data.getIncomingEdges(i, edgeList) > 0)
             {
-                if (state_space_.compare("dubins") == 0)
+                if (local_planner_name_.compare("SST") == 0)
                 {
-                    const ob::DubinsStateSpace::StateType *state_r2;
-                    state_r2 = planner_data.getVertex(i).getState()->as<ob::DubinsStateSpace::StateType>();
+                    const ob::SE2StateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(i).getState()->as<ob::SE2StateSpace::StateType>();
                     p.x = state_r2->getX();
                     p.y = state_r2->getY();
                 }
@@ -1824,10 +1818,10 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
 
                 visual_rrt.points.push_back(p);
 
-                if (state_space_.compare("dubins") == 0)
+                if (local_planner_name_.compare("SST") == 0)
                 {
-                    const ob::DubinsStateSpace::StateType *state_r2;
-                    state_r2 = planner_data.getVertex(edgeList[0]).getState()->as<ob::DubinsStateSpace::StateType>();
+                    const ob::SE2StateSpace::StateType *state_r2;
+                    state_r2 = planner_data.getVertex(edgeList[0]).getState()->as<ob::SE2StateSpace::StateType>();
                     p.x = state_r2->getX();
                     p.y = state_r2->getY();
                 }
@@ -1852,10 +1846,10 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
     {
         // extract the component of the state and cast it to what we expect
 
-        if (state_space_.compare("dubins") == 0)
+        if (local_planner_name_.compare("SST") == 0)
         {
-            const ob::DubinsStateSpace::StateType *state_r2;
-            state_r2 = states[i]->as<ob::DubinsStateSpace::StateType>();
+            const ob::SE2StateSpace::StateType *state_r2;
+            state_r2 = states[i]->as<ob::SE2StateSpace::StateType>();
             p.x = state_r2->getX();
             p.y = state_r2->getY();
         }
@@ -1873,10 +1867,10 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
         {
             visual_result_path.points.push_back(p);
 
-            if (state_space_.compare("dubins") == 0)
+            if (local_planner_name_.compare("SST") == 0)
             {
-                const ob::DubinsStateSpace::StateType *state_r2;
-                state_r2 = states[i - 1]->as<ob::DubinsStateSpace::StateType>();
+                const ob::SE2StateSpace::StateType *state_r2;
+                state_r2 = states[i - 1]->as<ob::SE2StateSpace::StateType>();
                 p.x = state_r2->getX();
                 p.y = state_r2->getY();
             }
@@ -1909,7 +1903,7 @@ bool OnlinePlannFramework::validateGoalCandidate(const ob::ScopedState<> &goal_c
 ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState<> &goal_candidate)
 {
 
-    ob::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
+    oc::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
 
     ob::GoalStates *goal_states(new ob::GoalStates(si_local));
 
@@ -1928,7 +1922,7 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
         new_goal_local[0] = x;
         new_goal_local[1] = y;
 
-        if (state_space_.compare("dubins") == 0)
+        if (local_planner_name_.compare("SST") == 0)
         {
             new_goal_local[2] = goal_candidate[2];
         }

@@ -67,64 +67,30 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
 bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
 {
 
-    if (state_space_.compare("dubins") == 0)
+    const ob::SE2StateSpace::StateType *state_r2 = state->as<ob::SE2StateSpace::StateType>();
+
+    if (opport_collision_check_ &&
+        (state_r2->getX() < grid_map_min_x_ || state_r2->getY() < grid_map_min_y_ ||
+         state_r2->getX() > grid_map_max_x_ || state_r2->getY() > grid_map_max_y_))
     {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
-
-        if (opport_collision_check_ &&
-            (state_r2->getX() < grid_map_min_x_ || state_r2->getY() < grid_map_min_y_ ||
-             state_r2->getX() > grid_map_max_x_ || state_r2->getY() > grid_map_max_y_))
-        {
-            return true;
-        }
-
-        if (state_r2->getX() < planning_bounds_x_[0] || state_r2->getY() < planning_bounds_y_[0] ||
-            state_r2->getX() > planning_bounds_x_[1] || state_r2->getY() > planning_bounds_y_[1])
-        {
-            return false;
-        }
-
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
-
-        for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
-             !iterator.isPastEnd(); ++iterator)
-        {
-            const grid_map::Index index(*iterator);
-
-            if (full_grid_map_(index(0), index(1)) > 50)
-            {
-                return false;
-            }
-        }
+        return true;
     }
-    else
+
+    if (state_r2->getX() < planning_bounds_x_[0] || state_r2->getY() < planning_bounds_y_[0] ||
+        state_r2->getX() > planning_bounds_x_[1] || state_r2->getY() > planning_bounds_y_[1])
     {
+        return false;
+    }
+    grid_map::Position query(state_r2->getX(), state_r2->getY());
 
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
+    for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
+         !iterator.isPastEnd(); ++iterator)
+    {
+        const grid_map::Index index(*iterator);
 
-        if (opport_collision_check_ &&
-            (state_r2->values[0] < grid_map_min_x_ || state_r2->values[1] < grid_map_min_y_ ||
-             state_r2->values[0] > grid_map_max_x_ || state_r2->values[1] > grid_map_max_y_))
-        {
-            return true;
-        }
-
-        if (state_r2->values[0] < planning_bounds_x_[0] || state_r2->values[1] < planning_bounds_y_[0] ||
-            state_r2->values[0] > planning_bounds_x_[1] || state_r2->values[1] > planning_bounds_y_[1])
+        if (full_grid_map_(index(0), index(1)) > 50)
         {
             return false;
-        }
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
-
-        for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_);
-             !iterator.isPastEnd(); ++iterator)
-        {
-            const grid_map::Index index(*iterator);
-
-            if (full_grid_map_(index(0), index(1)) > 50)
-            {
-                return false;
-            }
         }
     }
 
