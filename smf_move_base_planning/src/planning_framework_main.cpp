@@ -59,6 +59,7 @@
 // Planner
 #include <new_state_sampler.h>
 #include <informed_new_state_sampler.h>
+#include <ompl/base/samplers/informed/PathLengthDirectInfSampler.h>
 #include <state_cost_objective.h>
 #include <state_validity_checker_grid_map_R2.h>
 #include <local_state_validity_checker_grid_map_R2.h>
@@ -489,8 +490,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     ob::RealVectorBounds control_bounds(2);
     control_bounds.setLow(0, 0);
     control_bounds.setHigh(0, 0.3);
-    control_bounds.setLow(1, -0.5);
-    control_bounds.setHigh(1, 0.5);
+    control_bounds.setLow(1, -0.35);
+    control_bounds.setHigh(1, 0.35);
 
     control_space->setBounds(control_bounds);
 
@@ -1061,9 +1062,19 @@ void OnlinePlannFramework::planningTimerCallback()
                     if (local_optimization_objective_.compare("PathLength") == 0) // path length Objective
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
-                    else if (local_optimization_objective_.compare("SocialComfort") == 0) // Social Comfort
+                    else if (local_optimization_objective_.compare("SocialComfort") == 0)
+                    {
+                        std::cout << "setting informed sampling ========" << std::endl;
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getSocialComfortObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_, local_space, simple_setup_global_->getPlanner(), global_path_feedback));
+
+                        ob::StateSamplerPtr informed_sampler = new ob::PathLengthDirectInfSampler();
+
+                        simple_setup_local_->getSpaceInformation()
+                            ->getStateSpace()
+                            ->setStateSamplerAllocator(
+                                std::bind(informed_sampler));
+                    }
                     else if (local_optimization_objective_.compare("SocialHeatmap") == 0) // Social Costmap
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getSocialHeatmapObjective(simple_setup_local_->getSpaceInformation(), motion_cost_interpolation_));
