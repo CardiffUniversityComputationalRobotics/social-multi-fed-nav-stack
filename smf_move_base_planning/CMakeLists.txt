@@ -50,6 +50,7 @@ link_directories(${OCTOMAP_LIBRARY_DIRS} ${ompl_LIBRARY_DIRS} ${CCD_LIBRARY_DIRS
 add_executable(smf_move_base_planner
 src/planner/RRTstarMod.cpp
 src/planner/InformedRRTstarMod.cpp
+src/planner/SSTMod.cpp
 src/sampler/PathLengthDirectInfSamplerMod.cpp
 src/planning_framework_main.cpp
 src/state_validity_checker_grid_map_R2.cpp
