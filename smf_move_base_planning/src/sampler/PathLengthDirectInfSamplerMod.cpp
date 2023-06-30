@@ -41,6 +41,7 @@
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/base/StateSpace.h"
 #include "ompl/base/spaces/RealVectorStateSpace.h"
+#include "ompl/base/spaces/SE2StateSpace.h"
 
 // For std::make_shared
 #include <memory>
