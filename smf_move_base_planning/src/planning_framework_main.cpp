@@ -961,28 +961,21 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     ob::State *s = local_space->allocState();
 
-                    if (local_planner_name_.compare("SST") == 0)
-                    {
-                        s->as<ob::SE2StateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        s->as<ob::SE2StateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                    s->as<ob::SE2StateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    s->as<ob::SE2StateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                        double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                            solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
-                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                        solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
+                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
 
-                        s->as<ob::SE2StateSpace::StateType>()->setYaw(state_angle);
-                        local_goal[2] = double(state_angle);
-                    }
-                    else
-                    {
-                        local_space->copyState(s, solution_path_states_[i]);
-                    }
+                    s->as<ob::SE2StateSpace::StateType>()->setYaw(state_angle);
 
                     global_path_feedback.push_back(s);
 
                     local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                     local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                    local_goal[2] = double(state_angle);
 
                     if (local_path_distance >= local_path_range_)
                     {
@@ -1014,26 +1007,16 @@ void OnlinePlannFramework::planningTimerCallback()
                     double waypoints_diff_x;
                     double waypoints_diff_y;
 
-                    if (local_planner_name_.compare("SST") == 0)
-                    {
-                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getX() - goal[0]);
-                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getY() - goal[1]);
-                    }
-                    else
-                    {
-                        waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - goal[0]);
-                        waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - goal[1]);
-                    }
+                    waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getX() - goal[0]);
+                    waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getY() - goal[1]);
 
                     if (waypoints_diff_x < 3 && waypoints_diff_y < 3)
                     {
-                        local_goal[0] = double(goal[0]); // x
-                        local_goal[1] = double(goal[1]); // y
 
-                        if (local_planner_name_.compare("SST") == 0)
-                        {
-                            local_goal[2] = double(goal[2]); // yaw
-                        }
+                        local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+
+                        local_goal[2] = double(goal_map_frame_[2]); // yaw
 
                         simple_setup_local_->setGoalState(local_goal, goal_radius_);
                     }
