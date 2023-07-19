@@ -5,7 +5,7 @@
  * \author Juan David Hernandez Vega, juandhv@rice.edu
  *
  * \details Check is a given configuration R2 is collision-free.
- *  The workspace is represented by an Octomap and collision check is done with FCL.
+ *  The worspace is represented by an Octomap and collision check is done with FCL.
  *
  * Based on Juan D. Hernandez Vega's PhD thesis, University of Girona
  * http://hdl.handle.net/10803/457592, http://www.tdx.cat/handle/10803/457592
@@ -104,51 +104,24 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
     double state_risk = 0.0;
     grid_map::Index index;
 
-    if (state_space_.compare("dubins") == 0)
+    const ob::SE2StateSpace::StateType *state_r2 = state->as<ob::SE2StateSpace::StateType>();
+    grid_map::Position query(state_r2->getX(), state_r2->getY());
+
+    if (grid_map_.getIndex(query, index))
     {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
+        state_risk = comfort_grid_map_(index(0), index(1));
 
-        if (grid_map_.getIndex(query, index))
+        if (state_risk < 1 || isnan(state_risk))
         {
-            state_risk = comfort_grid_map_(index(0), index(1));
-
-            if (state_risk < 1 || isnan(state_risk))
-            {
-                state_risk = 1;
-            }
-
-            if (local_use_social_heatmap_)
-            {
-                double social_heatmap_risk = social_heatmap_grid_map_(index(0), index(1));
-                if (!isnan(social_heatmap_risk) && !social_heatmap_risk <= 1)
-                {
-                    state_risk += social_heatmap_risk / 100;
-                }
-            }
+            state_risk = 1;
         }
-    }
-    else
-    {
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
 
-        if (grid_map_.getIndex(query, index))
+        if (local_use_social_heatmap_)
         {
-            state_risk = comfort_grid_map_(index(0), index(1));
-
-            if (state_risk < 1 || isnan(state_risk))
+            double social_heatmap_risk = social_heatmap_grid_map_(index(0), index(1));
+            if (!isnan(social_heatmap_risk) && !social_heatmap_risk <= 1)
             {
-                state_risk = 1;
-            }
-
-            if (local_use_social_heatmap_)
-            {
-                double social_heatmap_risk = social_heatmap_grid_map_(index(0), index(1));
-                if (!isnan(social_heatmap_risk) && !social_heatmap_risk <= 1)
-                {
-                    state_risk += social_heatmap_risk / 100;
-                }
+                state_risk += social_heatmap_risk / 100;
             }
         }
     }
@@ -162,30 +135,14 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
 
     grid_map::Index index;
 
-    if (state_space_.compare("dubins") == 0)
-    {
-        const ob::DubinsStateSpace::StateType *state_r2 = state->as<ob::DubinsStateSpace::StateType>();
-        grid_map::Position query(state_r2->getX(), state_r2->getY());
+    const ob::SE2StateSpace::StateType *state_r2 = state->as<ob::SE2StateSpace::StateType>();
+    grid_map::Position query(state_r2->getX(), state_r2->getY());
 
-        if (grid_map_.getIndex(query, index))
-        {
-            if (full_grid_map_(index(0), index(1)) > 50)
-            {
-                return false;
-            }
-        }
-    }
-    else
+    if (grid_map_.getIndex(query, index))
     {
-        const ob::RealVectorStateSpace::StateType *state_r2 = state->as<ob::RealVectorStateSpace::StateType>();
-        grid_map::Position query(state_r2->values[0], state_r2->values[1]);
-
-        if (grid_map_.getIndex(query, index))
+        if (full_grid_map_(index(0), index(1)) > 50)
         {
-            if (full_grid_map_(index(0), index(1)) > 50)
-            {
-                return false;
-            }
+            return false;
         }
     }
 

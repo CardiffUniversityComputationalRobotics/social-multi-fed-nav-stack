@@ -256,7 +256,6 @@ namespace ompl
             if (!solution_start_states_.empty())
             {
                 getNextSample(statePtr);
-                OMPL_INFORM("ADDING SOLUTION NODE STATE");
                 return true;
             }
             else
