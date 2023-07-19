@@ -116,7 +116,6 @@ public:
     {
         // Make the direct path-length informed sampler and return. If OMPL was compiled with Eigen, a direct
         // version is available, if not a rejection-based technique can be used
-        std::cout << "setting informed sampling ========" << std::endl;
 
         return std::make_shared<ob::PathLengthDirectInfSamplerMod>(probDefn, maxNumberCalls, space_, planner_, start_states_);
     }

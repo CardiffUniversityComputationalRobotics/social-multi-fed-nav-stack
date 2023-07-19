@@ -961,23 +961,16 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     ob::State *s = local_space->allocState();
 
-                    if (local_planner_name_.compare("SST") == 0)
-                    {
-                        s->as<ob::SE2StateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        s->as<ob::SE2StateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                    s->as<ob::SE2StateSpace::StateType>()->setX(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    s->as<ob::SE2StateSpace::StateType>()->setY(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                        double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
-                                                            solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
-                                                            solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    double state_angle = calculateAngle(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1],
+                                                        solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0],
+                                                        solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
 
-                        s->as<ob::SE2StateSpace::StateType>()->setYaw(state_angle);
-                        local_goal[2] = double(state_angle);
-                    }
-                    else
-                    {
-                        local_space->copyState(s, solution_path_states_[i]);
-                    }
+                    s->as<ob::SE2StateSpace::StateType>()->setYaw(state_angle);
+                    local_goal[2] = double(state_angle);
 
                     global_path_feedback.push_back(s);
 
@@ -1072,6 +1065,43 @@ void OnlinePlannFramework::planningTimerCallback()
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
                 }
+
+                oc::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
+
+                si_local->setPropagationStepSize(0.1);
+
+                int _durationMin = 1;
+                int _durationMax = 10;
+                si_local->setMinMaxControlDuration(_durationMin, _durationMax);
+
+                // setting start states in planner
+
+                ob::PlannerPtr local_planner;
+                if (local_planner_name_.compare("RRT") == 0)
+                    local_planner = ob::PlannerPtr(new og::RRT(si_local));
+                else if (local_planner_name_.compare("PRMstar") == 0)
+                    local_planner = ob::PlannerPtr(new og::PRMstar(si_local));
+                else if (local_planner_name_.compare("RRTstar") == 0)
+                    local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
+                else if (local_planner_name_.compare("RRTstarMod") == 0)
+                    local_planner = ob::PlannerPtr(new og::RRTstarMod(si_local));
+                else if (local_planner_name_.compare("InformedRRTstar") == 0)
+                    local_planner = ob::PlannerPtr(new og::InformedRRTstar(si_local));
+                else if (local_planner_name_.compare("InformedRRTstarMod") == 0)
+                    local_planner = ob::PlannerPtr(new og::InformedRRTstarMod(si_local));
+                else if (local_planner_name_.compare("SST") == 0)
+                    local_planner = ob::PlannerPtr(new oc::SST(si_local));
+                else
+                    local_planner = ob::PlannerPtr(new og::RRTstar(si_local));
+
+                local_planner->as<oc::SST>()->setSelectionRadius(0.05);
+                local_planner->as<oc::SST>()->setPruningRadius(0.001);
+
+                //=======================================================================
+                // Set the setup planner
+                //=======================================================================
+
+                simple_setup_local_->setPlanner(local_planner);
 
                 //=======================================================================
                 // Attempt to solve the problem within one second of planning time
