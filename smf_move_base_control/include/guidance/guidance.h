@@ -2,9 +2,9 @@
 #define OTTER_GUIDANCE_H_
 
 #include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
 #include <smf_move_base_msgs/Path2D.h>
 #include <ros/ros.h>
+#include <geometry_msgs/TwistStamped.h>
 
 namespace otter_coverage
 {
