@@ -4,7 +4,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <smf_move_base_msgs/Path2D.h>
 #include <ros/ros.h>
-#include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Pose2D.h>
 
 namespace otter_coverage
 {

@@ -21,7 +21,7 @@ namespace otter_coverage
         nh.subscribe("/smf_move_base_planner/smf_move_base_solution_path", 1000, &Guidance::newPath, this);
 
     m_controllerPub =
-        nh.advertise<geometry_msgs::TwistStamped>("/pepper/cmd_vel", 1000);
+        nh.advertise<geometry_msgs::Twist>("/pepper/cmd_vel", 1000);
 
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener tfListener(tfBuffer);
@@ -68,15 +68,15 @@ namespace otter_coverage
     // Finished?
     if (m_path.waypoints.size() <= 1)
     {
-      geometry_msgs::TwistStamped msg;
-      msg.twist.linear.x = 0;
-      msg.twist.angular.z = 0;
+      geometry_msgs::Twist msg;
+      msg.linear.x = 0;
+      msg.angular.z = 0;
       m_controllerPub.publish(msg);
       return;
     }
 
     // Identify closest point on path
-    std::vector<smf_move_base_msgs::Path2D>::iterator closest;
+    std::vector<geometry_msgs::Pose2D>::iterator closest;
     double minDist = std::numeric_limits<double>::max();
     for (auto it = m_path.waypoints.begin(); it != m_path.waypoints.end(); it++)
     {
@@ -94,6 +94,15 @@ namespace otter_coverage
     pose_d.pose.position.x = closest->x;
     pose_d.pose.position.y = closest->y;
 
+    tf2::Quaternion pose_quaternion;
+    pose_quaternion.setRPY(0, 0, closest->theta);
+    pose_quaternion = pose_quaternion.normalize();
+
+    pose_d.pose.orientation.x = pose_quaternion[0];
+    pose_d.pose.orientation.x = pose_quaternion[1];
+    pose_d.pose.orientation.x = pose_quaternion[2];
+    pose_d.pose.orientation.x = pose_quaternion[3];
+
     // Erase previous elements
     m_path.waypoints.erase(m_path.waypoints.begin(), closest);
 
@@ -110,15 +119,15 @@ namespace otter_coverage
         delta_min;
     // if turning => small lookahead distance
     bool isTurning = false;
-    // if ((closest + 1) != m_path.waypoints.end())
-    // {
-    //   double nextAngle = tf2::getYaw((*(closest + 1)).pose.orientation);
-    //   if (std::fabs(gamma_p - nextAngle) > std::numeric_limits<double>::epsilon())
-    //   {
-    //     delta_y_e = delta_min;
-    //     isTurning = true;
-    //   }
-    // }
+    if ((closest + 1) != m_path.waypoints.end())
+    {
+      double nextAngle = (*(closest + 1)).theta;
+      if (std::fabs(gamma_p - nextAngle) > std::numeric_limits<double>::epsilon())
+      {
+        delta_y_e = delta_min;
+        isTurning = true;
+      }
+    }
 
     // velocity-path relative angle
     double chi_r = std::atan(-y_e / delta_y_e);
@@ -144,13 +153,13 @@ namespace otter_coverage
       u = m_maxSpeedTurn;
 
     // Publish speed and course to controller
-    geometry_msgs::TwistStamped msg;
-    msg.twist.linear.x = u * cos(chi_d);
-    msg.twist.angular.z = -u * sin(chi_d);
+    geometry_msgs::Twist msg;
+    msg.linear.x = u * cos(chi_d);
+    msg.angular.z = -u * sin(chi_d);
     m_controllerPub.publish(msg);
 
-    // ROS_INFO_STREAM("psi_d: " << chi_d << " psi: " << psi);
-    // ROS_INFO_STREAM("u_d: " << u);
+    ROS_INFO_STREAM("psi_d: " << chi_d << " psi: " << psi);
+    ROS_INFO_STREAM("u_d: " << u);
   }
 
 } // namespace otter_coverage
