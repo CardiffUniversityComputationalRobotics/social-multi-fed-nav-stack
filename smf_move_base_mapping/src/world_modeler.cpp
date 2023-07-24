@@ -597,11 +597,7 @@ void WorldModeler::pointCloudCallback(
     //
     //    publishAll(cloud->header.stamp);
 
-    // ROS_INFO_STREAM("INSERT SCAN FINISHED");
-
     defineSocialGridMap();
-
-    // ROS_INFO_STREAM("PROCESSING POINTCLOUD FINISHED");
 }
 
 void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
@@ -918,6 +914,12 @@ double WorldModeler::getExtendedPersonalSpace(pedsim_msgs::AgentState agent_stat
  */
 void WorldModeler::timerCallback(const ros::TimerEvent &e)
 {
+
+    if (offline_octomap_path_.size() != 0)
+    {
+        defineSocialGridMap();
+    }
+
     // Declare message
     octomap_msgs::Octomap msg;
     octomap_msgs::binaryMapToMsg(*octree_, msg);
