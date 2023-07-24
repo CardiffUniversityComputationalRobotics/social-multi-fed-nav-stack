@@ -140,6 +140,8 @@ public:
 
     //! Publish the WorldModeler
     void publishMap();
+    //! Redefine the gridmap with octomap
+    void defineSocialGridMap();
 
 private:
     // ROS
@@ -597,81 +599,7 @@ void WorldModeler::pointCloudCallback(
 
     // ROS_INFO_STREAM("INSERT SCAN FINISHED");
 
-    // ! OCTOMAP PREPARATION
-
-    grid_map::Position3 min_bound;
-    grid_map::Position3 max_bound;
-
-    grid_map_.clearAll();
-
-    octree_->getMetricMin(min_bound(0), min_bound(1), min_bound(2));
-    octree_->getMetricMax(max_bound(0), max_bound(1), max_bound(2));
-
-    grid_map::GridMapOctomapConverter::fromOctomap(*octree_, "obstacles", grid_map_, &min_bound, &max_bound);
-
-    grid_map_["obstacles"] = 150 * grid_map_["obstacles"];
-
-    grid_map::Matrix &full_grid_map = grid_map_["obstacles"];
-    grid_map::Matrix &comfort_grid_map = grid_map_["comfort"];
-
-    // !SOCIAL AGENTS GRID MAP PREPARATION
-
-    for (int i = 0; i < relevant_agent_states_.agent_states.size(); i++)
-    {
-        grid_map::Position center(relevant_agent_states_.agent_states[i].pose.position.x, relevant_agent_states_.agent_states[i].pose.position.y);
-
-        for (grid_map::CircleIterator iterator(grid_map_, center, social_agent_radius_);
-             !iterator.isPastEnd(); ++iterator)
-        {
-            try
-            {
-                grid_map::Index index(*iterator);
-                full_grid_map(index(0), index(1)) = 100;
-            }
-            catch (const std::out_of_range &oor)
-            {
-                ROS_ERROR("TRIED TO DEFINE AN AGENT OUT OF RANGE");
-            }
-        }
-
-        for (grid_map::CircleIterator iterator(grid_map_, center, 2.25);
-             !iterator.isPastEnd(); ++iterator)
-        {
-            try
-            {
-
-                grid_map::Position temp_pos;
-
-                grid_map_.getPosition(*iterator, temp_pos);
-
-                grid_map::Index index(*iterator);
-
-                double last_val = comfort_grid_map(index(0), index(1));
-
-                if (isnan(last_val))
-                {
-                    last_val = getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
-                }
-                else
-                {
-                    last_val += getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
-                }
-
-                comfort_grid_map(index(0), index(1)) = last_val;
-            }
-            catch (const std::out_of_range &oor)
-            {
-                ROS_ERROR("TRIED TO DEFINE COMFORT OUT OF RANGE");
-            }
-        }
-    }
-
-    social_heatmap_.updateSocialHeatmap(grid_map_, relevant_agent_states_);
-
-    grid_map_["full"] = full_grid_map;
-    grid_map_["comfort"] = comfort_grid_map;
-
-    grid_map_["social_heatmap"] = social_heatmap_.getSocialHeatmap();
+    defineSocialGridMap();
 
     // ROS_INFO_STREAM("PROCESSING POINTCLOUD FINISHED");
 }
@@ -1137,6 +1065,84 @@ void WorldModeler::publishMap()
 
     // Publish it
     octomap_marker_pub_.publish(occupiedNodesVis);
+}
+
+void WorldModeler::defineSocialGridMap()
+{
+    // ! OCTOMAP PREPARATION
+
+    grid_map::Position3 min_bound;
+    grid_map::Position3 max_bound;
+
+    grid_map_.clearAll();
+
+    octree_->getMetricMin(min_bound(0), min_bound(1), min_bound(2));
+    octree_->getMetricMax(max_bound(0), max_bound(1), max_bound(2));
+
+    grid_map::GridMapOctomapConverter::fromOctomap(*octree_, "obstacles", grid_map_, &min_bound, &max_bound);
+
+    grid_map_["obstacles"] = 150 * grid_map_["obstacles"];
+
+    grid_map::Matrix &full_grid_map = grid_map_["obstacles"];
+    grid_map::Matrix &comfort_grid_map = grid_map_["comfort"];
+
+    // !SOCIAL AGENTS GRID MAP PREPARATION
+
+    for (int i = 0; i < relevant_agent_states_.agent_states.size(); i++)
+    {
+        grid_map::Position center(relevant_agent_states_.agent_states[i].pose.position.x, relevant_agent_states_.agent_states[i].pose.position.y);
+
+        for (grid_map::CircleIterator iterator(grid_map_, center, social_agent_radius_);
+             !iterator.isPastEnd(); ++iterator)
+        {
+            try
+            {
+                grid_map::Index index(*iterator);
+                full_grid_map(index(0), index(1)) = 100;
+            }
+            catch (const std::out_of_range &oor)
+            {
+                ROS_ERROR("TRIED TO DEFINE AN AGENT OUT OF RANGE");
+            }
+        }
+
+        for (grid_map::CircleIterator iterator(grid_map_, center, 2.25);
+             !iterator.isPastEnd(); ++iterator)
+        {
+            try
+            {
+
+                grid_map::Position temp_pos;
+
+                grid_map_.getPosition(*iterator, temp_pos);
+
+                grid_map::Index index(*iterator);
+
+                double last_val = comfort_grid_map(index(0), index(1));
+
+                if (isnan(last_val))
+                {
+                    last_val = getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
+                }
+                else
+                {
+                    last_val += getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
+                }
+
+                comfort_grid_map(index(0), index(1)) = last_val;
+            }
+            catch (const std::out_of_range &oor)
+            {
+                ROS_ERROR("TRIED TO DEFINE COMFORT OUT OF RANGE");
+            }
+        }
+    }
+
+    social_heatmap_.updateSocialHeatmap(grid_map_, relevant_agent_states_);
+
+    grid_map_["full"] = full_grid_map;
+    grid_map_["comfort"] = comfort_grid_map;
+    grid_map_["social_heatmap"] = social_heatmap_.getSocialHeatmap();
 }
 
 //! Main function
