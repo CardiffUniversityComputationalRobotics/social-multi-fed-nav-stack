@@ -116,7 +116,7 @@ private:
     ros::NodeHandle nh_, local_nh_;
     ros::Timer timer_;
     ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
-    ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_, query_goal_radius_rviz_pub_, num_nodes_pub_;
+    ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_, query_goal_radius_rviz_pub_, num_nodes_pub_, goal_reached_pub_;
 
     // ROS action server
     SmfBaseGoToActionServer *goto_action_server_;
@@ -228,6 +228,7 @@ OnlinePlannFramework::OnlinePlannFramework()
         local_nh_.advertise<visualization_msgs::Marker>("query_goal_radius_rviz", 1, true);
 
     num_nodes_pub_ = local_nh_.advertise<std_msgs::Int32>("smf_num_nodes", 1, true);
+    goal_reached_pub_ = local_nh_.advertise<std_msgs::Bool>("goal_reached", 1, true);
 
     //=======================================================================
     // Action server
@@ -339,6 +340,9 @@ void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGo
     result.success = true;
 
     goto_action_server_->setSucceeded(result);
+    std_msgs::Bool goal_reached;
+    goal_reached.data = true;
+    goal_reached_pub_.publish(goal_reached);
 }
 
 //! Odometry callback.
