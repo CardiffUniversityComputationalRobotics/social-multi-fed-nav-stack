@@ -135,6 +135,16 @@ class Controller(object):
 
         waypoints_list = path_2d_msg.waypoints
         # print(waypoints_list)
+        # print("length:", len(waypoints_list))
+
+        if len(waypoints_list) <= 3:
+            self.solution_path_wps_.append(
+                [waypoints_list[-1].x, waypoints_list[-1].y, waypoints_list[-1].theta]
+            )
+            print("ya para orientacion")
+            print(self.solution_path_wps_)
+            return
+
         for waypoint in waypoints_list:
             waypoint_distances = np.append(
                 waypoint_distances,
@@ -153,7 +163,7 @@ class Controller(object):
                 numpy.where(waypoint_distances == numpy.amin(waypoint_distances))[0][0]
             )
             waypoint_distances[min_list_index[i]] = float("inf")
-        print(min_list_index)
+        # print(min_list_index)
         current_waypoint_angle = float("inf")
         for i in min_list_index:
             new_waypoint_angle = self.robotAngleToPoint(
@@ -206,6 +216,7 @@ class Controller(object):
         loop_rate = rospy.Rate(self.controller_hz_)
         controller_state = 0
         while not rospy.is_shutdown():
+            # print(self.solution_path_wps_)
             if len(self.solution_path_wps_) > 0:
                 # print(self.solution_path_wps_)
                 self.desired_position_[0] = self.solution_path_wps_[0][0]
