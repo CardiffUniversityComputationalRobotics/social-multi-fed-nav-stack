@@ -141,8 +141,6 @@ class Controller(object):
             self.solution_path_wps_.append(
                 [waypoints_list[-1].x, waypoints_list[-1].y, waypoints_list[-1].theta]
             )
-            print("ya para orientacion")
-            print(self.solution_path_wps_)
             return
 
         for waypoint in waypoints_list:
