@@ -13,10 +13,10 @@
 
 #include <local_state_validity_checker_grid_map_R2.h>
 
-LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
-                                                                       const bool opport_collision_check,
-                                                                       std::vector<double> planning_bounds_x,
-                                                                       std::vector<double> planning_bounds_y)
+LocalGridMapStateValidityCheckerDubins::LocalGridMapStateValidityCheckerDubins(const ob::SpaceInformationPtr &si,
+                                                                               const bool opport_collision_check,
+                                                                               std::vector<double> planning_bounds_x,
+                                                                               std::vector<double> planning_bounds_y)
     : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4)
 {
     GetGridMap::Request req;
@@ -64,7 +64,7 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     }
 }
 
-bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerDubins::isValid(const ob::State *state) const
 {
 
     if (state_space_.compare("dubins") == 0)
@@ -131,8 +131,8 @@ bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
     return true;
 }
 
-double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::State *state,
-                                                                      const ob::SpaceInformationPtr space) const
+double LocalGridMapStateValidityCheckerDubins::checkExtendedSocialComfort(const ob::State *state,
+                                                                          const ob::SpaceInformationPtr space) const
 {
 
     double state_risk = 0.0;
@@ -190,7 +190,7 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
     return state_risk;
 }
 
-bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
+bool LocalGridMapStateValidityCheckerDubins::isValidPoint(const ob::State *state) const
 {
     // extract the component of the state and cast it to what we expect
 
@@ -226,6 +226,6 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
     return true;
 }
 
-LocalGridMapStateValidityCheckerR2::~LocalGridMapStateValidityCheckerR2()
+LocalGridMapStateValidityCheckerDubins::~LocalGridMapStateValidityCheckerDubins()
 {
 }
