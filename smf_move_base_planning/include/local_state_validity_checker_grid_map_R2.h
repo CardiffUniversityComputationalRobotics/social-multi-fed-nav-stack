@@ -26,8 +26,7 @@
 // OMPL
 #include <ompl/config.h>
 #include <ompl/base/SpaceInformation.h>
-#include <ompl/base/spaces/SE2StateSpace.h>
-#include <ompl/base/spaces/DubinsStateSpace.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/tools/debug/Profiler.h>
 
