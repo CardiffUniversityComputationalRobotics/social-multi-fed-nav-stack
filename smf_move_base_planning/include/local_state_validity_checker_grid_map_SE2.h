@@ -1,7 +1,7 @@
 
 
-#ifndef OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
-#define OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_R2_
+#ifndef OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_SE2_
+#define OMPL_CONTRIB_LOCAL_STATE_VALIDITY_CHECKER_GRID_MAP_SE2_
 
 // ROS
 #include <ros/ros.h>
@@ -57,26 +57,26 @@ using namespace std;
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-//!  LocalGridMapStateValidityCheckerR2 class.
+//!  LocalGridMapStateValidityCheckerSE2 class.
 /*!
   Octomap State Validity checker.
   Extension of an abstract class used to implement the state validity checker over an octomap using FCL.
 */
-class LocalGridMapStateValidityCheckerR2 : public ob::StateValidityChecker
+class LocalGridMapStateValidityCheckerSE2 : public ob::StateValidityChecker
 {
 public:
-  //! LocalGridMapStateValidityCheckerR2 constructor.
+  //! LocalGridMapStateValidityCheckerSE2 constructor.
   /*!
    * Besides of initializing the private attributes, it loads the octomap.
    */
-  LocalGridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
-                                     std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
+  LocalGridMapStateValidityCheckerSE2(const ob::SpaceInformationPtr &si, const bool opport_collision_check,
+                                      std::vector<double> planning_bounds_x, std::vector<double> planning_bounds_y);
 
-  //! LocalGridMapStateValidityCheckerR2 destructor.
+  //! LocalGridMapStateValidityCheckerSE2 destructor.
   /*!
    * Destroy the octomap.
    */
-  ~LocalGridMapStateValidityCheckerR2();
+  ~LocalGridMapStateValidityCheckerSE2();
 
   //! State validator.
   /*!
