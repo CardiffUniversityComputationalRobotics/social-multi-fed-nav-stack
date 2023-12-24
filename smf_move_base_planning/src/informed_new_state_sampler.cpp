@@ -38,7 +38,6 @@
 /* Author: Javier V. Gómez*/
 
 #include <informed_new_state_sampler.h>
-#include <ompl/base/spaces/DubinsStateSpace.h>
 
 ob::StateSamplerPtr informedNewAllocStateSampler(const ob::StateSpace *space, const ob::PlannerPtr &planner,
                                                  const std::vector<const ob::State *> &start_states)
