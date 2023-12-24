@@ -59,8 +59,8 @@ public:
     ob::Cost stateCost(const ob::State *s) const
     {
         // ROS_INFO_STREAM("Running social comfort model");
-        std::shared_ptr<LocalGridMapStateValidityCheckerR2> state_vality_checker =
-            std::static_pointer_cast<LocalGridMapStateValidityCheckerR2>(si_->getStateValidityChecker());
+        std::shared_ptr<LocalGridMapStateValidityCheckerSE2> state_vality_checker =
+            std::static_pointer_cast<LocalGridMapStateValidityCheckerSE2>(si_->getStateValidityChecker());
         return ob::Cost(state_vality_checker->checkExtendedSocialComfort(s, si_));
     }
 
