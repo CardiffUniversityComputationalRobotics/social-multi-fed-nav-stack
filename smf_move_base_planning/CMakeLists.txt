@@ -54,7 +54,7 @@ src/planner/SSTMod.cpp
 src/sampler/PathLengthDirectInfSamplerMod.cpp
 src/planning_framework_main.cpp
 src/state_validity_checker_grid_map_R2.cpp
-src/local_state_validity_checker_grid_map_R2.cpp
+src/local_state_validity_checker_grid_map_SE2.cpp
 src/new_state_sampler.cpp
 src/informed_new_state_sampler.cpp
 src/state_cost_objective.cpp

@@ -23,7 +23,7 @@
 #include <sampler/PathLengthDirectInfSamplerMod.h>
 
 #include <state_validity_checker_grid_map_R2.h>
-#include <local_state_validity_checker_grid_map_R2.h>
+#include <local_state_validity_checker_grid_map_SE2.h>
 
 namespace ob = ompl::base;
 
