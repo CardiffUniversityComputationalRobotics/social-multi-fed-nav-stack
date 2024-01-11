@@ -36,7 +36,6 @@
 #include <ompl/base/spaces/SE2StateSpace.h>
 
 #include <planner/RRTstarMod.h>
-#include <planner/InformedRRTstarMod.h>
 #include <planner/SSTMod.h>
 // ROS
 #include <ros/ros.h>
@@ -67,7 +66,7 @@
 #include "kinematic_diff_model.h"
 
 // smf base controller
-#include <smf_move_base_msgs/Path2D.h>
+#include <nav_msgs/Path.h>
 #include <smf_move_base_msgs/Goto2DAction.h>
 
 // pedsim msgs
@@ -223,7 +222,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     solution_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("solution_path", 1, true);
     solution_local_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("local_solution_path", 1, true);
     solution_path_control_pub_ =
-        local_nh_.advertise<smf_move_base_msgs::Path2D>("smf_move_base_solution_path", 1, true);
+        local_nh_.advertise<nav_msgs::Path>("/path", 1, true);
     query_goal_pose_rviz_pub_ =
         local_nh_.advertise<geometry_msgs::PoseStamped>("query_goal_pose_rviz", 1, true);
     query_goal_radius_rviz_pub_ =
@@ -922,14 +921,14 @@ void OnlinePlannFramework::planningTimerCallback()
                     solution_path_states_.push_back(s);
                 }
 
+                // ! GLOBAL PATH VISUALIZE
                 og::PathGeometric global_path_solution = og::PathGeometric(simple_setup_global_->getSpaceInformation());
-
                 for (int i = 0; i < solution_path_states_.size(); i++)
                 {
                     global_path_solution.append(solution_path_states_[i]);
                 }
-
                 visualizeRRT(global_path_solution);
+                // ======================================================================
 
                 //=======================================================================
                 // ! LOCAL PLANNER SOLVE
@@ -963,12 +962,11 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     global_path_feedback.push_back(s);
 
-                    local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
-                    local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-                    local_goal[2] = double(state_angle);
-
                     if (local_path_distance >= local_path_range_)
                     {
+                        local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                        local_goal[2] = double(state_angle);
                         break;
                     }
                 }
@@ -1175,57 +1173,51 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         // if (local_planner_name_.compare("SST") == 0)
                         // {
-                        for (int i = 0; i < local_path_states.size(); i++)
-                        {
-                            ob::State *s = space->allocState();
-                            space->copyState(s, local_path_states[i]);
-                            controller_local_path_states.push_back(s);
-                        }
+                        // for (int i = 0; i < local_path_states.size(); i++)
+                        // {
+                        //     ob::State *s = space->allocState();
+                        //     space->copyState(s, local_path_states[i]);
+                        //     controller_local_path_states.push_back(s);
+                        // }
                         // }
                         // else
                         // {
-                        //     double init_x_distance = 10000;
-                        //     double init_y_distance = 10000;
-                        //     int less_distance_index = 0;
-                        //     for (int i = (local_path_states.size() - 1); i > -1; i--)
-                        //     {
-                        //         double current_distance_x;
-                        //         double current_distance_y;
+                        if (local_path_states.size() > 0)
+                        {
+                            double init_x_distance = 10000;
+                            double init_y_distance = 10000;
+                            int less_distance_index = 0;
+                            for (int i = (local_path_states.size() - 1); i > -1; i--)
+                            {
+                                double current_distance_x;
+                                double current_distance_y;
 
-                        //         if (local_planner_name_.compare("SST") == 0)
-                        //         {
-                        //             current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX());
-                        //             current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY());
-                        //         }
-                        //         else
-                        //         {
-                        //             current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        //             current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
-                        //         }
+                                current_distance_x = abs(odomData->pose.pose.position.x - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX());
+                                current_distance_y = abs(odomData->pose.pose.position.y - local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY());
 
-                        //         if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
-                        //         {
-                        //             if (simple_setup_local_->getSpaceInformation()->checkMotion(local_path_states[i], current_robot_state->as<ob::State>()))
-                        //             {
-                        //                 init_x_distance = current_distance_x;
-                        //                 init_y_distance = current_distance_y;
-                        //                 less_distance_index = i;
+                                if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
+                                {
+                                    if (simple_setup_local_->getSpaceInformation()->checkMotion(local_path_states[i], current_robot_state->as<ob::State>()))
+                                    {
 
-                        //                 if (current_distance_x < 0.4 && current_distance_y < 0.4)
-                        //                 {
-                        //                     break;
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
+                                        if (current_distance_x < 0.4 && current_distance_y < 0.4)
+                                        {
+                                            init_x_distance = current_distance_x;
+                                            init_y_distance = current_distance_y;
+                                            less_distance_index = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
 
-                        //     for (int i = less_distance_index; i < local_path_states.size(); i++)
-                        //     {
-                        //         ob::State *s = space->allocState();
-                        //         space->copyState(s, local_path_states[i]);
-                        //         controller_local_path_states.push_back(s);
-                        //     }
-                        // }
+                            for (int i = less_distance_index; i < local_path_states.size(); i++)
+                            {
+                                ob::State *s = space->allocState();
+                                space->copyState(s, local_path_states[i]);
+                                controller_local_path_states.push_back(s);
+                            }
+                        }
 
                         std::vector<ob::State *> controller_path_feedback_states = controller_local_path_states;
 
@@ -1263,13 +1255,13 @@ void OnlinePlannFramework::planningTimerCallback()
                     //=======================================================================
                     if (controller_local_path_states.size() > 0)
                     {
-                        smf_move_base_msgs::Path2D solution_path_for_control;
+                        nav_msgs::Path solution_path_for_control;
                         for (unsigned int i = 0; i < controller_local_path_states.size(); i++)
                         {
-                            geometry_msgs::Pose2D p;
+                            geometry_msgs::PoseStamped p;
 
-                            p.x = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX();
-                            p.y = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY();
+                            p.pose.position.x = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getX();
+                            p.pose.position.y = controller_local_path_states[i]->as<ob::SE2StateSpace::StateType>()->getY();
 
                             if (i == (controller_local_path_states.size() - 1))
                             {
@@ -1283,10 +1275,19 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                     tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-                                    p.theta = goal_map_frame_[2] - yaw;
+                                    tf2::Quaternion myQuaternion;
+
+                                    myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
+
+                                    myQuaternion = myQuaternion.normalize();
+
+                                    p.pose.orientation.x = myQuaternion.getX();
+                                    p.pose.orientation.y = myQuaternion.getY();
+                                    p.pose.orientation.z = myQuaternion.getZ();
+                                    p.pose.orientation.w = myQuaternion.getW();
                                 }
                             }
-                            solution_path_for_control.waypoints.push_back(p);
+                            solution_path_for_control.poses.push_back(p);
                         }
                         // ROS_INFO_STREAM("complete path: " << solution_path_for_control);
                         solution_path_control_pub_.publish(solution_path_for_control);
@@ -1353,10 +1354,9 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                 }
 
-                less_distance_index += 1;
-                if (less_distance_index > past_local_solution_path_states_.size())
+                if (less_distance_index < past_local_solution_path_states_.size())
                 {
-                    less_distance_index = past_local_solution_path_states_.size();
+                    less_distance_index += 1;
                 }
 
                 for (int i = 0; i < less_distance_index; i++)
@@ -1368,7 +1368,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 std::reverse(local_solution_path_states_copy_.begin(), local_solution_path_states_copy_.end());
                 ROS_INFO("%s:\n\tsending partial last possible path\n", ros::this_node::getName().c_str());
-                smf_move_base_msgs::Path2D solution_path_for_control;
+                nav_msgs::Path solution_path_for_control;
                 og::PathGeometric path_visualize = og::PathGeometric(simple_setup_local_->getSpaceInformation());
 
                 // adding first waypoint
@@ -1376,9 +1376,9 @@ void OnlinePlannFramework::planningTimerCallback()
                 {
                     // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
 
-                    geometry_msgs::Pose2D p;
-                    p.x = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getX();
-                    p.y = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getY();
+                    geometry_msgs::PoseStamped p;
+                    p.pose.position.x = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getX();
+                    p.pose.position.y = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getY();
 
                     if (0 == (local_solution_path_states_copy_.size() - 1))
                     {
@@ -1392,10 +1392,19 @@ void OnlinePlannFramework::planningTimerCallback()
 
                             tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-                            p.theta = goal_map_frame_[2] - yaw;
+                            tf2::Quaternion myQuaternion;
+
+                            myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
+
+                            myQuaternion = myQuaternion.normalize();
+
+                            p.pose.orientation.x = myQuaternion.getX();
+                            p.pose.orientation.y = myQuaternion.getY();
+                            p.pose.orientation.z = myQuaternion.getZ();
+                            p.pose.orientation.w = myQuaternion.getW();
                         }
                     }
-                    solution_path_for_control.waypoints.push_back(p);
+                    solution_path_for_control.poses.push_back(p);
                     path_visualize.append(local_solution_path_states_copy_[0]);
                 }
 
@@ -1410,14 +1419,14 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         // ROS_INFO("%s:\n\tadding possible waypoint\n", ros::this_node::getName().c_str());
 
-                        geometry_msgs::Pose2D p;
+                        geometry_msgs::PoseStamped p;
 
-                        p.x = local_solution_path_states_copy_[i + 1]
-                                  ->as<ob::SE2StateSpace::StateType>()
-                                  ->getX();
-                        p.y = local_solution_path_states_copy_[i + 1]
-                                  ->as<ob::SE2StateSpace::StateType>()
-                                  ->getY();
+                        p.pose.position.x = local_solution_path_states_copy_[i + 1]
+                                                ->as<ob::SE2StateSpace::StateType>()
+                                                ->getX();
+                        p.pose.position.y = local_solution_path_states_copy_[i + 1]
+                                                ->as<ob::SE2StateSpace::StateType>()
+                                                ->getY();
 
                         if (i == (local_solution_path_states_copy_.size() - 1))
                         {
@@ -1431,10 +1440,19 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                 tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-                                p.theta = goal_map_frame_[2] - yaw;
+                                tf2::Quaternion myQuaternion;
+
+                                myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
+
+                                myQuaternion = myQuaternion.normalize();
+
+                                p.pose.orientation.x = myQuaternion.getX();
+                                p.pose.orientation.y = myQuaternion.getY();
+                                p.pose.orientation.z = myQuaternion.getZ();
+                                p.pose.orientation.w = myQuaternion.getW();
                             }
                         }
-                        solution_path_for_control.waypoints.push_back(p);
+                        solution_path_for_control.poses.push_back(p);
                         path_visualize.append(local_solution_path_states_copy_[i + 1]);
                     }
                     else
@@ -1486,9 +1504,9 @@ void OnlinePlannFramework::planningTimerCallback()
                                                       ->getY() +
                                                   (counter - 1) * robot_base_radius * std::sin(angle));
 
-                                geometry_msgs::Pose2D p;
-                                p.x = posEv[0];
-                                p.y = posEv[1];
+                                geometry_msgs::PoseStamped p;
+                                p.pose.position.x = posEv[0];
+                                p.pose.position.y = posEv[1];
 
                                 if (goal_available_)
                                 {
@@ -1500,14 +1518,23 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                     tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
 
-                                    p.theta = goal_map_frame_[2] - yaw;
+                                    tf2::Quaternion myQuaternion;
+
+                                    myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
+
+                                    myQuaternion = myQuaternion.normalize();
+
+                                    p.pose.orientation.x = myQuaternion.getX();
+                                    p.pose.orientation.y = myQuaternion.getY();
+                                    p.pose.orientation.z = myQuaternion.getZ();
+                                    p.pose.orientation.w = myQuaternion.getW();
                                 }
 
                                 lastNode = true;
 
                                 path_visualize.append(posEv->as<ob::SE2StateSpace::StateType>());
 
-                                solution_path_for_control.waypoints.push_back(p);
+                                solution_path_for_control.poses.push_back(p);
                             }
                             counter += 1;
                         }
