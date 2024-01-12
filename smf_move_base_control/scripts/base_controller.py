@@ -62,7 +62,9 @@ class PathFollower:
         )
 
         #! Publishers
-        self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+        self.velocity_publisher = rospy.Publisher(
+            "/pepper/cmd_vel", Twist, queue_size=10
+        )
         self.motion_publisher = rospy.Publisher("/robot_is_moving", Bool, queue_size=10)
         self.goal_reached_publisher = rospy.Publisher(
             "/goal_reached", Bool, queue_size=10
@@ -145,8 +147,8 @@ class PathFollower:
 
         if (
             math.sqrt(
-                math.pow(self.goal.x - self.robot_position.x, 2)
-                + math.pow(self.goal.y - self.robot_position.y, 2)
+                math.pow(4 - self.robot_position.x, 2)
+                + math.pow(4 - self.robot_position.y, 2)
             )
             < self.goal_tolerance + 0.1
         ):

@@ -824,9 +824,48 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::ScopedState<> local_start(simple_setup_local_->getSpaceInformation()->getStateSpace());
         ob::ScopedState<> local_goal(simple_setup_local_->getSpaceInformation()->getStateSpace());
 
+        double x_start_value;
+        double y_start_value;
+        double yaw_start_value;
+
+        double distance = 0.3 * (solving_time_ + 0.15);
+
+        double path_distance = 0;
+        int initial_index;
+
+        // !ESTIMATION OF START POINT PROJECTED ON THE LOCAL PATH
+        // if (local_solution_path_states_.size() > 0)
+        // {
+        //     ROS_INFO_STREAM("local path size: " << local_solution_path_states_.size());
+
+        //     for (int i = local_solution_path_states_.size() - 1; i >= 0; i--)
+        //     {
+        //         path_distance += sqrt(pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+
+        //         ROS_INFO_STREAM("path distance: " << path_distance);
+
+        //         if (path_distance >= distance)
+        //         {
+        //             ROS_INFO_STREAM("GETTING PROJECTION");
+        //             local_start[0] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());   // x
+        //             local_start[1] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());   // y
+        //             local_start[2] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getYaw()); // yaw
+        //             break;
+        //         }
+        //     }
+        // }
+        // else
+        // {
         local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
         local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
         local_start[2] = double(yaw);                                                                                                    // yaw
+        // }
+
+        ROS_INFO_STREAM("X_VALUE: " << to_string(local_start[0]));
+        ROS_INFO_STREAM("Y_VALUE: " << to_string(local_start[1]));
+        ROS_INFO_STREAM("YAW_VALUE: " << to_string(local_start[2]));
+
+        // ========================================
 
         simple_setup_local_->clear();
         simple_setup_local_->setStartState(local_start);
@@ -1119,55 +1158,55 @@ void OnlinePlannFramework::planningTimerCallback()
                         current_robot_state[1] = odomData->pose.pose.position.y;
 
                         // !NEAREST POINT FROM PAST LOCAL PATH
-                        if (past_local_solution_path_states_.size() > 0)
-                        {
-                            double init_x_distance = 10000;
-                            double init_y_distance = 10000;
-                            int less_distance_index = 0;
-                            for (int i = 0; i < past_local_solution_path_states_.size(); i++)
-                            {
-                                double current_distance_x;
-                                double current_distance_y;
+                        // if (past_local_solution_path_states_.size() > 0)
+                        // {
+                        //     double init_x_distance = 10000;
+                        //     double init_y_distance = 10000;
+                        //     int less_distance_index = 0;
+                        //     for (int i = 0; i < past_local_solution_path_states_.size(); i++)
+                        //     {
+                        //         double current_distance_x;
+                        //         double current_distance_y;
 
-                                current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
-                                current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
+                        //         current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
+                        //         current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
 
-                                if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
-                                {
+                        //         if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
+                        //         {
 
-                                    if (simple_setup_local_->getSpaceInformation()->checkMotion(past_local_solution_path_states_[i], current_robot_state->as<ob::State>()))
-                                    {
-                                        init_x_distance = current_distance_x;
-                                        init_y_distance = current_distance_y;
-                                        less_distance_index = i;
-                                    }
-                                }
-                            }
+                        //             if (simple_setup_local_->getSpaceInformation()->checkMotion(past_local_solution_path_states_[i], current_robot_state->as<ob::State>()))
+                        //             {
+                        //                 init_x_distance = current_distance_x;
+                        //                 init_y_distance = current_distance_y;
+                        //                 less_distance_index = i;
+                        //             }
+                        //         }
+                        //     }
 
-                            if (less_distance_index != 0)
-                            {
+                        //     if (less_distance_index != 0)
+                        //     {
 
-                                int max_limit_index = less_distance_index + 6;
+                        //         int max_limit_index = less_distance_index + 6;
 
-                                if (max_limit_index > past_local_solution_path_states_.size())
-                                {
-                                    max_limit_index = past_local_solution_path_states_.size();
-                                }
+                        //         if (max_limit_index > past_local_solution_path_states_.size())
+                        //         {
+                        //             max_limit_index = past_local_solution_path_states_.size();
+                        //         }
 
-                                for (int i = less_distance_index; i < max_limit_index; i++)
-                                {
-                                    ob::State *s = space->allocState();
-                                    space->copyState(s, past_local_solution_path_states_[i]);
-                                    controller_local_path_states.push_back(s);
-                                }
-                            }
-                        }
+                        //         for (int i = less_distance_index; i < max_limit_index; i++)
+                        //         {
+                        //             ob::State *s = space->allocState();
+                        //             space->copyState(s, past_local_solution_path_states_[i]);
+                        //             controller_local_path_states.push_back(s);
+                        //         }
+                        //     }
+                        // }
 
-                        std::reverse(controller_local_path_states.begin(), controller_local_path_states.end());
+                        // std::reverse(controller_local_path_states.begin(), controller_local_path_states.end());
 
-                        ob::State *s = space->allocState();
-                        space->copyState(s, current_robot_state->as<ob::State>());
-                        controller_local_path_states.push_back(s);
+                        // ob::State *s = space->allocState();
+                        // space->copyState(s, current_robot_state->as<ob::State>());
+                        // controller_local_path_states.push_back(s);
 
                         // !NEAREST POINT FROM CURRENT LOCAL PATH SOLUTION
 
