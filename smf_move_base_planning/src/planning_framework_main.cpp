@@ -824,52 +824,6 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::ScopedState<> local_start(simple_setup_local_->getSpaceInformation()->getStateSpace());
         ob::ScopedState<> local_goal(simple_setup_local_->getSpaceInformation()->getStateSpace());
 
-        double x_start_value;
-        double y_start_value;
-        double yaw_start_value;
-
-        double distance = 0.3 * (solving_time_ + 0.15);
-
-        double path_distance = 0;
-        int initial_index;
-
-        // !ESTIMATION OF START POINT PROJECTED ON THE LOCAL PATH
-        if (local_solution_path_states_.size() > 0)
-        {
-            ROS_INFO_STREAM("local path size: " << local_solution_path_states_.size());
-
-            for (int i = local_solution_path_states_.size() - 1; i >= 0; i--)
-            {
-                path_distance += sqrt(pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
-
-                ROS_INFO_STREAM("path distance: " << path_distance);
-
-                if (path_distance >= distance)
-                {
-                    ROS_INFO_STREAM("GETTING PROJECTION");
-                    local_start[0] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());   // x
-                    local_start[1] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());   // y
-                    local_start[2] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getYaw()); // yaw
-                    break;
-                }
-            }
-        }
-        else
-        {
-            local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
-            local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
-            local_start[2] = double(yaw);                                                                                                    // yaw
-        }
-
-        ROS_INFO_STREAM("X_VALUE: " << to_string(local_start[0]));
-        ROS_INFO_STREAM("Y_VALUE: " << to_string(local_start[1]));
-        ROS_INFO_STREAM("YAW_VALUE: " << to_string(yaw));
-
-        // ========================================
-
-        simple_setup_local_->clear();
-        simple_setup_local_->setStartState(local_start);
-
         //
         simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
 
@@ -1112,6 +1066,67 @@ void OnlinePlannFramework::planningTimerCallback()
                     local_planner->as<oc::SST>()->setPruningRadius(0.001);
                 }
 
+                // !ESTIMATION OF START POINT PROJECTED ON THE LOCAL PATH
+                // #########################################################
+
+                odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
+
+                // double x_start_value;
+                // double y_start_value;
+                // double yaw_start_value;
+
+                // double distance = 0.3 * (solving_time_ * global_time_percent_);
+
+                // double path_distance = 0;
+                // int initial_index;
+
+                // if (local_solution_path_states_.size() > 0)
+                // {
+                //     // ROS_INFO_STREAM("local path size: " << local_solution_path_states_.size());
+
+                //     for (int i = local_solution_path_states_.size() - 1; i >= 0; i--)
+                //     {
+                //         path_distance += sqrt(pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+
+                //         // ROS_INFO_STREAM("path distance: " << path_distance);
+
+                //         if (path_distance >= distance)
+                //         {
+                //             // ROS_INFO_STREAM("GETTING PROJECTION");
+                //             local_start[0] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());   // x
+                //             local_start[1] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());   // y
+                //             local_start[2] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getYaw()); // yaw
+                //             break;
+                //         }
+                //     }
+                // }
+                // else
+                // {
+                tf::Quaternion q(
+                    odomData->pose.pose.orientation.x,
+                    odomData->pose.pose.orientation.y,
+                    odomData->pose.pose.orientation.z,
+                    odomData->pose.pose.orientation.w);
+                tf::Matrix3x3 m(q);
+                double roll, pitch, yaw;
+                m.getRPY(roll, pitch, yaw);
+
+                local_start[0] = double(odomData->pose.pose.position.x); // x
+                local_start[1] = double(odomData->pose.pose.position.y); // y
+                local_start[2] = double(yaw);                            // yaw
+                // }
+
+                // ROS_INFO_STREAM("X_VALUE: " << to_string(local_start[0]));
+                // ROS_INFO_STREAM("Y_VALUE: " << to_string(local_start[1]));
+                // ROS_INFO_STREAM("YAW_VALUE: " << to_string(yaw));
+
+                // ========================================
+
+                // simple_setup_local_->clear();
+                simple_setup_local_->setStartState(local_start);
+
+                // !###############################################################
+
                 //=======================================================================
                 // Set the setup planner
                 //=======================================================================
@@ -1160,7 +1175,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         // ======================================================================
                         ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
-                        nav_msgs::OdometryConstPtr odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
 
                         ob::ScopedState<> current_robot_state(simple_setup_local_->getSpaceInformation()->getStateSpace());
                         current_robot_state[0] = odomData->pose.pose.position.x;
