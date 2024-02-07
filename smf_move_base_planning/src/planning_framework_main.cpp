@@ -141,7 +141,7 @@ private:
         control_active_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
-    double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, turning_radius_;
+    double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, max_trans_vel_, max_rot_vel_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_,
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
@@ -194,7 +194,8 @@ OnlinePlannFramework::OnlinePlannFramework()
     local_nh_.param("local_optimization_objective", local_optimization_objective_, local_optimization_objective_);
     local_nh_.param("local_path_range", local_path_range_, local_path_range_);
     local_nh_.param("global_time_percent", global_time_percent_, global_time_percent_);
-    local_nh_.param("turning_radius", turning_radius_, turning_radius_);
+    local_nh_.param("max_trans_vel", max_trans_vel_, max_trans_vel_);
+    local_nh_.param("max_rot_vel", max_rot_vel_, max_rot_vel_);
 
     start_state_.resize(3);
 
@@ -488,9 +489,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     ob::RealVectorBounds control_bounds(2);
     control_bounds.setLow(0, 0);
-    control_bounds.setHigh(0, 0.25);
-    control_bounds.setLow(1, -1.0);
-    control_bounds.setHigh(1, 1.0);
+    control_bounds.setHigh(0, max_trans_vel_);
+    control_bounds.setLow(1, -max_rot_vel_);
+    control_bounds.setHigh(1, max_rot_vel_);
 
     control_space->setBounds(control_bounds);
 
@@ -1073,37 +1074,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
 
-                // double x_start_value;
-                // double y_start_value;
-                // double yaw_start_value;
-
-                // double distance = 0.3 * (solving_time_ * global_time_percent_);
-
-                // double path_distance = 0;
-                // int initial_index;
-
-                // if (local_solution_path_states_.size() > 0)
-                // {
-                //     // ROS_INFO_STREAM("local path size: " << local_solution_path_states_.size());
-
-                //     for (int i = local_solution_path_states_.size() - 1; i >= 0; i--)
-                //     {
-                //         path_distance += sqrt(pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + pow(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY() - local_solution_path_states_[i - 1]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
-
-                //         // ROS_INFO_STREAM("path distance: " << path_distance);
-
-                //         if (path_distance >= distance)
-                //         {
-                //             // ROS_INFO_STREAM("GETTING PROJECTION");
-                //             local_start[0] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());   // x
-                //             local_start[1] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());   // y
-                //             local_start[2] = double(local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getYaw()); // yaw
-                //             break;
-                //         }
-                //     }
-                // }
-                // else
-                // {
                 tf::Quaternion q(
                     odomData->pose.pose.orientation.x,
                     odomData->pose.pose.orientation.y,
@@ -1120,7 +1090,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // ========================================
 
-                // simple_setup_local_->clear();
                 simple_setup_local_->setStartState(local_start);
 
                 // !###############################################################
