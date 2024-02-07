@@ -488,9 +488,9 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     ob::RealVectorBounds control_bounds(2);
     control_bounds.setLow(0, 0);
-    control_bounds.setHigh(0, 0.3);
-    control_bounds.setLow(1, -0.35);
-    control_bounds.setHigh(1, 0.35);
+    control_bounds.setHigh(0, 0.25);
+    control_bounds.setLow(1, -1.0);
+    control_bounds.setHigh(1, 1.0);
 
     control_space->setBounds(control_bounds);
 
@@ -847,11 +847,6 @@ void OnlinePlannFramework::planningTimerCallback()
         {
 
             // ! PRINTING POSITION AFTER SOLVE
-
-            ROS_INFO_STREAM("X_VALUE: " << to_string(last_robot_pose_.getOrigin().getX()));
-            ROS_INFO_STREAM("Y_VALUE: " << to_string(last_robot_pose_.getOrigin().getY()));
-            ROS_INFO_STREAM("YAW_VALUE: " << to_string(yaw));
-
             // ###################################
 
             solution_found = true;
@@ -946,9 +941,11 @@ void OnlinePlannFramework::planningTimerCallback()
                     states_num_limit = 0;
                 }
 
-                for (int i = solution_path_states_.size() - 1; i > states_num_limit; i--)
+                double local_path_distance = 0;
+
+                for (int i = solution_path_states_.size() - 1; i > states_num_limit + 1; i--)
                 {
-                    double local_path_distance = std::sqrt(std::pow(start[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
+                    local_path_distance += std::sqrt(std::pow(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
 
                     ob::State *s = local_space->allocState();
 
@@ -970,6 +967,12 @@ void OnlinePlannFramework::planningTimerCallback()
                         local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
                         local_goal[2] = double(state_angle);
                         break;
+                    }
+                    else if (i == states_num_limit)
+                    {
+                        local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                        local_goal[2] = double(state_angle);
                     }
                 }
 
@@ -1000,13 +1003,12 @@ void OnlinePlannFramework::planningTimerCallback()
                     waypoints_diff_x = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getX() - goal[0]);
                     waypoints_diff_y = abs(global_path_feedback[global_path_feedback.size() - 1]->as<ob::SE2StateSpace::StateType>()->getY() - goal[1]);
 
-                    if (waypoints_diff_x < 3 && waypoints_diff_y < 3)
+                    if ((waypoints_diff_x < 3 && waypoints_diff_y < 3))
                     {
 
                         local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                         local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-
-                        local_goal[2] = double(goal_map_frame_[2]); // yaw
+                        local_goal[2] = double(goal_map_frame_[2]);                                                             // yaw
 
                         simple_setup_local_->setGoalState(local_goal, goal_radius_);
                     }
@@ -1115,10 +1117,6 @@ void OnlinePlannFramework::planningTimerCallback()
                 local_start[1] = double(odomData->pose.pose.position.y); // y
                 local_start[2] = double(yaw);                            // yaw
                 // }
-
-                // ROS_INFO_STREAM("X_VALUE: " << to_string(local_start[0]));
-                // ROS_INFO_STREAM("Y_VALUE: " << to_string(local_start[1]));
-                // ROS_INFO_STREAM("YAW_VALUE: " << to_string(yaw));
 
                 // ========================================
 

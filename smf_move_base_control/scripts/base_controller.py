@@ -12,12 +12,12 @@ from tf2_msgs.msg import TFMessage
 from tf import TransformListener, ExtrapolationException, LookupException
 import time
 
-move_tolerance = 0.1
+move_tolerance = 0.3
 scan_tolerance_front = 0.4
 scan_tolerance_side = 0.3
 rotate_tolerance = 0.004
-linear_velocity = rospy.get_param("/path_follower_node/linear_velocity", 0.25)
-angular_velocity = rospy.get_param("/path_follower_node/angular_velocity", 1.5)
+linear_velocity = rospy.get_param("/smf_move_base_controller/linear_velocity", 0.25)
+angular_velocity = rospy.get_param("/smf_move_base_controller/angular_velocity", 1.5)
 
 
 class PathFollower:
@@ -108,7 +108,7 @@ class PathFollower:
                 distance = node_distance
                 nearest_node = i
 
-        node_path = node_path[nearest_node:]
+        node_path = node_path[nearest_node + 8 :]
         self.following_path = node_path
         self.is_shutdown_initiated = False
 
