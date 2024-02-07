@@ -974,6 +974,7 @@ void OnlinePlannFramework::planningTimerCallback()
                         local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                         local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
                         local_goal[2] = double(state_angle);
+                        break;
                     }
                 }
 
