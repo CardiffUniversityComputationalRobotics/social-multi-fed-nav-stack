@@ -146,6 +146,8 @@ private:
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
+    // ====================
+
     geometry_msgs::Twist current_robot_velocity;
     // smf_move_base_msgs::Path2D last_local_path;
 };
@@ -1067,6 +1069,18 @@ void OnlinePlannFramework::planningTimerCallback()
                     local_planner->as<oc::SST>()->setPruningRadius(0.001);
                 }
 
+                // ! check if last path is collision free
+
+                bool is_past_path_free;
+
+                double distance_to_last_point;
+
+                og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
+                ROS_INFO_STREAM("PAST LOCAL SOLUTION SIZE: " << past_local_solution_path_states_.size());
+                is_past_path_free = past_local_path.check();
+
+                // ==================================
+
                 // !ESTIMATION OF START POINT PROJECTED ON THE LOCAL PATH
                 // #########################################################
 
@@ -1085,6 +1099,8 @@ void OnlinePlannFramework::planningTimerCallback()
                 local_start[1] = double(odomData->pose.pose.position.y); // y
                 local_start[2] = double(yaw);                            // yaw
                 // }
+
+                distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
 
                 // ========================================
 
@@ -1110,6 +1126,13 @@ void OnlinePlannFramework::planningTimerCallback()
                     // and inquire about the found path
 
                     og::PathGeometric path_local = simple_setup_local_->getSolutionPath().asGeometric();
+
+                    if (past_local_solution_path_states_.size() > 0 && distance_to_last_point > 0.3 && is_past_path_free && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
+                    {
+                        ROS_INFO_STREAM("USING PAST LOCAL SOLUTION STILL POSSIBLE");
+                        solution_found = false;
+                        return;
+                    }
 
                     // generates varios little segments for the waypoints obtained from the planner
                     path_local.interpolate(int(path_local.length() / 0.2));
