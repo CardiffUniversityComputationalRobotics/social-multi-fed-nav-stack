@@ -12,12 +12,10 @@ from tf2_msgs.msg import TFMessage
 from tf import TransformListener, ExtrapolationException, LookupException
 import time
 
-move_tolerance = 0.3
+move_tolerance = 0.15
 scan_tolerance_front = 0.4
 scan_tolerance_side = 0.3
 rotate_tolerance = 0.004
-linear_velocity = rospy.get_param("/smf_move_base_controller/linear_velocity", 0.25)
-angular_velocity = rospy.get_param("/smf_move_base_controller/angular_velocity", 1.5)
 
 
 class PathFollower:
@@ -38,6 +36,14 @@ class PathFollower:
 
         self.goal_tolerance = rospy.get_param("~goal_tolerance", default=0.1)
 
+        self.max_trans_vel = rospy.get_param("~max_trans_vel", 0.25)
+        self.max_rot_vel = rospy.get_param("~max_rot_vel", 1.5)
+
+        self.cmd_vel_topic = rospy.get_param("~control_output_topic", "cmd_vel")
+        self.path_topic = rospy.get_param("~control_path_topic", "cmd_vel")
+        
+        self.robot_frame = rospy.get_param("~robot_frame", "base_footprint")
+
         self.transform_listener = TransformListener()
 
         self.new_path_arrived = False
@@ -45,11 +51,11 @@ class PathFollower:
         time.sleep(2)  # wait for transforms to be available
 
         self.transform_listener.waitForTransform(
-            "/base_link", "/map", rospy.Time(), timeout=rospy.Duration(5)
+            self.robot_frame, "/map", rospy.Time(), timeout=rospy.Duration(5)
         )
 
         #! Subcribers
-        self.mover_subscriber = rospy.Subscriber("/path", Path, self.path_callback)
+        self.mover_subscriber = rospy.Subscriber(self.path_topic, Path, self.path_callback)
         self.scan_subscriber = rospy.Subscriber("/scan", LaserScan, self.scan_callback)
         self.motion_stop_subscriber = rospy.Subscriber(
             "/stop_motion", Bool, self.stop_motion_callback
@@ -63,7 +69,7 @@ class PathFollower:
 
         #! Publishers
         self.velocity_publisher = rospy.Publisher(
-            "/pepper/cmd_vel", Twist, queue_size=10
+            self.cmd_vel_topic, Twist, queue_size=10
         )
         self.motion_publisher = rospy.Publisher("/robot_is_moving", Bool, queue_size=10)
         self.goal_reached_publisher = rospy.Publisher(
@@ -78,7 +84,7 @@ class PathFollower:
         """Listens to robot current pose"""
         try:
             position, quaternion = self.transform_listener.lookupTransform(
-                "/map", "/base_link", rospy.Time()
+                "/map", self.robot_frame, rospy.Time()
             )
         except (ExtrapolationException, LookupException):
             return
@@ -108,7 +114,7 @@ class PathFollower:
                 distance = node_distance
                 nearest_node = i
 
-        node_path = node_path[nearest_node + 8 :]
+        node_path = node_path[nearest_node + 1 :]
         self.following_path = node_path
         self.is_shutdown_initiated = False
 
@@ -163,7 +169,7 @@ class PathFollower:
     def go_back(self):
         current_distance = 0.0
         vel_msg = Twist()
-        vel_msg.linear.x = -linear_velocity
+        vel_msg.linear.x = -self.max_trans_vel
         t0 = rospy.Time().now().to_sec()
         loop_rate = rospy.Rate(1000)
 
@@ -174,14 +180,14 @@ class PathFollower:
 
             self.velocity_publisher.publish(vel_msg)
             t1 = rospy.Time().now().to_sec()
-            current_distance = linear_velocity * (t1 - t0)
+            current_distance = self.max_trans_vel * (t1 - t0)
             loop_rate.sleep()
 
         self.is_obstacle_ahead = False
 
     def move_to_point(self, point: Node):
         vel_msg = Twist()
-        vel_msg.linear.x = linear_velocity
+        vel_msg.linear.x = self.max_trans_vel
         loop_rate = rospy.Rate(1000)
 
         while self.robot_position.calculate_distance(point) > move_tolerance:
@@ -193,8 +199,8 @@ class PathFollower:
                 self.new_path_arrived = False
                 return
 
-            speed = angular_velocity * self.angular_difference(point)
-            vel_msg.angular.z = min(angular_velocity, speed) + self.path_deviation
+            speed = self.max_rot_vel * self.angular_difference(point)
+            vel_msg.angular.z = min(self.max_rot_vel, speed) + self.path_deviation
 
             self.velocity_publisher.publish(vel_msg)
             loop_rate.sleep()
@@ -211,8 +217,8 @@ class PathFollower:
                 self.stop_moving()
                 return
 
-            speed = angular_velocity * (goal.theta - self.robot_position.theta)
-            vel_msg.angular.z = min(angular_velocity, speed)
+            speed = self.max_rot_vel * (goal.theta - self.robot_position.theta)
+            vel_msg.angular.z = min(self.max_rot_vel, speed)
             self.velocity_publisher.publish(vel_msg)
             loop_rate.sleep()
 
