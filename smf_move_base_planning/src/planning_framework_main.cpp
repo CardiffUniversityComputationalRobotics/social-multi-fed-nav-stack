@@ -223,7 +223,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     solution_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("solution_path", 1, true);
     solution_local_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("local_solution_path", 1, true);
     solution_path_control_pub_ =
-        local_nh_.advertise<nav_msgs::Path>("/path", 1, true);
+        local_nh_.advertise<nav_msgs::Path>("path", 1, true);
     query_goal_pose_rviz_pub_ =
         local_nh_.advertise<geometry_msgs::PoseStamped>("query_goal_pose_rviz", 1, true);
     query_goal_radius_rviz_pub_ =
