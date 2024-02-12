@@ -944,6 +944,10 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 double local_path_distance = 0;
 
+                local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
+                local_goal[2] = double(0);
+
                 for (int i = solution_path_states_.size() - 1; i > states_num_limit + 1; i--)
                 {
                     local_path_distance += std::sqrt(std::pow(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>()->values[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
@@ -966,13 +970,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                         local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-                        local_goal[2] = double(state_angle);
-                        break;
-                    }
-                    else if (i == states_num_limit)
-                    {
-                        local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
-                        local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
                         local_goal[2] = double(state_angle);
                         break;
                     }

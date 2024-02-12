@@ -1,23 +1,28 @@
 # Path planning parameters
-world_frame: world
+world_frame: map
 planner_name: RRTstarMod # RRT, RRTstar
-local_planner_name: InformedRRTstarMod
+local_planner_name: SST
+# local_planner_name: RRTstarMod
 planning_bounds_x: [-50.0, 50.0] # [x_min, x_max]
 planning_bounds_y: [-50.0, 50.0] # [y_min, y_max]
 dynamic_bounds: True # the bounds of the planner will change according to the start and goal configurations
 start_state: [0.0, 0.0, 0.0] # [X, Y, Yaw]
 goal_state: [5.0, -1.0, 0.0] # [X, Y, Yaw]
-timer_period: 1.0
-solving_time: 0.3
+timer_period: 1.5
+solving_time: 0.5
 opport_collision_check: True
 reuse_last_best_solution: True
-optimization_objective: SocialHeatmap
+optimization_objective: SocialHeatmap #PathLength, SocialHeatmap
 local_optimization_objective: SocialComfort
 motion_cost_interpolation: False
-xy_goal_tolerance: 0.25
+xy_goal_tolerance: 0.1
 local_xy_goal_tolerance: 1
 visualize_tree: False
-global_time_percent: 20
+global_time_percent: 10
+
+# SST vel params
+max_trans_vel: 0.22
+max_rot_vel: 0.6
 
 # Collision checking
 octomap_service: /octomap_binary
@@ -29,7 +34,8 @@ solution_path_topic: /smf_move_base_planner/solution_path
 
 goto_action: /smf_goto_action
 
-local_path_range: 4
+local_path_range: 4.0
 local_reuse_last_best_solution: True
-local_use_social_heatmap: True
+local_use_social_heatmap: False
+
 grid_map_service: "/smf_move_base_mapper/get_grid_map"
