@@ -1071,13 +1071,15 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // ! check if last path is collision free
 
-                bool is_past_path_free;
+                bool is_past_path_free = false;
 
-                double distance_to_last_point;
+                double distance_to_last_point = 0;
 
                 og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
-                ROS_INFO_STREAM("PAST LOCAL SOLUTION SIZE: " << past_local_solution_path_states_.size());
-                is_past_path_free = past_local_path.check();
+                if (past_local_solution_path_states_.size() > 0)
+                {
+                    is_past_path_free = past_local_path.check();
+                }
 
                 // ==================================
 
@@ -1100,7 +1102,10 @@ void OnlinePlannFramework::planningTimerCallback()
                 local_start[2] = double(yaw);                            // yaw
                 // }
 
-                distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+                if (past_local_solution_path_states_.size() > 0)
+                {
+                    distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+                }
 
                 // ========================================
 
