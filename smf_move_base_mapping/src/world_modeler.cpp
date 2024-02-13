@@ -477,6 +477,40 @@ void WorldModeler::pointCloudCallback(
     const sensor_msgs::PointCloud2::ConstPtr &cloud)
 {
 
+    // ! SENSOR TRANSFORM LISTEN
+    ros::Time t;
+    std::string err = "cannot find transform from robot_frame to scan frame";
+
+    tf::StampedTransform sensorToWorldTf;
+    try
+    {
+        tf_listener_.getLatestCommonTime(fixed_frame_, cloud->header.frame_id, t,
+                                         &err);
+        //        tf_listener_.lookupTransform(robot_frame_,
+        //        laser_scan_msg->header.frame_id, t,
+        //                                     tf_robot_to_laser_scan);
+
+        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
+                                     sensorToWorldTf);
+    }
+    catch (tf::TransformException &ex)
+    {
+        ROS_ERROR_STREAM("Transform error of sensor data: "
+                         << ex.what() << ", quitting callback");
+        return;
+    }
+
+    tf::Quaternion q(
+        sensorToWorldTf.getRotation().x(),
+        sensorToWorldTf.getRotation().y(),
+        sensorToWorldTf.getRotation().z(),
+        sensorToWorldTf.getRotation().w());
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    // ############################################
+
     // ROS_INFO_STREAM("PROCESSING POINTCLOUD");
     //
     // ground filtering in base frame
@@ -484,8 +518,8 @@ void WorldModeler::pointCloudCallback(
     PCLPointCloud pc; // input cloud for filtering and ground-detection
     pcl::fromROSMsg(*cloud, pc);
 
-    float minX = -0.6, minY = -12, minZ = -0.6;
-    float maxX = 0.6, maxY = 12, maxZ = 0.6;
+    float minX = -12, minY = -0.6, minZ = -0.6;
+    float maxX = 12, maxY = 0.6, maxZ = 0.6;
 
     // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS");
 
@@ -514,6 +548,7 @@ void WorldModeler::pointCloudCallback(
                 boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
                 boxFilter.setInputCloud(pc.makeShared());
                 boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
+                // boxFilter.setRotation(Eigen::Vector3f(roll, pitch + 90, yaw));
                 boxFilter.setNegative(true);
                 boxFilter.filter(pc);
             }
@@ -527,28 +562,6 @@ void WorldModeler::pointCloudCallback(
         }
     }
     // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS FINISHED");
-
-    ros::Time t;
-    std::string err = "cannot find transform from robot_frame to scan frame";
-
-    tf::StampedTransform sensorToWorldTf;
-    try
-    {
-        tf_listener_.getLatestCommonTime(fixed_frame_, cloud->header.frame_id, t,
-                                         &err);
-        //        tf_listener_.lookupTransform(robot_frame_,
-        //        laser_scan_msg->header.frame_id, t,
-        //                                     tf_robot_to_laser_scan);
-
-        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
-                                     sensorToWorldTf);
-    }
-    catch (tf::TransformException &ex)
-    {
-        ROS_ERROR_STREAM("Transform error of sensor data: "
-                         << ex.what() << ", quitting callback");
-        return;
-    }
 
     Eigen::Matrix4f sensorToWorld;
     pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);

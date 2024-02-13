@@ -1081,6 +1081,24 @@ void OnlinePlannFramework::planningTimerCallback()
                     is_past_path_free = past_local_path.check();
                 }
 
+                bool is_past_path_in_line = false;
+                double max_distance_tolerance = 0.3;
+
+                if (is_past_path_free)
+                {
+                    int nearest_node = path.getClosestIndex(past_local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>());
+
+                    double distance_nearest_node = std::sqrt(std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+
+                    if (distance_nearest_node < max_distance_tolerance)
+                    {
+                        if (simple_setup_local_->getSpaceInformation()->checkMotion(path_states[nearest_node], past_local_solution_path_states_[0]))
+                        {
+                            is_past_path_in_line = true;
+                        }
+                    }
+                }
+
                 // ==================================
 
                 // !ESTIMATION OF START POINT PROJECTED ON THE LOCAL PATH
@@ -1102,7 +1120,8 @@ void OnlinePlannFramework::planningTimerCallback()
                 local_start[2] = double(yaw);                            // yaw
                 // }
 
-                if (past_local_solution_path_states_.size() > 0)
+                // ! calculate distance from robot position to last past local path waypoint
+                if (is_past_path_in_line)
                 {
                     distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
                 }
@@ -1132,7 +1151,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     og::PathGeometric path_local = simple_setup_local_->getSolutionPath().asGeometric();
 
-                    if (past_local_solution_path_states_.size() > 0 && distance_to_last_point > 0.3 && is_past_path_free && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
+                    if (is_past_path_in_line && distance_to_last_point > 0.3 && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
                     {
                         ROS_INFO_STREAM("USING PAST LOCAL SOLUTION STILL POSSIBLE");
                         solution_found = false;
