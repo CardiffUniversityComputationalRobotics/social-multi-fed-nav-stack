@@ -41,7 +41,7 @@ class PathFollower:
 
         self.cmd_vel_topic = rospy.get_param("~control_output_topic", "cmd_vel")
         self.path_topic = rospy.get_param("~control_path_topic", "cmd_vel")
-        
+
         self.robot_frame = rospy.get_param("~robot_frame", "base_footprint")
 
         self.transform_listener = TransformListener()
@@ -55,7 +55,9 @@ class PathFollower:
         )
 
         #! Subcribers
-        self.mover_subscriber = rospy.Subscriber(self.path_topic, Path, self.path_callback)
+        self.mover_subscriber = rospy.Subscriber(
+            self.path_topic, Path, self.path_callback
+        )
         self.scan_subscriber = rospy.Subscriber("/scan", LaserScan, self.scan_callback)
         self.motion_stop_subscriber = rospy.Subscriber(
             "/stop_motion", Bool, self.stop_motion_callback
@@ -151,10 +153,12 @@ class PathFollower:
             node_to_follow = self.following_path.pop(0)
             self.move_to_point(node_to_follow)
 
+        print(self.goal)
+
         if (
             math.sqrt(
-                math.pow(4 - self.robot_position.x, 2)
-                + math.pow(4 - self.robot_position.y, 2)
+                math.pow(self.goal.x - self.robot_position.x, 2)
+                + math.pow(self.goal.y - self.robot_position.y, 2)
             )
             < self.goal_tolerance + 0.1
         ):
