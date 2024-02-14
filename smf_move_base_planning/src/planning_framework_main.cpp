@@ -1110,6 +1110,7 @@ void OnlinePlannFramework::planningTimerCallback()
                             ROS_INFO_STREAM("INIT mmkio");
                             is_past_path_in_line = true;
                         }
+                        ROS_INFO_STREAM("INIT PPPP");
                     }
                 }
 
@@ -1169,7 +1170,7 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     og::PathGeometric path_local = simple_setup_local_->getSolutionPath().asGeometric();
 
-                    if (is_past_path_in_line && distance_to_last_point > 0.3 && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
+                    if (is_past_path_in_line && distance_to_last_point > 0.2 && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
                     {
                         ROS_INFO_STREAM("USING PAST LOCAL SOLUTION STILL POSSIBLE");
                         solution_found = false;
