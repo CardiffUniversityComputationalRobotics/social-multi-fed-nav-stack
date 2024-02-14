@@ -1071,6 +1071,8 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // ! check if last path is collision free
 
+                ROS_INFO_STREAM("INIT 1");
+
                 bool is_past_path_free = false;
 
                 double distance_to_last_point = 0;
@@ -1081,23 +1083,37 @@ void OnlinePlannFramework::planningTimerCallback()
                     is_past_path_free = past_local_path.check();
                 }
 
+                ROS_INFO_STREAM("INIT 2");
+
                 bool is_past_path_in_line = false;
                 double max_distance_tolerance = 0.3;
 
                 if (is_past_path_free)
                 {
+                    ROS_INFO_STREAM("INIT 24343");
                     int nearest_node = path.getClosestIndex(past_local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>());
+
+                    ROS_INFO_STREAM("INIT 9312");
 
                     double distance_nearest_node = std::sqrt(std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
 
+                    ROS_INFO_STREAM("INIT 75862");
+
                     if (distance_nearest_node < max_distance_tolerance)
                     {
+                        ROS_INFO_STREAM("INIT ghhh");
+                        ROS_INFO_STREAM(nearest_node);
+                        ROS_INFO_STREAM(path_states.size());
+                        ROS_INFO_STREAM(past_local_solution_path_states_.size());
                         if (simple_setup_local_->getSpaceInformation()->checkMotion(path_states[nearest_node], past_local_solution_path_states_[0]))
                         {
+                            ROS_INFO_STREAM("INIT mmkio");
                             is_past_path_in_line = true;
                         }
                     }
                 }
+
+                ROS_INFO_STREAM("INIT 3");
 
                 // ==================================
 
@@ -1125,6 +1141,8 @@ void OnlinePlannFramework::planningTimerCallback()
                 {
                     distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
                 }
+
+                ROS_INFO_STREAM("INIT 4");
 
                 // ========================================
 
@@ -1157,6 +1175,8 @@ void OnlinePlannFramework::planningTimerCallback()
                         solution_found = false;
                         return;
                     }
+
+                    ROS_INFO_STREAM("INIT 5");
 
                     // generates varios little segments for the waypoints obtained from the planner
                     path_local.interpolate(int(path_local.length() / 0.2));

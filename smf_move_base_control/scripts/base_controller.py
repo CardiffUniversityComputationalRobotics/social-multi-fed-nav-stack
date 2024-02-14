@@ -41,6 +41,7 @@ class PathFollower:
 
         self.cmd_vel_topic = rospy.get_param("~control_output_topic", "cmd_vel")
         self.path_topic = rospy.get_param("~control_path_topic", "cmd_vel")
+        self.goal_topic = rospy.get_param("~query_goal_topic", "/goal")
 
         self.robot_frame = rospy.get_param("~robot_frame", "base_footprint")
 
@@ -66,7 +67,7 @@ class PathFollower:
             "/tf", TFMessage, self.robot_pose_callback
         )
         self.goal_subscriber = rospy.Subscriber(
-            "/goal_controller", PoseStamped, self.goal_callback
+            self.goal_topic, PoseStamped, self.goal_callback
         )
 
         #! Publishers
@@ -153,6 +154,7 @@ class PathFollower:
             node_to_follow = self.following_path.pop(0)
             self.move_to_point(node_to_follow)
 
+        print(self.goal_topic)
         print(self.goal)
 
         if (
