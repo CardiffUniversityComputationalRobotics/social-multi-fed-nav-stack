@@ -18,10 +18,10 @@ namespace otter_coverage
     m_minSpeed = nhP.param("min_speed", 0.0);
 
     ros::Subscriber dubinsPathSub =
-        nh.subscribe("/smf_move_base_planner/smf_move_base_solution_path", 1000, &Guidance::newPath, this);
+        nh.subscribe("/smf_move_base_planner/path", 1000, &Guidance::newPath, this);
 
     m_controllerPub =
-        nh.advertise<geometry_msgs::Twist>("/pepper/cmd_vel", 1000);
+        nh.advertise<geometry_msgs::Twist>("/stretch_diff_drive_controller/cmd_vel", 1000);
 
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener tfListener(tfBuffer);
@@ -55,19 +55,23 @@ namespace otter_coverage
 
   Guidance::~Guidance() {}
 
-  void Guidance::newPath(const smf_move_base_msgs::Path2D &path)
+  void Guidance::newPath(const nav_msgs::Path &path)
   {
 
     m_path = path;
+    ROS_INFO_STREAM("RECEIVING PATH");
   }
 
   void Guidance::followPath(double x, double y, double psi)
   // TODO: cuts turns, how to fix?
   {
 
+    ROS_INFO_STREAM("STARTING CONTROLLER");
+
     // Finished?
-    if (m_path.waypoints.size() <= 1)
+    if (m_path.poses.size() <= 1)
     {
+      ROS_INFO_STREAM("WAYPOINTS SIZE:" << m_path.poses.size());
       geometry_msgs::Twist msg;
       msg.linear.x = 0;
       msg.angular.z = 0;
@@ -76,12 +80,12 @@ namespace otter_coverage
     }
 
     // Identify closest point on path
-    std::vector<geometry_msgs::Pose2D>::iterator closest;
+    std::vector<geometry_msgs::PoseStamped>::iterator closest;
     double minDist = std::numeric_limits<double>::max();
-    for (auto it = m_path.waypoints.begin(); it != m_path.waypoints.end(); it++)
+    for (auto it = m_path.poses.begin(); it != m_path.poses.end(); it++)
     {
-      double dist = std::sqrt(std::pow(x - it->x, 2) +
-                              std::pow(y - it->y, 2));
+      double dist = std::sqrt(std::pow(x - it->pose.position.x, 2) +
+                              std::pow(y - it->pose.position.y, 2));
       if (dist < minDist)
       {
         minDist = dist;
@@ -91,20 +95,20 @@ namespace otter_coverage
 
     // Store closest
     geometry_msgs::PoseStamped pose_d;
-    pose_d.pose.position.x = closest->x;
-    pose_d.pose.position.y = closest->y;
+    pose_d.pose.position.x = closest->pose.position.x;
+    pose_d.pose.position.y = closest->pose.position.y;
 
-    tf2::Quaternion pose_quaternion;
-    pose_quaternion.setRPY(0, 0, closest->theta);
-    pose_quaternion = pose_quaternion.normalize();
+    // tf2::Quaternion pose_quaternion;
+    // pose_quaternion.setRPY(0, 0, closest->theta);
+    // pose_quaternion = pose_quaternion.normalize();
 
-    pose_d.pose.orientation.x = pose_quaternion[0];
-    pose_d.pose.orientation.x = pose_quaternion[1];
-    pose_d.pose.orientation.x = pose_quaternion[2];
-    pose_d.pose.orientation.x = pose_quaternion[3];
+    pose_d.pose.orientation.x = closest->pose.orientation.x;
+    pose_d.pose.orientation.x = closest->pose.orientation.y;
+    pose_d.pose.orientation.x = closest->pose.orientation.z;
+    pose_d.pose.orientation.x = closest->pose.orientation.w;
 
     // Erase previous elements
-    m_path.waypoints.erase(m_path.waypoints.begin(), closest);
+    m_path.poses.erase(m_path.poses.begin(), closest);
 
     // Path tangential angle
     double gamma_p = tf2::getYaw(pose_d.pose.orientation);
@@ -119,9 +123,14 @@ namespace otter_coverage
         delta_min;
     // if turning => small lookahead distance
     bool isTurning = false;
-    if ((closest + 1) != m_path.waypoints.end())
+    if ((closest + 1) != m_path.poses.end())
     {
-      double nextAngle = (*(closest + 1)).theta;
+      tf::Quaternion q((*(closest + 1)).pose.orientation.x, (*(closest + 1)).pose.orientation.y, (*(closest + 1)).pose.orientation.z, (*(closest + 1)).pose.orientation.w);
+      tf::Matrix3x3 m(q);
+      double roll, pitch, yaw;
+      m.getRPY(roll, pitch, yaw);
+      double nextAngle = yaw;
+      // ROS_INFO_STREAM("ROBOT YAW:: " << yaw)
       if (std::fabs(gamma_p - nextAngle) > std::numeric_limits<double>::epsilon())
       {
         delta_y_e = delta_min;
@@ -135,6 +144,8 @@ namespace otter_coverage
     // desired course angle
     double chi_d = gamma_p + chi_r;
 
+    ROS_INFO_STREAM("CHI_RR:: " << chi_d);
+
     // calculate error in heading
     double chi_err = chi_d - psi;
     while (chi_err > M_PI)
@@ -147,6 +158,8 @@ namespace otter_coverage
     }
 
     // calculate desired speed
+    ROS_INFO_STREAM("Y_E::: " << y_e);
+    ROS_INFO_STREAM("CHI_ERR::: " << chi_err);
     double u = m_maxSpeed * (1 - std::abs(y_e) / 5 - std::abs(chi_err) / M_PI_2);
     u = std::max(u, m_minSpeed);
     if (isTurning)
@@ -154,9 +167,9 @@ namespace otter_coverage
 
     // Publish speed and course to controller
     geometry_msgs::Twist msg;
-    msg.linear.x = u * cos(chi_d);
-    msg.angular.z = -u * sin(chi_d);
-    m_controllerPub.publish(msg);
+    msg.linear.x = u;
+    msg.angular.z = chi_d;
+    // m_controllerPub.publish(msg);
 
     ROS_INFO_STREAM("psi_d: " << chi_d << " psi: " << psi);
     ROS_INFO_STREAM("u_d: " << u);
