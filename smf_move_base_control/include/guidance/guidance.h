@@ -29,15 +29,15 @@ namespace otter_coverage
     ros::Publisher m_controllerPub;
 
     // lookahead distance
-    double DELTA = 0.5;
+    double DELTA = 0.2;
 
     // time-varying lookahead distance
-    double delta_max = 4.0;
-    double delta_min = 1.0;
-    double delta_k = 1.0;
+    double delta_max = 1.5;
+    double delta_min = 0.3;
+    double delta_k = 0.3;
 
     // circle of acceptance
-    double R = 1.0;
+    double R = 0.3;
 
     double m_maxSpeed;
     double m_maxSpeedTurn;
