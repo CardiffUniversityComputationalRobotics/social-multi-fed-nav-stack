@@ -1070,51 +1070,39 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 // ! check if last path is collision free
-
-                ROS_INFO_STREAM("INIT 1");
-
                 bool is_past_path_free = false;
-
                 double distance_to_last_point = 0;
+                bool is_past_path_in_line = false;
+                double max_distance_tolerance = 2;
 
                 og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
+
+                // CHECK IF LAST LOCAL PATH IS FREE
                 if (past_local_solution_path_states_.size() > 0)
                 {
                     is_past_path_free = past_local_path.check();
                 }
 
-                ROS_INFO_STREAM("INIT 2");
-
-                bool is_past_path_in_line = false;
-                double max_distance_tolerance = 0.3;
-
+                // CHECK DISTANCE FROM LAST NODE IN LOCAL PATH TO NEAREST NODE IN GLOBAL PATH
                 if (is_past_path_free)
                 {
-                    ROS_INFO_STREAM("INIT 24343");
                     int nearest_node = path.getClosestIndex(past_local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>());
-
-                    ROS_INFO_STREAM("INIT 9312");
 
                     double distance_nearest_node = std::sqrt(std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1] - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
 
-                    ROS_INFO_STREAM("INIT 75862");
+                    ob::State *s = local_space->allocState();
+
+                    s->as<ob::SE2StateSpace::StateType>()->setX(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                    s->as<ob::SE2StateSpace::StateType>()->setY(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
                     if (distance_nearest_node < max_distance_tolerance)
                     {
-                        ROS_INFO_STREAM("INIT ghhh");
-                        ROS_INFO_STREAM(nearest_node);
-                        ROS_INFO_STREAM(path_states.size());
-                        ROS_INFO_STREAM(past_local_solution_path_states_.size());
-                        if (simple_setup_local_->getSpaceInformation()->checkMotion(path_states[nearest_node], past_local_solution_path_states_[0]))
+                        if (simple_setup_local_->getSpaceInformation()->checkMotion(s, past_local_solution_path_states_[0]))
                         {
-                            ROS_INFO_STREAM("INIT mmkio");
                             is_past_path_in_line = true;
                         }
-                        ROS_INFO_STREAM("INIT PPPP");
                     }
                 }
-
-                ROS_INFO_STREAM("INIT 3");
 
                 // ==================================
 
@@ -1143,8 +1131,6 @@ void OnlinePlannFramework::planningTimerCallback()
                     distance_to_last_point = std::sqrt(std::pow(odomData->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odomData->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
                 }
 
-                ROS_INFO_STREAM("INIT 4");
-
                 // ========================================
 
                 simple_setup_local_->setStartState(local_start);
@@ -1170,15 +1156,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     og::PathGeometric path_local = simple_setup_local_->getSolutionPath().asGeometric();
 
-                    if (is_past_path_in_line && distance_to_last_point > 0.2 && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() < path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
-                    {
-                        ROS_INFO_STREAM("USING PAST LOCAL SOLUTION STILL POSSIBLE");
-                        solution_found = false;
-                        return;
-                    }
-
-                    ROS_INFO_STREAM("INIT 5");
-
                     // generates varios little segments for the waypoints obtained from the planner
                     path_local.interpolate(int(path_local.length() / 0.2));
 
@@ -1186,6 +1163,21 @@ void OnlinePlannFramework::planningTimerCallback()
                     ROS_INFO("%s:\n\tlocal path with cost %f has been found with simple_setup\n",
                              ros::this_node::getName().c_str(),
                              path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value());
+
+                    double past_cost = past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value();
+                    double current_cost = path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value();
+
+                    if (distance_to_last_point <= 1.0)
+                    {
+                        solution_found = true;
+                    }
+                    else if (past_cost <= current_cost)
+                    {
+                        ROS_INFO("%s:\n\tusing past local solution.\n",
+                                 ros::this_node::getName().c_str());
+                        solution_found = false;
+                        return;
+                    }
 
                     std::vector<ob::State *> local_path_states;
                     local_path_states = path_local.getStates();
@@ -1213,70 +1205,6 @@ void OnlinePlannFramework::planningTimerCallback()
                         current_robot_state[0] = odomData->pose.pose.position.x;
                         current_robot_state[1] = odomData->pose.pose.position.y;
 
-                        // !NEAREST POINT FROM PAST LOCAL PATH
-                        // if (past_local_solution_path_states_.size() > 0)
-                        // {
-                        //     double init_x_distance = 10000;
-                        //     double init_y_distance = 10000;
-                        //     int less_distance_index = 0;
-                        //     for (int i = 0; i < past_local_solution_path_states_.size(); i++)
-                        //     {
-                        //         double current_distance_x;
-                        //         double current_distance_y;
-
-                        //         current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
-                        //         current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
-
-                        //         if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
-                        //         {
-
-                        //             if (simple_setup_local_->getSpaceInformation()->checkMotion(past_local_solution_path_states_[i], current_robot_state->as<ob::State>()))
-                        //             {
-                        //                 init_x_distance = current_distance_x;
-                        //                 init_y_distance = current_distance_y;
-                        //                 less_distance_index = i;
-                        //             }
-                        //         }
-                        //     }
-
-                        //     if (less_distance_index != 0)
-                        //     {
-
-                        //         int max_limit_index = less_distance_index + 6;
-
-                        //         if (max_limit_index > past_local_solution_path_states_.size())
-                        //         {
-                        //             max_limit_index = past_local_solution_path_states_.size();
-                        //         }
-
-                        //         for (int i = less_distance_index; i < max_limit_index; i++)
-                        //         {
-                        //             ob::State *s = space->allocState();
-                        //             space->copyState(s, past_local_solution_path_states_[i]);
-                        //             controller_local_path_states.push_back(s);
-                        //         }
-                        //     }
-                        // }
-
-                        // std::reverse(controller_local_path_states.begin(), controller_local_path_states.end());
-
-                        // ob::State *s = space->allocState();
-                        // space->copyState(s, current_robot_state->as<ob::State>());
-                        // controller_local_path_states.push_back(s);
-
-                        // !NEAREST POINT FROM CURRENT LOCAL PATH SOLUTION
-
-                        // if (local_planner_name_.compare("SST") == 0)
-                        // {
-                        // for (int i = 0; i < local_path_states.size(); i++)
-                        // {
-                        //     ob::State *s = space->allocState();
-                        //     space->copyState(s, local_path_states[i]);
-                        //     controller_local_path_states.push_back(s);
-                        // }
-                        // }
-                        // else
-                        // {
                         if (local_path_states.size() > 0)
                         {
                             double init_x_distance = 10000;
