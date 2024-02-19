@@ -205,8 +205,18 @@ class PathFollower:
                 self.new_path_arrived = False
                 return
 
-            speed = self.max_rot_vel * self.angular_difference(point)
+            ang_error = self.angular_difference(point)
+
+            speed = self.max_rot_vel * ang_error
             vel_msg.angular.z = min(self.max_rot_vel, speed) + self.path_deviation
+
+            if abs(ang_error) > 1.6:
+                vel_msg.linear.x = 0
+            else:
+                speed = self.max_trans_vel * (1 - (abs(ang_error) / 2 * math.pi))
+                if speed < 0.1:
+                    speed = 0.1
+                vel_msg.linear.x = speed
 
             self.velocity_publisher.publish(vel_msg)
             loop_rate.sleep()
