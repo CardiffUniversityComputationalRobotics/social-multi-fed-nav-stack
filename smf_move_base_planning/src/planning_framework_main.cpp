@@ -1128,7 +1128,7 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         solution_found = true;
                     }
-                    else if (past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() <= path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value())
+                    else if (past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() <= path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() && past_local_path.smoothness() < path_local.smoothness())
                     {
                         ROS_INFO("%s:\n\tusing past local solution.\n",
                                  ros::this_node::getName().c_str());
@@ -1165,7 +1165,6 @@ void OnlinePlannFramework::planningTimerCallback()
                             space->copyState(s, local_path_states[i]);
                             controller_local_path_states.push_back(s);
                         }
-                        // }
 
                         std::vector<ob::State *> controller_path_feedback_states = controller_local_path_states;
 
@@ -1269,42 +1268,22 @@ void OnlinePlannFramework::planningTimerCallback()
             {
                 std::vector<const ob::State *> local_solution_path_states_copy_;
 
-                ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
-                nav_msgs::OdometryConstPtr odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
+                ob::StateSpacePtr local_space = simple_setup_local_->getStateSpace();
 
                 ob::ScopedState<> current_robot_state(simple_setup_local_->getSpaceInformation()->getStateSpace());
-                current_robot_state[0] = odomData->pose.pose.position.x;
-                current_robot_state[1] = odomData->pose.pose.position.y;
+                current_robot_state[0] = last_robot_pose_.getOrigin().getX();
+                current_robot_state[1] = last_robot_pose_.getOrigin().getY();
 
-                double init_x_distance = 10000;
-                double init_y_distance = 10000;
-                int less_distance_index = 0;
-                for (int i = 0; i < past_local_solution_path_states_.size(); i++)
+                oc::SpaceInformationPtr si_local = simple_setup_local_->getSpaceInformation();
+
+                og::PathGeometric last_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
+
+                int closest_index = last_path.getClosestIndex(current_robot_state->as<ob::State>());
+
+                for (int i = 0; i < closest_index; i++)
                 {
-
-                    double current_distance_x;
-                    double current_distance_y;
-
-                    current_distance_x = abs(odomData->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getX());
-                    current_distance_y = abs(odomData->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()->getY());
-
-                    if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
-                    {
-                        init_x_distance = current_distance_x;
-                        init_y_distance = current_distance_y;
-                        less_distance_index = i;
-                    }
-                }
-
-                if (less_distance_index < past_local_solution_path_states_.size())
-                {
-                    less_distance_index += 1;
-                }
-
-                for (int i = 0; i < less_distance_index; i++)
-                {
-                    ob::State *s = space->allocState();
-                    space->copyState(s, past_local_solution_path_states_[i]);
+                    ob::State *s = local_space->allocState();
+                    local_space->copyState(s, past_local_solution_path_states_[i]);
                     local_solution_path_states_copy_.push_back(s);
                 }
 
