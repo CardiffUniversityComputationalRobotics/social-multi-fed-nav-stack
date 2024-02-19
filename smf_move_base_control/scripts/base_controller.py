@@ -154,9 +154,6 @@ class PathFollower:
             node_to_follow = self.following_path.pop(0)
             self.move_to_point(node_to_follow)
 
-        print(self.goal_topic)
-        print(self.goal)
-
         if (
             math.sqrt(
                 math.pow(self.goal.x - self.robot_position.x, 2)
@@ -213,9 +210,7 @@ class PathFollower:
             if abs(ang_error) > 1.6:
                 vel_msg.linear.x = 0
             else:
-                speed = self.max_trans_vel * (1 - (abs(ang_error) / 2 * math.pi))
-                if speed < 0.1:
-                    speed = 0.1
+                speed = self.max_trans_vel * (1 - (abs(ang_error) / (math.pi)))
                 vel_msg.linear.x = speed
 
             self.velocity_publisher.publish(vel_msg)
