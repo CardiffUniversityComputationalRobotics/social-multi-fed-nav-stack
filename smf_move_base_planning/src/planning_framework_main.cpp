@@ -487,7 +487,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     //! setup control space
 
-    auto control_space(std::make_shared<DemoControlSpace>(local_space));
+    oc::ControlSpacePtr control_space(new KinDiffControlSpace(local_space));
 
     ob::RealVectorBounds control_bounds(2);
     control_bounds.setLow(0, 0);
@@ -495,7 +495,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     control_bounds.setLow(1, -max_rot_vel_);
     control_bounds.setHigh(1, max_rot_vel_);
 
-    control_space->setBounds(control_bounds);
+    control_space->as<KinDiffControlSpace>()->setBounds(control_bounds);
 
     //=======================================================================
     // Define a simple setup class
@@ -609,8 +609,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
-    auto odeSolver(std::make_shared<oc::ODEBasicSolver<>>(simple_setup_local_->getSpaceInformation(), &KinematicDiffODE));
-    simple_setup_local_->setStatePropagator(oc::ODESolver::getStatePropagator(odeSolver, &KinematicDiffPostIntegration));
+    simple_setup_local_->setStatePropagator(oc::StatePropagatorPtr(new KinDiffStatePropagator(simple_setup_local_->getSpaceInformation())));
 
     //=======================================================================
     // Set optimization objective
@@ -644,6 +643,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     simple_setup_global_->setup();
 
     simple_setup_local_->setup();
+
+    static_cast<KinDiffStatePropagator *>(simple_setup_local_->getStatePropagator().get())->setIntegrationTimeStep(simple_setup_local_->getSpaceInformation()->getPropagationStepSize());
 
     //=======================================================================
     // Print information

@@ -1,50 +1,110 @@
+/*
+ * motion_model_auv.hpp
+ *
+ *  Created on: December 1, 2014
+ *      Author: juandhv (Juan David Hernandez Vega, juandhv@eia.udg.edu)
+ *
+ *  Differential models of for Unicycle.
+ *  Kinematic model.
+ */
 
+// Standard libraries
+#include <cstdlib>
+#include <cmath>
+#include <string>
 
-#ifndef OMPL_CONTRIB_KINEMATIC_DIFF_MODEL_
-#define OMPL_CONTRIB_KINEMATIC_DIFF_MODEL_
-
+// OMPL
 #include <ompl/control/SpaceInformation.h>
-#include <ompl/base/spaces/SE2StateSpace.h>
 #include <ompl/control/ODESolver.h>
+#include <ompl/base/goals/GoalState.h>
+#include <ompl/base/spaces/SE2StateSpace.h>
 #include <ompl/control/spaces/RealVectorControlSpace.h>
+#include <ompl/control/planners/kpiece/KPIECE1.h>
+#include <ompl/control/planners/rrt/RRT.h>
 #include <ompl/control/SimpleSetup.h>
 #include <ompl/config.h>
-#include <iostream>
-#include <valarray>
-#include <limits>
 
+// Boost
+#include <boost/pointer_cast.hpp>
+#include <boost/shared_ptr.hpp>
+
+// Eigen
+#include <Eigen/Dense>
+
+// Standard namespace
+using namespace std;
+
+// OMPL namespaces
 namespace ob = ompl::base;
+namespace og = ompl::geometric;
 namespace oc = ompl::control;
 
-// Kinematic car model object definition.  This class does NOT use ODESolver to propagate the system.
-class KinematicDiffModel : public oc::StatePropagator
+//!  KinematicDiffModel class.
+/*!
+ * AUV kinematic model.
+ */
+class KinematicDiffModel
 {
 public:
-    KinematicDiffModel(const oc::SpaceInformationPtr &si);
+    //! Constructor.
+    KinematicDiffModel(const ob::StateSpace *space);
 
-    void propagate(const ob::State *state, const oc::Control *control, const double duration, ob::State *result) const override;
+    /// implement the function describing the robot motion: qdot = f(q, u)
+    void operator()(const ob::State *state, const oc::Control *control, std::valarray<double> &dstate) const;
 
-protected:
-    // Explicit Euler Method for numerical integration.
-    void EulerIntegration(const ob::State *start, const oc::Control *control, const double duration, ob::State *result) const;
-
-    void ode(const ob::State *state, const oc::Control *control, std::valarray<double> &dstate) const;
-
+    /// implement y(n+1) = y(n) + d
     void update(ob::State *state, const std::valarray<double> &dstate) const;
 
-    ob::StateSpacePtr space_;
-    double timeStep_;
+private:
+    const ob::StateSpace *space_;
 };
 
-class DemoControlSpace : public oc::RealVectorControlSpace
+//!  EulerIntegrator class.
+/*!
+ * Simple integrator: Euclidean method.
+ */
+template <typename F>
+class EulerIntegrator
 {
 public:
-    DemoControlSpace(const ob::StateSpacePtr &stateSpace) : oc::RealVectorControlSpace(stateSpace, 2)
-    {
-    }
+    EulerIntegrator(const ob::StateSpace *space, double timeStep);
+
+    void propagate(const ob::State *start, const oc::Control *control, const double duration, ob::State *result) const;
+
+    double getTimeStep(void) const;
+
+    void setTimeStep(double timeStep);
+
+private:
+    const ob::StateSpace *space_;
+    double timeStep_;
+    F ode_;
 };
 
-void KinematicDiffODE(const oc::ODESolver::StateType &q, const oc::Control *control, oc::ODESolver::StateType &qdot);
-void KinematicDiffPostIntegration(const ob::State * /*state*/, const oc::Control * /*control*/, const double /*duration*/, ob::State *result);
+/// @cond IGNORE
 
-#endif
+//!  KinDiffControlSpace class.
+/*!
+ * Control space for an AUV kinematic model.
+ */
+class KinDiffControlSpace : public oc::RealVectorControlSpace
+{
+public:
+    KinDiffControlSpace(const ob::StateSpacePtr &stateSpace);
+};
+
+class KinDiffStatePropagator : public oc::StatePropagator
+{
+public:
+    KinDiffStatePropagator(const oc::SpaceInformationPtr &si);
+
+    virtual void propagate(const ob::State *state, const oc::Control *control, const double duration, ob::State *result) const;
+
+    void setIntegrationTimeStep(double timeStep);
+
+    double getIntegrationTimeStep(void) const;
+
+    EulerIntegrator<KinematicDiffModel> integrator_;
+};
+
+/// @endcond
