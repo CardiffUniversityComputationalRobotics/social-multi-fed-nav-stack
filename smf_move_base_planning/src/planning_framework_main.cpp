@@ -1030,17 +1030,26 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 // ! check if last path is collision free
-                bool is_past_path_free = false;
+                bool is_past_path_free = true;
                 double distance_to_last_point = 0;
                 bool is_past_path_in_line = false;
-                double max_distance_tolerance = 2;
+                double max_distance_tolerance = 3;
 
                 og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
 
                 // CHECK IF LAST LOCAL PATH IS FREE
-                if (past_local_solution_path_states_.size() > 0)
+                // if (past_local_solution_path_states_.size() > 0)
+                // {
+                //     is_past_path_free = past_local_path.check();
+                //     ROS_WARN("PAST LOCAL PATH IS NOT COLLISION FREE");
+                // }
+
+                for (int i = 0; i < past_local_solution_path_states_.size() - 1; i++)
                 {
-                    is_past_path_free = past_local_path.check();
+                    if (!simple_setup_local_->getStateValidityChecker()->isValid(past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()))
+                    {
+                        is_past_path_free = false;
+                    }
                 }
 
                 // CHECK DISTANCE FROM LAST NODE IN LOCAL PATH TO NEAREST NODE IN GLOBAL PATH
@@ -1059,6 +1068,7 @@ void OnlinePlannFramework::planningTimerCallback()
                     {
                         if (simple_setup_local_->getSpaceInformation()->checkMotion(s, past_local_solution_path_states_[0]))
                         {
+                            ROS_WARN("PAST LOCAL PATH IS NOT IN LINE");
                             is_past_path_in_line = true;
                         }
                     }
