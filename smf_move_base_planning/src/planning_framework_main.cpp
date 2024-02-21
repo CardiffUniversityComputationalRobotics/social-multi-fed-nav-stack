@@ -1030,7 +1030,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 }
 
                 // ! check if last path is collision free
-                bool is_past_path_free = true;
+                bool is_past_path_free = false;
                 double distance_to_last_point = 0;
                 bool is_past_path_in_line = false;
                 double max_distance_tolerance = 3;
@@ -1038,38 +1038,46 @@ void OnlinePlannFramework::planningTimerCallback()
                 og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
 
                 // CHECK IF LAST LOCAL PATH IS FREE
-                // if (past_local_solution_path_states_.size() > 0)
-                // {
-                //     is_past_path_free = past_local_path.check();
-                //     ROS_WARN("PAST LOCAL PATH IS NOT COLLISION FREE");
-                // }
-
-                for (int i = 0; i < past_local_solution_path_states_.size() - 1; i++)
+                if (past_local_solution_path_states_.size() > 0)
                 {
-                    if (!simple_setup_local_->getStateValidityChecker()->isValid(past_local_solution_path_states_[i]->as<ob::SE2StateSpace::StateType>()))
-                    {
-                        is_past_path_free = false;
-                    }
+                    is_past_path_free = past_local_path.check();
                 }
 
                 // CHECK DISTANCE FROM LAST NODE IN LOCAL PATH TO NEAREST NODE IN GLOBAL PATH
                 if (is_past_path_free)
                 {
-                    int nearest_node = path.getClosestIndex(past_local_solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>());
+
+                    double distance_nearest_node = 1000;
+                    int nearest_node = 0;
+
+                    for (int i = 0; i < path_states.size(); i++)
+                    {
+                        double cur_distance = std::sqrt(std::pow(past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX() - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY() - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
+
+                        if (cur_distance < distance_nearest_node)
+                        {
+                            distance_nearest_node = cur_distance;
+                            nearest_node = i;
+                        }
+                    }
 
                     ob::State *s = local_space->allocState();
 
                     s->as<ob::SE2StateSpace::StateType>()->setX(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
                     s->as<ob::SE2StateSpace::StateType>()->setY(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                    double distance_nearest_node = si_local->distance(s, past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>());
+                    ROS_WARN_STREAM("NEAREST NODE:::" << nearest_node);
+                    ROS_WARN_STREAM("DISTANCE TO NEAREST NODE:::" << distance_nearest_node);
 
                     if (distance_nearest_node < max_distance_tolerance)
                     {
                         if (simple_setup_local_->getSpaceInformation()->checkMotion(s, past_local_solution_path_states_[0]))
                         {
-                            ROS_WARN("PAST LOCAL PATH IS NOT IN LINE");
                             is_past_path_in_line = true;
+                        }
+                        else
+                        {
+                            ROS_WARN("LAST NEAR NODE MOTION IS IN COLLISION");
                         }
                     }
                 }
@@ -1093,12 +1101,17 @@ void OnlinePlannFramework::planningTimerCallback()
                 local_start[0] = double(odom_data->pose.pose.position.x); // x
                 local_start[1] = double(odom_data->pose.pose.position.y); // y
                 local_start[2] = double(yaw);                             // yaw
-                // }
 
                 // ! calculate distance from robot position to last past local path waypoint
                 if (is_past_path_in_line)
                 {
                     distance_to_last_point = std::sqrt(std::pow(odom_data->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odom_data->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
+
+                    ROS_WARN_STREAM("DISTANCE TO LAST POINT::: " << distance_to_last_point);
+                }
+                else
+                {
+                    ROS_WARN("PATH IS NOT LINE.");
                 }
 
                 // ========================================
@@ -1134,11 +1147,7 @@ void OnlinePlannFramework::planningTimerCallback()
                              ros::this_node::getName().c_str(),
                              path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value());
 
-                    if (distance_to_last_point <= 1.0)
-                    {
-                        solution_found = true;
-                    }
-                    else if (past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() <= path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() && past_local_path.smoothness() < path_local.smoothness())
+                    if (distance_to_last_point >= 1.0 && past_local_path.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() <= path_local.cost(simple_setup_local_->getProblemDefinition()->getOptimizationObjective()).value() && past_local_path.smoothness() <= path_local.smoothness())
                     {
                         ROS_INFO("%s:\n\tusing past local solution.\n",
                                  ros::this_node::getName().c_str());
