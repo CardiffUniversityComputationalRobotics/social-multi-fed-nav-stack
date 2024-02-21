@@ -1033,7 +1033,7 @@ void OnlinePlannFramework::planningTimerCallback()
                 bool is_past_path_free = false;
                 double distance_to_last_point = 0;
                 bool is_past_path_in_line = false;
-                double max_distance_tolerance = 3;
+                double max_distance_tolerance = 2;
 
                 og::PathGeometric past_local_path = og::PathGeometric(simple_setup_local_->getSpaceInformation(), past_local_solution_path_states_);
 
@@ -1066,18 +1066,11 @@ void OnlinePlannFramework::planningTimerCallback()
                     s->as<ob::SE2StateSpace::StateType>()->setX(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
                     s->as<ob::SE2StateSpace::StateType>()->setY(path_states[nearest_node]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
 
-                    ROS_WARN_STREAM("NEAREST NODE:::" << nearest_node);
-                    ROS_WARN_STREAM("DISTANCE TO NEAREST NODE:::" << distance_nearest_node);
-
                     if (distance_nearest_node < max_distance_tolerance)
                     {
                         if (simple_setup_local_->getSpaceInformation()->checkMotion(s, past_local_solution_path_states_[0]))
                         {
                             is_past_path_in_line = true;
-                        }
-                        else
-                        {
-                            ROS_WARN("LAST NEAR NODE MOTION IS IN COLLISION");
                         }
                     }
                 }
@@ -1106,12 +1099,6 @@ void OnlinePlannFramework::planningTimerCallback()
                 if (is_past_path_in_line)
                 {
                     distance_to_last_point = std::sqrt(std::pow(odom_data->pose.pose.position.x - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getX(), 2) + std::pow(odom_data->pose.pose.position.y - past_local_solution_path_states_[0]->as<ob::SE2StateSpace::StateType>()->getY(), 2));
-
-                    ROS_WARN_STREAM("DISTANCE TO LAST POINT::: " << distance_to_last_point);
-                }
-                else
-                {
-                    ROS_WARN("PATH IS NOT LINE.");
                 }
 
                 // ========================================
