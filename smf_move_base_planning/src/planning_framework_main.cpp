@@ -1113,6 +1113,15 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 if (solved_local && simple_setup_local_->haveExactSolutionPath())
                 {
+
+                    // ! publish number of sample nodes
+                    ob::PlannerData planner_data(simple_setup_local_->getSpaceInformation());
+                    simple_setup_local_->getPlannerData(planner_data);
+                    std_msgs::Int32 num_nodes;
+                    num_nodes.data = (int)planner_data.numVertices();
+                    num_nodes_pub_.publish(num_nodes);
+                    // ===================================
+
                     solution_found = true;
                     // get the goal representation from the problem definition (not the same as the goal state)
                     // and inquire about the found path
@@ -1523,7 +1532,6 @@ void OnlinePlannFramework::visualizeRRT(og::PathGeometric &geopath)
     simple_setup_global_->getPlannerData(planner_data);
 
     std::vector<unsigned int> edgeList;
-    int num_parents;
     ROS_DEBUG("%s: number of states in the tree: %d", ros::this_node::getName().c_str(),
               planner_data.numVertices());
 
@@ -1622,14 +1630,8 @@ void OnlinePlannFramework::visualizeRRTLocal(og::PathGeometric &geopath)
     simple_setup_local_->getPlannerData(planner_data);
 
     std::vector<unsigned int> edgeList;
-    int num_parents;
     ROS_DEBUG("%s: number of states in the tree: %d", ros::this_node::getName().c_str(),
               planner_data.numVertices());
-
-    std_msgs::Int32 num_nodes;
-    num_nodes.data = (int)planner_data.numVertices();
-
-    num_nodes_pub_.publish(num_nodes);
 
     if (visualize_tree_)
     {
