@@ -1301,65 +1301,17 @@ void OnlinePlannFramework::planningTimerCallback()
                 ROS_INFO("%s:\n\tsending partial last possible path\n", ros::this_node::getName().c_str());
                 nav_msgs::Path solution_path_for_control;
                 og::PathGeometric path_visualize = og::PathGeometric(simple_setup_local_->getSpaceInformation());
-
                 // adding first waypoint
-                if (simple_setup_local_->getStateValidityChecker()->isValid(local_solution_path_states_copy_[0]))
+                if (local_solution_path_states_copy_.size() > 0)
                 {
-                    // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
-
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getX();
-                    p.pose.position.y = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getY();
-
-                    if (0 == (local_solution_path_states_copy_.size() - 1))
+                    if (simple_setup_local_->getStateValidityChecker()->isValid(local_solution_path_states_copy_[0]))
                     {
-                        if (goal_available_)
-                        {
-                            ros::Time t;
-                            std::string err = "";
-                            tf::StampedTransform tf_map_to_fixed;
-                            tf_listener_.getLatestCommonTime("map", "odom", t, &err);
-                            tf_listener_.lookupTransform("map", "odom", t, tf_map_to_fixed);
-
-                            tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-
-                            tf2::Quaternion myQuaternion;
-
-                            myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
-
-                            myQuaternion = myQuaternion.normalize();
-
-                            p.pose.orientation.x = myQuaternion.getX();
-                            p.pose.orientation.y = myQuaternion.getY();
-                            p.pose.orientation.z = myQuaternion.getZ();
-                            p.pose.orientation.w = myQuaternion.getW();
-                        }
-                    }
-                    solution_path_for_control.poses.push_back(p);
-                    path_visualize.append(local_solution_path_states_copy_[0]);
-                }
-
-                // adding rest of nodes
-                bool lastNode = false;
-
-                for (unsigned int i = 0; (i < local_solution_path_states_copy_.size() - 1) && (!lastNode); i++)
-                {
-                    if (simple_setup_local_->getSpaceInformation()->checkMotion(local_solution_path_states_copy_[i],
-                                                                                local_solution_path_states_copy_[i + 1]) ||
-                        (local_solution_path_states_copy_.size() > 3 && i < 3))
-                    {
-                        // ROS_INFO("%s:\n\tadding possible waypoint\n", ros::this_node::getName().c_str());
-
+                        // ROS_INFO("%s:\n\tadding first waypoint\n", ros::this_node::getName().c_str());
                         geometry_msgs::PoseStamped p;
+                        p.pose.position.x = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getX();
+                        p.pose.position.y = local_solution_path_states_copy_[0]->as<ob::SE2StateSpace::StateType>()->getY();
 
-                        p.pose.position.x = local_solution_path_states_copy_[i + 1]
-                                                ->as<ob::SE2StateSpace::StateType>()
-                                                ->getX();
-                        p.pose.position.y = local_solution_path_states_copy_[i + 1]
-                                                ->as<ob::SE2StateSpace::StateType>()
-                                                ->getY();
-
-                        if (i == (local_solution_path_states_copy_.size() - 1))
+                        if (0 == (local_solution_path_states_copy_.size() - 1))
                         {
                             if (goal_available_)
                             {
@@ -1384,61 +1336,30 @@ void OnlinePlannFramework::planningTimerCallback()
                             }
                         }
                         solution_path_for_control.poses.push_back(p);
-                        path_visualize.append(local_solution_path_states_copy_[i + 1]);
+                        path_visualize.append(local_solution_path_states_copy_[0]);
                     }
-                    else
+                    // adding rest of nodes
+                    bool lastNode = false;
+
+                    for (unsigned int i = 0; (i < local_solution_path_states_copy_.size() - 1) && (!lastNode); i++)
                     {
-                        // ROS_INFO("%s:\n\tfound not possible motion\n", ros::this_node::getName().c_str());
-
-                        double angle;
-
-                        angle = atan2(local_solution_path_states_copy_[i + 1]
-                                              ->as<ob::SE2StateSpace::StateType>()
-                                              ->getY() -
-                                          local_solution_path_states_copy_[i]
-                                              ->as<ob::SE2StateSpace::StateType>()
-                                              ->getY(),
-                                      local_solution_path_states_copy_[i + 1]
-                                              ->as<ob::SE2StateSpace::StateType>()
-                                              ->getX() -
-                                          local_solution_path_states_copy_[i]
-                                              ->as<ob::SE2StateSpace::StateType>()
-                                              ->getX());
-
-                        int counter = 1;
-                        while (!lastNode)
+                        if (simple_setup_local_->getSpaceInformation()->checkMotion(local_solution_path_states_copy_[i],
+                                                                                    local_solution_path_states_copy_[i + 1]) ||
+                            (local_solution_path_states_copy_.size() > 3 && i < 3))
                         {
-                            ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
+                            // ROS_INFO("%s:\n\tadding possible waypoint\n", ros::this_node::getName().c_str());
 
-                            posEv[0] = double(local_solution_path_states_copy_[i]
-                                                  ->as<ob::SE2StateSpace::StateType>()
-                                                  ->getX() +
-                                              counter * robot_base_radius * std::cos(angle)); // x
-                            posEv[1] = double(local_solution_path_states_copy_[i]
-                                                  ->as<ob::SE2StateSpace::StateType>()
-                                                  ->getY() +
-                                              counter * robot_base_radius * std::sin(angle)); // y
+                            geometry_msgs::PoseStamped p;
 
-                            if (!simple_setup_local_->getSpaceInformation()->checkMotion(
-                                    local_solution_path_states_copy_[i], posEv->as<ob::State>()))
+                            p.pose.position.x = local_solution_path_states_copy_[i + 1]
+                                                    ->as<ob::SE2StateSpace::StateType>()
+                                                    ->getX();
+                            p.pose.position.y = local_solution_path_states_copy_[i + 1]
+                                                    ->as<ob::SE2StateSpace::StateType>()
+                                                    ->getY();
+
+                            if (i == (local_solution_path_states_copy_.size() - 1))
                             {
-                                // ROS_INFO("%s:\n\tadding last position\n",
-                                // ros::this_node::getName().c_str());
-                                ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
-
-                                posEv[0] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::SE2StateSpace::StateType>()
-                                                      ->getX() +
-                                                  (counter - 1) * robot_base_radius * std::cos(angle)); // x
-                                posEv[1] = double(local_solution_path_states_copy_[i]
-                                                      ->as<ob::SE2StateSpace::StateType>()
-                                                      ->getY() +
-                                                  (counter - 1) * robot_base_radius * std::sin(angle));
-
-                                geometry_msgs::PoseStamped p;
-                                p.pose.position.x = posEv[0];
-                                p.pose.position.y = posEv[1];
-
                                 if (goal_available_)
                                 {
                                     ros::Time t;
@@ -1460,24 +1381,103 @@ void OnlinePlannFramework::planningTimerCallback()
                                     p.pose.orientation.z = myQuaternion.getZ();
                                     p.pose.orientation.w = myQuaternion.getW();
                                 }
-
-                                lastNode = true;
-
-                                path_visualize.append(posEv->as<ob::SE2StateSpace::StateType>());
-
-                                solution_path_for_control.poses.push_back(p);
                             }
-                            counter += 1;
+                            solution_path_for_control.poses.push_back(p);
+                            path_visualize.append(local_solution_path_states_copy_[i + 1]);
+                        }
+                        else
+                        {
+                            // ROS_INFO("%s:\n\tfound not possible motion\n", ros::this_node::getName().c_str());
+
+                            double angle;
+
+                            angle = atan2(local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::SE2StateSpace::StateType>()
+                                                  ->getY() -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::SE2StateSpace::StateType>()
+                                                  ->getY(),
+                                          local_solution_path_states_copy_[i + 1]
+                                                  ->as<ob::SE2StateSpace::StateType>()
+                                                  ->getX() -
+                                              local_solution_path_states_copy_[i]
+                                                  ->as<ob::SE2StateSpace::StateType>()
+                                                  ->getX());
+
+                            int counter = 1;
+                            while (!lastNode)
+                            {
+                                ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
+
+                                posEv[0] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::SE2StateSpace::StateType>()
+                                                      ->getX() +
+                                                  counter * robot_base_radius * std::cos(angle)); // x
+                                posEv[1] = double(local_solution_path_states_copy_[i]
+                                                      ->as<ob::SE2StateSpace::StateType>()
+                                                      ->getY() +
+                                                  counter * robot_base_radius * std::sin(angle)); // y
+
+                                if (!simple_setup_local_->getSpaceInformation()->checkMotion(
+                                        local_solution_path_states_copy_[i], posEv->as<ob::State>()))
+                                {
+                                    // ROS_INFO("%s:\n\tadding last position\n",
+                                    // ros::this_node::getName().c_str());
+                                    ob::ScopedState<> posEv(simple_setup_local_->getStateSpace());
+
+                                    posEv[0] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::SE2StateSpace::StateType>()
+                                                          ->getX() +
+                                                      (counter - 1) * robot_base_radius * std::cos(angle)); // x
+                                    posEv[1] = double(local_solution_path_states_copy_[i]
+                                                          ->as<ob::SE2StateSpace::StateType>()
+                                                          ->getY() +
+                                                      (counter - 1) * robot_base_radius * std::sin(angle));
+
+                                    geometry_msgs::PoseStamped p;
+                                    p.pose.position.x = posEv[0];
+                                    p.pose.position.y = posEv[1];
+
+                                    if (goal_available_)
+                                    {
+                                        ros::Time t;
+                                        std::string err = "";
+                                        tf::StampedTransform tf_map_to_fixed;
+                                        tf_listener_.getLatestCommonTime("map", "odom", t, &err);
+                                        tf_listener_.lookupTransform("map", "odom", t, tf_map_to_fixed);
+
+                                        tf_map_to_fixed.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
+
+                                        tf2::Quaternion myQuaternion;
+
+                                        myQuaternion.setRPY(useless_roll, useless_pitch, goal_map_frame_[2] - yaw);
+
+                                        myQuaternion = myQuaternion.normalize();
+
+                                        p.pose.orientation.x = myQuaternion.getX();
+                                        p.pose.orientation.y = myQuaternion.getY();
+                                        p.pose.orientation.z = myQuaternion.getZ();
+                                        p.pose.orientation.w = myQuaternion.getW();
+                                    }
+
+                                    lastNode = true;
+
+                                    path_visualize.append(posEv->as<ob::SE2StateSpace::StateType>());
+
+                                    solution_path_for_control.poses.push_back(p);
+                                }
+                                counter += 1;
+                            }
                         }
                     }
+                    // ROS_INFO("%s:\n\tpartial path sent\n", ros::this_node::getName().c_str());
+                    // ROS_INFO_STREAM("partial path: " << solution_path_for_control);
+                    visualizeRRTLocal(path_visualize);
+                    solution_path_control_pub_.publish(solution_path_for_control);
+                    // ros::spinOnce();
+                    //        if (mapping_offline_)
+                    //            goal_available_ = false;
                 }
-                // ROS_INFO("%s:\n\tpartial path sent\n", ros::this_node::getName().c_str());
-                // ROS_INFO_STREAM("partial path: " << solution_path_for_control);
-                visualizeRRTLocal(path_visualize);
-                solution_path_control_pub_.publish(solution_path_for_control);
-                // ros::spinOnce();
-                //        if (mapping_offline_)
-                //            goal_available_ = false;
             }
         }
     }
