@@ -808,7 +808,7 @@ void OnlinePlannFramework::planningTimerCallback()
         simple_setup_global_->setStartState(start);
         simple_setup_global_->setGoalState(goal, goal_radius_);
         //
-        // simple_setup_global_->getStateSpace()->setValidSegmentCountFactor(15.0);
+        simple_setup_global_->getStateSpace()->setValidSegmentCountFactor(5.0);
 
         // local_solution_path_states_.clear();
 
@@ -917,12 +917,6 @@ void OnlinePlannFramework::planningTimerCallback()
 
                 // path.interpolate(int(path.length() / 1.0));
 
-                nav_msgs::OdometryConstPtr odomData = ros::topic::waitForMessage<nav_msgs::Odometry>(odometry_topic_);
-
-                ob::ScopedState<> current_robot_state(simple_setup_global_->getSpaceInformation()->getStateSpace());
-                current_robot_state[0] = odomData->pose.pose.position.x;
-                current_robot_state[1] = odomData->pose.pose.position.y;
-
                 if (reuse_last_best_solution_)
                 {
                     ob::StateSpacePtr space = simple_setup_global_->getStateSpace();
@@ -933,23 +927,7 @@ void OnlinePlannFramework::planningTimerCallback()
                         ob::State *s = space->allocState();
                         space->copyState(s, path_states[i]);
                         solution_path_states_.push_back(s);
-
-                        double current_dist_x = abs(odomData->pose.pose.position.x - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-
-                        double current_dist_y = abs(odomData->pose.pose.position.y - path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
-
-                        if (current_dist_x < 0.6 && current_dist_y < 0.6)
-                        {
-                            if (simple_setup_global_->getSpaceInformation()->checkMotion(path_states[i], current_robot_state->as<ob::State>()))
-                            {
-                                break;
-                            }
-                        }
                     }
-
-                    ob::State *s = space->allocState();
-                    space->copyState(s, current_robot_state->as<ob::State>());
-                    solution_path_states_.push_back(s);
                 }
 
                 og::PathGeometric global_path_solution = og::PathGeometric(simple_setup_global_->getSpaceInformation());
@@ -1358,7 +1336,6 @@ void OnlinePlannFramework::planningTimerCallback()
         }
         else
         {
-            // visualizeRRTTree();
 
             solution_found = false;
         }
