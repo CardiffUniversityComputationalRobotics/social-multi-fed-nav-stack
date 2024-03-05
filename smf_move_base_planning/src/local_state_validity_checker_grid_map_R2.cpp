@@ -58,7 +58,6 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
         full_grid_map_ = grid_map_["full"];
         comfort_grid_map_ = grid_map_["comfort"];
         social_heatmap_grid_map_ = grid_map_["social_heatmap"];
-        obstacles_grid_map_ = grid_map_["obstacles"];
     }
     catch (...)
     {
@@ -184,25 +183,6 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
                 {
                     state_risk += social_heatmap_risk / 100;
                 }
-            }
-
-            bool is_risk_zone = false;
-
-            for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.2);
-                 !iterator.isPastEnd(); ++iterator)
-            {
-                const grid_map::Index index(*iterator);
-
-                if (obstacles_grid_map_(index(0), index(1)) > 50)
-                {
-                    is_risk_zone = true;
-                    break;
-                }
-            }
-
-            if (is_risk_zone)
-            {
-                state_risk += 5;
             }
         }
     }
