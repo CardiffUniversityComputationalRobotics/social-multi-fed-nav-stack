@@ -210,7 +210,7 @@ class PathFollower:
             if abs(ang_error) > 1.6:
                 vel_msg.linear.x = 0
             else:
-                speed = self.max_trans_vel * (1 - (abs(ang_error) / (math.pi)))
+                speed = self.max_trans_vel * (1 - (abs(ang_error) / (math.pi))) * 0.9
                 vel_msg.linear.x = speed
 
             self.velocity_publisher.publish(vel_msg)
