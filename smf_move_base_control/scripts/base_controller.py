@@ -67,7 +67,7 @@ class PathFollower:
             "/tf", TFMessage, self.robot_pose_callback
         )
         self.goal_subscriber = rospy.Subscriber(
-            self.goal_topic, PoseStamped, self.goal_callback
+            self.goal_topic, PoseStamped, self.goal_callback, queue_size=10
         )
 
         #! Publishers
@@ -210,7 +210,7 @@ class PathFollower:
             if abs(ang_error) > 1.6:
                 vel_msg.linear.x = 0
             else:
-                speed = self.max_trans_vel * (1 - (abs(ang_error) / (math.pi))) * 0.9
+                speed = self.max_trans_vel * (1 - (abs(ang_error) / (math.pi)))
                 vel_msg.linear.x = speed
 
             self.velocity_publisher.publish(vel_msg)
