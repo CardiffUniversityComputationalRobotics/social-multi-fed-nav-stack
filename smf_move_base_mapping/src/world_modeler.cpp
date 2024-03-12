@@ -90,6 +90,14 @@ void stopNode(int sig)
     exit(0);
 }
 
+struct LaserScanExtended
+{
+    std::string topic;
+    std::string frame;
+    tf::StampedTransform tf_robot_to_laser_scan;
+    ros::Subscriber sub;
+};
+
 struct PointCloudExtended
 {
     std::string topic;
@@ -110,6 +118,8 @@ public:
     WorldModeler();
     //! Destructor
     virtual ~WorldModeler();
+    //! Callback for getting the laser_scan data
+    void laserScanCallback(const sensor_msgs::LaserScanConstPtr &laser_scan_msg);
     //! Callback for getting the point_cloud data
     void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud);
     //! Callback for getting current vehicle odometry
@@ -142,6 +152,10 @@ public:
     void publishMap();
 
 private:
+    //! Filter outliers
+    void filterSingleOutliers(sensor_msgs::LaserScan &laser_scan_msg,
+                              std::vector<bool> &rngflags);
+
     // ROS
     ros::NodeHandle nh_, local_nh_;
     ros::Publisher octomap_marker_pub_, grid_map_pub_, relevant_agents_pub_;
@@ -157,12 +171,16 @@ private:
     std::string map_frame_, fixed_frame_, robot_frame_, offline_octomap_path_,
         odometry_topic_, social_agents_topic_;
 
+    // Laser scans
+    std::vector<std::string> laser_scan_frames_, laser_scan_topics_;
+    std::vector<LaserScanExtended *> laser_scans_info_;
+
     // Point Clouds
     std::vector<std::string> point_cloud_topics_, point_cloud_frames_;
     std::vector<PointCloudExtended *> point_clouds_info_;
 
     // ROS Messages
-    sensor_msgs::PointCloud cloud_;
+    sensor_msgs::PointCloud2 cloud_;
 
     nav_msgs::OdometryConstPtr robot_odometry_;
 
@@ -179,7 +197,7 @@ private:
 
     // Octree
     octomap::OcTree *octree_;
-    double octree_resol_, rviz_timer_;
+    double octree_resol_, minimum_range_, rviz_timer_;
     octomap::OcTreeKey m_updateBBXMin;
     octomap::OcTreeKey m_updateBBXMax;
     octomap::KeyRay m_keyRay; // temp storage for ray casting
@@ -227,10 +245,19 @@ private:
     double fFieldOfView = 0.0;
 
     // Flags
+    tf::Vector3 prev_map_to_fixed_pos_;
     bool initialized_;
     bool nav_sts_available_;
     bool visualize_free_space_;
     bool social_relevance_validity_checking_;
+    bool apply_filter_;
+    bool add_max_range_measures_;
+    bool add_rays_;
+
+    double orientation_drift_, prev_map_to_fixed_yaw_, position_drift_;
+
+    // LaserScan => (x,y,z)
+    laser_geometry::LaserProjection laser_scan_projector_;
 
 protected:
     inline static void updateMinKey(const octomap::OcTreeKey &in,
@@ -277,11 +304,18 @@ WorldModeler::WorldModeler()
       social_heatmap_decay_factor_(65),
       min_z_pc_(0.05),
       max_z_pc_(1.0),
-      social_comfort_amplitude_(6)
+      social_comfort_amplitude_(6),
+      orientation_drift_(0.0),
+      position_drift_(0.0),
+      apply_filter_(false),
+      add_max_range_measures_(false),
+      add_rays_(false),
+      minimum_range_(-1.0)
 {
     //=======================================================================
     // Get parameters
     //=======================================================================
+    local_nh_.param("add_rays", add_rays_, add_rays_);
     local_nh_.param("resolution", octree_resol_, octree_resol_);
     local_nh_.param("map_frame", map_frame_, map_frame_);
     local_nh_.param("fixed_frame", fixed_frame_, fixed_frame_);
@@ -292,6 +326,8 @@ WorldModeler::WorldModeler()
                     visualize_free_space_);
     local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
     local_nh_.param("rviz_timer", rviz_timer_, rviz_timer_);
+    local_nh_.param("laser_scan_topics", laser_scan_topics_, laser_scan_topics_);
+    local_nh_.param("laser_scan_frames", laser_scan_frames_, laser_scan_frames_);
     local_nh_.param("point_cloud_topics", point_cloud_topics_,
                     point_cloud_topics_);
     local_nh_.param("point_cloud_frames", point_cloud_frames_,
@@ -310,13 +346,68 @@ WorldModeler::WorldModeler()
     local_nh_.param("min_z_pc", min_z_pc_, min_z_pc_);
     local_nh_.param("max_z_pc", max_z_pc_, max_z_pc_);
     local_nh_.param("social_comfort_amplitude", social_comfort_amplitude_, social_comfort_amplitude_);
+    local_nh_.param("apply_filter", apply_filter_, apply_filter_);
+    local_nh_.param("add_max_ranges", add_max_range_measures_,
+                    add_max_range_measures_);
+    local_nh_.param("minimum_range", minimum_range_, minimum_range_);
 
     // Transforms TF and catch the static transform from vehicle to laser_scan
     // sensor
-    // tf_listener_.setExtrapolationLimit(ros::Duration(0.2));
+    tf_listener_.setExtrapolationLimit(ros::Duration(0.2));
     int count(0);
     ros::Time t;
     std::string err = "";
+
+    if (laser_scan_frames_.size() == laser_scan_topics_.size())
+    {
+        for (unsigned int i = 0; i < laser_scan_frames_.size(); i++)
+        {
+            LaserScanExtended *laser_scan_info = new LaserScanExtended();
+            laser_scan_info->frame = laser_scan_frames_[i];
+            laser_scan_info->topic = laser_scan_topics_[i];
+
+            // Get the corresponding tf
+            count = 0;
+            err = "cannot find tf from " + robot_frame_ + "to " +
+                  laser_scan_info->frame;
+
+            tf_listener_.getLatestCommonTime(robot_frame_, laser_scan_info->frame, t,
+                                             &err);
+
+            initialized_ = false;
+            do
+            {
+                try
+                {
+                    tf_listener_.lookupTransform(robot_frame_, laser_scan_info->frame, t,
+                                                 laser_scan_info->tf_robot_to_laser_scan);
+                    initialized_ = true;
+                }
+                catch (std::exception e)
+                {
+                    tf_listener_.waitForTransform(robot_frame_, laser_scan_info->frame,
+                                                  ros::Time::now(), ros::Duration(1.0));
+                    tf_listener_.getLatestCommonTime(robot_frame_, laser_scan_info->frame,
+                                                     t, &err);
+                    count++;
+                    ROS_WARN("%s:\n\tCannot find tf from %s to %s\n",
+                             ros::this_node::getName().c_str(), robot_frame_.c_str(),
+                             laser_scan_info->frame.c_str());
+                }
+                if (count > 10)
+                {
+                    ROS_ERROR("%s\n\tNo transform found. Aborting...",
+                              ros::this_node::getName().c_str());
+                    exit(-1);
+                }
+            } while (ros::ok() && !initialized_);
+            ROS_WARN("%s:\n\ttf from %s to %s OK\n",
+                     ros::this_node::getName().c_str(), robot_frame_.c_str(),
+                     laser_scan_info->frame.c_str());
+
+            laser_scans_info_.push_back(laser_scan_info);
+        }
+    }
 
     if (point_cloud_frames_.size() == point_cloud_topics_.size())
     {
@@ -431,6 +522,15 @@ WorldModeler::WorldModeler()
     if (offline_octomap_path_.size() == 0)
     {
 
+        for (std::vector<LaserScanExtended *>::iterator laser_scan_it =
+                 laser_scans_info_.begin();
+             laser_scan_it != laser_scans_info_.end(); laser_scan_it++)
+        {
+            LaserScanExtended *laser_scan_info = *laser_scan_it;
+            laser_scan_info->sub = nh_.subscribe(
+                laser_scan_info->topic, 10, &WorldModeler::laserScanCallback, this);
+        }
+
         for (std::vector<PointCloudExtended *>::iterator point_cloud_it =
                  point_clouds_info_.begin();
              point_cloud_it != point_clouds_info_.end(); point_cloud_it++)
@@ -459,6 +559,18 @@ WorldModeler::WorldModeler()
         timer_ = nh_.createTimer(ros::Duration(rviz_timer_),
                                  &WorldModeler::timerCallback, this);
     }
+
+    for (std::vector<LaserScanExtended *>::iterator laser_scan_it =
+             laser_scans_info_.begin();
+         laser_scan_it != laser_scans_info_.end(); laser_scan_it++)
+    {
+        LaserScanExtended *laser_scan_info = *laser_scan_it;
+        ROS_INFO(
+            "%s:\n\tFixed frame = %s\n\tRobot frame = %s\n\tlaser_scan frame = "
+            "%s\n",
+            ros::this_node::getName().c_str(), fixed_frame_.c_str(),
+            robot_frame_.c_str(), laser_scan_info->frame.c_str());
+    }
 }
 
 //! Destructor.
@@ -467,6 +579,200 @@ WorldModeler::~WorldModeler()
     ROS_INFO("%s:\n\tOctree has been deleted\n",
              ros::this_node::getName().c_str());
     delete octree_;
+}
+
+void WorldModeler::laserScanCallback(
+    const sensor_msgs::LaserScanConstPtr &laser_scan_msg)
+{
+    ros::Time t;
+    tf::StampedTransform tf_robot_to_laser_scan, tf_fixed_to_robot,
+        tf_map_to_fixed;
+    std::string err = "cannot find transform from robot_frame to scan frame";
+
+    // check drift
+    tf_listener_.getLatestCommonTime(map_frame_, fixed_frame_, t, &err);
+    tf_listener_.lookupTransform(map_frame_, fixed_frame_, t, tf_map_to_fixed);
+    tf::Matrix3x3 m_map_to_fixed = tf_map_to_fixed.getBasis();
+    tf::Vector3 p_map_to_fixed = tf_map_to_fixed.getOrigin();
+    double roll, pitch, yaw;
+    m_map_to_fixed.getRPY(roll, pitch, yaw);
+    orientation_drift_ += abs(prev_map_to_fixed_yaw_ - yaw);
+    prev_map_to_fixed_yaw_ = yaw;
+    position_drift_ +=
+        sqrt(pow(prev_map_to_fixed_pos_.getX() - p_map_to_fixed.getX(), 2.0) +
+             pow(prev_map_to_fixed_pos_.getY() - p_map_to_fixed.getY(), 2.0));
+    prev_map_to_fixed_pos_ = p_map_to_fixed;
+
+    if (orientation_drift_ > 0.05 || position_drift_ > 0.05)
+    {
+        orientation_drift_ = 0.0;
+        position_drift_ = 0.0;
+        octree_->clear();
+        // mergeGlobalMapToOctomap();
+    }
+
+    tf_listener_.getLatestCommonTime(robot_frame_,
+                                     laser_scan_msg->header.frame_id, t, &err);
+    tf_listener_.lookupTransform(robot_frame_, laser_scan_msg->header.frame_id, t,
+                                 tf_robot_to_laser_scan);
+
+    tf_listener_.getLatestCommonTime(fixed_frame_, robot_frame_, t, &err);
+    tf_listener_.lookupTransform(fixed_frame_, robot_frame_, t,
+                                 tf_fixed_to_robot);
+
+    // Editable message
+    sensor_msgs::LaserScan laser_scan = *laser_scan_msg;
+
+    // Max range flags
+    std::vector<bool> rngflags;
+    rngflags.resize(laser_scan.ranges.size());
+    for (int i = 0; i < laser_scan.ranges.size(); i++)
+    {
+        rngflags[i] = false;
+        if (!ros::ok())
+            break;
+    }
+
+    // Use zero ranges as max ranges
+    double new_max = laser_scan.range_max * 0.95;
+    if (add_max_range_measures_)
+    {
+        // Flag readings as maxrange
+        for (int i = 0; i < laser_scan.ranges.size(); i++)
+        {
+            if (laser_scan.ranges[i] == 0.0 ||
+                laser_scan.ranges[i] >= laser_scan.range_max)
+            {
+                laser_scan.ranges[i] = new_max;
+                rngflags[i] = true;
+            }
+            if (!ros::ok())
+                break;
+        }
+    }
+
+    // Apply single outliers removal filter
+    if (apply_filter_)
+    {
+        // Copy message for editing, filter and project to (x,y,z)
+        sensor_msgs::LaserScan laser_scan = *laser_scan_msg;
+        filterSingleOutliers(laser_scan, rngflags);
+    }
+
+    // Project to (x,y,z)
+    laser_scan_projector_.projectLaser(laser_scan, cloud_, laser_scan.range_max);
+
+    // Compute origin of sensor in world frame (filters laser_scan_msg->ranges[i]
+    // > 0.0)
+    tf::Vector3 orig(0, 0, 0);
+    orig = tf_fixed_to_robot * tf_robot_to_laser_scan * orig;
+    octomap::point3d origin(orig.getX(), orig.getY(), orig.getZ());
+    // std::cout << "origin: " << orig.getX() << ", " << orig.getY() << "," <<
+    // orig.getZ() << std::endl;
+
+    // ! AGENTS FILTERING
+
+    // =============================
+
+    PCLPointCloud pc; // input cloud for filtering and ground-detection
+    pcl::fromROSMsg(cloud_, pc);
+
+    // ros::Time t;
+    // std::string err = "cannot find transform from robot_frame to scan frame";
+
+    tf::StampedTransform sensorToWorldTf;
+    try
+    {
+        tf_listener_.getLatestCommonTime(fixed_frame_, laser_scan_msg->header.frame_id, t,
+                                         &err);
+
+        //        tf_listener_.lookupTransform(robot_frame_,
+        //        laser_scan_msg->header.frame_id, t,
+        //                                     tf_robot_to_laser_scan);
+
+        tf_listener_.lookupTransform(fixed_frame_, laser_scan_msg->header.frame_id, laser_scan_msg->header.stamp,
+                                     sensorToWorldTf);
+    }
+    catch (tf::TransformException &ex)
+    {
+        ROS_ERROR_STREAM("Transform error of sensor data: "
+                         << ex.what() << ", quitting callback");
+        tf_listener_.lookupTransform(fixed_frame_, laser_scan_msg->header.frame_id, t,
+                                     sensorToWorldTf);
+    }
+
+    Eigen::Matrix4f sensorToWorld;
+    pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
+
+    // set up filter for height range, also removes NANs:
+    // pcl::PassThrough<PCLPoint> pass_x;
+    // pass_x.setFilterFieldName("x");
+    // pass_x.setFilterLimits(0.15, 4.0);
+    // pcl::PassThrough<PCLPoint> pass_y;
+    // pass_y.setFilterFieldName("y");
+    // pass_y.setFilterLimits(0.15, 4.0);
+    pcl::PassThrough<PCLPoint> pass_z;
+    pass_z.setFilterFieldName("z");
+    pass_z.setFilterLimits(min_z_pc_, max_z_pc_); // TODO
+
+    PCLPointCloud pc_ground;    // segmented ground plane
+    PCLPointCloud pc_nonground; // everything else
+
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // just filter height range:
+    // pass_x.setInputCloud(pc.makeShared());
+    // pass_x.filter(pc);
+    // pass_y.setInputCloud(pc.makeShared());
+    // pass_y.filter(pc);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc);
+
+    pc_nonground = pc;
+
+    // pc_nonground is empty without ground segmentation
+    pc_ground.header = pc.header;
+    pc_nonground.header = pc.header;
+
+    // ROS_INFO_STREAM("INSERT SCAN START");
+
+    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+
+    // =====================================
+
+    // Trick for max ranges not occupied
+    // new_max *= 0.95;
+    // for (unsigned i = 0; i < cloud_.points.size(); i++)
+    // {
+    //     if ((i % 1) == 0)
+    //     {
+    //         // Transform readings
+    //         tf::Vector3 scanpt(cloud_.points[i].x, cloud_.points[i].y,
+    //                            cloud_.points[i].z);
+    //         scanpt = tf_fixed_to_robot * tf_robot_to_laser_scan * scanpt;
+    //         octomap::point3d end;
+    //         end = octomap::point3d(scanpt.getX(), scanpt.getY(), scanpt.getZ());
+
+    //         // Insert readings
+    //         // if(scanpt.getZ()>0.0)
+    //         double point_distance =
+    //             sqrt(pow(end.z() - origin.z(), 2.0) + pow(end.y() - origin.y(), 2.0) +
+    //                  pow(end.x() - origin.x(), 2.0));
+    //         if (point_distance > minimum_range_)
+    //         {
+    //             if (add_rays_)
+    //                 octree_->insertRay(origin, end,
+    //                                    new_max); // integrate 'occupied' measurement
+    //             else
+    //                 octree_->updateNode(scanpt.getX(), scanpt.getY(), scanpt.getZ(),
+    //                                     true); // integrate 'occupied' measurement
+    //         }
+    //     }
+
+    //     if (!ros::ok())
+    //         break;
+    // }
 }
 
 //! LaserScan callback.
@@ -503,27 +809,28 @@ void WorldModeler::pointCloudCallback(
                 tf_listener_.getLatestCommonTime(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
                                                  &err);
                 tf_listener_.lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id),
-                                             t, transform);
-
-                // Z -> X
-                // X -> Y
-                // Y -> -Z
-                pcl::CropBox<pcl::PointXYZ> boxFilter;
-                boxFilter.setMin(Eigen::Vector4f(minX, minY, minZ, 0));
-                boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
-                boxFilter.setInputCloud(pc.makeShared());
-                boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
-                // boxFilter.setRotation(Eigen::Vector3f(roll, pitch + 90, yaw));
-                boxFilter.setNegative(true);
-                boxFilter.filter(pc);
+                                             cloud->header.stamp, transform);
             }
             catch (tf::TransformException &ex)
             {
 
                 ROS_ERROR_STREAM("Transform error of sensor data: "
                                  << ex.what() << ", quitting callback");
-                return;
+                tf_listener_.lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
+                                             transform);
             }
+
+            // Z -> X
+            // X -> Y
+            // Y -> -Z
+            pcl::CropBox<pcl::PointXYZ> boxFilter;
+            boxFilter.setMin(Eigen::Vector4f(minX, minY, minZ, 0));
+            boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
+            boxFilter.setInputCloud(pc.makeShared());
+            boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
+            // boxFilter.setRotation(Eigen::Vector3f(roll, pitch + 90, yaw));
+            boxFilter.setNegative(true);
+            boxFilter.filter(pc);
         }
     }
     // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS FINISHED");
@@ -535,18 +842,20 @@ void WorldModeler::pointCloudCallback(
     {
         tf_listener_.getLatestCommonTime(fixed_frame_, cloud->header.frame_id, t,
                                          &err);
+
         //        tf_listener_.lookupTransform(robot_frame_,
         //        laser_scan_msg->header.frame_id, t,
         //                                     tf_robot_to_laser_scan);
 
-        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
+        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, cloud->header.stamp,
                                      sensorToWorldTf);
     }
     catch (tf::TransformException &ex)
     {
         ROS_ERROR_STREAM("Transform error of sensor data: "
                          << ex.what() << ", quitting callback");
-        return;
+        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
+                                     sensorToWorldTf);
     }
 
     Eigen::Matrix4f sensorToWorld;
@@ -1136,6 +1445,38 @@ void WorldModeler::publishMap()
 
     // Publish it
     octomap_marker_pub_.publish(occupiedNodesVis);
+}
+
+void WorldModeler::filterSingleOutliers(sensor_msgs::LaserScan &laser_scan_msg,
+                                        std::vector<bool> &rngflags)
+{
+    int n(laser_scan_msg.ranges.size());
+    double thres(laser_scan_msg.range_max / 10.0);
+    std::vector<int> zeros;
+    for (int i = 1; i < n - 1; i++)
+    {
+        if ((std::abs(laser_scan_msg.ranges[i - 1] - laser_scan_msg.ranges[i]) >
+             thres) &&
+            (std::abs(laser_scan_msg.ranges[i + 1] - laser_scan_msg.ranges[i]) >
+             thres))
+        {
+            laser_scan_msg.ranges[i] = 0.0;
+            zeros.push_back(i);
+        }
+
+        if (!ros::ok())
+            break;
+    }
+
+    // Delete unnecessary flags
+    for (std::vector<int>::reverse_iterator rit = zeros.rbegin();
+         rit < zeros.rend(); rit++)
+    {
+        rngflags.erase(rngflags.begin() + *rit);
+
+        if (!ros::ok())
+            break;
+    }
 }
 
 //! Main function
