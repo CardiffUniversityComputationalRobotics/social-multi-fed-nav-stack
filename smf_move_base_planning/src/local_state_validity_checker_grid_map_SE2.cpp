@@ -89,7 +89,7 @@ bool LocalGridMapStateValidityCheckerSE2::isValid(const ob::State *state) const
     {
         const grid_map::Index index(*iterator);
 
-        if (full_grid_map_(index(0), index(1)) > 50)
+        if (full_grid_map_(index(0), index(1)) > 32)
         {
             return false;
         }
@@ -133,7 +133,7 @@ double LocalGridMapStateValidityCheckerSE2::checkExtendedSocialComfort(const ob:
         {
             const grid_map::Index index(*iterator);
 
-            if (obstacles_grid_map_(index(0), index(1)) > 50)
+            if (obstacles_grid_map_(index(0), index(1)) > 32)
             {
                 is_risk_zone = true;
                 break;
@@ -160,7 +160,7 @@ bool LocalGridMapStateValidityCheckerSE2::isValidPoint(const ob::State *state) c
 
     if (grid_map_.getIndex(query, index))
     {
-        if (full_grid_map_(index(0), index(1)) > 50)
+        if (full_grid_map_(index(0), index(1)) > 32)
         {
             return false;
         }
