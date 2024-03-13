@@ -899,8 +899,9 @@ void WorldModeler::pointCloudCallback(
     {
         ROS_ERROR_STREAM("Transform error of sensor data: "
                          << ex.what() << ", quitting callback");
-        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
-                                     sensorToWorldTf);
+        // tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
+        //  sensorToWorldTf);
+        return;
     }
 
     Eigen::Matrix4f sensorToWorld;
