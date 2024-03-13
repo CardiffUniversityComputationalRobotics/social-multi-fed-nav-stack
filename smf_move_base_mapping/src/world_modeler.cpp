@@ -677,6 +677,51 @@ void WorldModeler::laserScanCallback(
     PCLPointCloud pc; // input cloud for filtering and ground-detection
     pcl::fromROSMsg(cloud_, pc);
 
+    float minX = -12, minY = -0.6, minZ = -0.6;
+    float maxX = 12, maxY = 0.6, maxZ = 0.6;
+
+    // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS");
+
+    if (social_agents_in_radius_.agent_states.size() > 0)
+    {
+        for (int i = 0; i < social_agents_in_radius_.agent_states.size(); i++)
+        {
+
+            std::string err = "cannot find transform from agent to camera frame";
+
+            tf::StampedTransform transform;
+            ros::Time t;
+
+            try
+            {
+                tf_listener_.getLatestCommonTime(laser_scan_msg->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
+                                                 &err);
+                tf_listener_.lookupTransform(laser_scan_msg->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id),
+                                             laser_scan_msg->header.stamp, transform);
+            }
+            catch (tf::TransformException &ex)
+            {
+
+                ROS_ERROR_STREAM("Transform error of sensor data: "
+                                 << ex.what() << ", quitting callback");
+                tf_listener_.lookupTransform(laser_scan_msg->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
+                                             transform);
+            }
+
+            // Z -> X
+            // X -> Y
+            // Y -> -Z
+            pcl::CropBox<pcl::PointXYZ> boxFilter;
+            boxFilter.setMin(Eigen::Vector4f(minX, minY, minZ, 0));
+            boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
+            boxFilter.setInputCloud(pc.makeShared());
+            boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
+            // boxFilter.setRotation(Eigen::Vector3f(roll, pitch + 90, yaw));
+            boxFilter.setNegative(true);
+            boxFilter.filter(pc);
+        }
+    }
+
     // ros::Time t;
     // std::string err = "cannot find transform from robot_frame to scan frame";
 
