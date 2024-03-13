@@ -120,7 +120,7 @@ private:
     ros::NodeHandle nh_, local_nh_;
     ros::Timer timer_;
     ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
-    ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_, query_goal_radius_rviz_pub_, num_nodes_pub_, goal_reached_pub_;
+    ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_, query_goal_radius_rviz_pub_, num_nodes_pub_, goal_reached_pub_, sweep_motion_pub_;
 
     // ROS action server
     SmfBaseGoToActionServer *goto_action_server_;
@@ -136,9 +136,7 @@ private:
     og::SimpleSetupPtr simple_setup_global_;
     oc::SimpleSetupPtr simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
-    bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
-        goal_available_, dynamic_bounds_, visualize_tree_,
-        control_active_;
+    bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_, goal_available_, dynamic_bounds_, visualize_tree_, control_active_, is_sweep_done_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, max_trans_vel_, max_rot_vel_;
@@ -203,6 +201,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     goal_radius_ = xy_goal_tolerance_;
     local_goal_radius_ = local_xy_goal_tolerance_;
     goal_available_ = false;
+    is_sweep_done_ = false;
 
     //=======================================================================
     // Subscribers
@@ -232,6 +231,7 @@ OnlinePlannFramework::OnlinePlannFramework()
 
     num_nodes_pub_ = local_nh_.advertise<std_msgs::Int32>("smf_num_nodes", 1, true);
     goal_reached_pub_ = local_nh_.advertise<std_msgs::Bool>("goal_reached", 1, true);
+    sweep_motion_pub_ = local_nh_.advertise<std_msgs::Bool>("sweep_motion", 1, true);
 
     //=======================================================================
     // Action server
@@ -261,6 +261,20 @@ OnlinePlannFramework::OnlinePlannFramework()
  */
 void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req)
 {
+
+    if (!is_sweep_done_)
+    {
+        std_msgs::Bool make_sweep;
+        double sleep_time = 2 * M_PI / (max_rot_vel_ / 4);
+
+        make_sweep.data = true;
+        sweep_motion_pub_.publish(make_sweep);
+
+        ros::Duration(sleep_time).sleep();
+
+        is_sweep_done_ = true;
+    }
+
     goal_map_frame_[0] = goto_req->goal.x;
     goal_map_frame_[1] = goto_req->goal.y;
     goal_map_frame_[2] = goto_req->goal.theta;
@@ -346,6 +360,7 @@ void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGo
     std_msgs::Bool goal_reached;
     goal_reached.data = true;
     goal_reached_pub_.publish(goal_reached);
+    is_sweep_done_ = false;
 }
 
 //! Odometry callback.
@@ -371,7 +386,8 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::OdometryConstPtr &odom_m
 
     if ((goal_available_) &&
         sqrt(pow(goal_odom_frame_[0] - last_robot_pose_.getOrigin().getX(), 2.0) +
-             pow(goal_odom_frame_[1] - last_robot_pose_.getOrigin().getY(), 2.0)) < (goal_radius_ + 0.5))
+             pow(goal_odom_frame_[1] - last_robot_pose_.getOrigin().getY(), 2.0)) < (goal_radius_ + 0.5) &&
+        abs(yaw - goal_odom_frame_[2]) < (yaw_goal_tolerance_ + 0.2))
     {
         goal_available_ = false;
     }
