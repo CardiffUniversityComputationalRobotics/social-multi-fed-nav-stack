@@ -42,12 +42,17 @@ class PathFollower:
         self.cmd_vel_topic = rospy.get_param("~control_output_topic", "cmd_vel")
         self.path_topic = rospy.get_param("~control_path_topic", "cmd_vel")
         self.goal_topic = rospy.get_param("~query_goal_topic", "/goal")
+        self.sweep_motion_topic = rospy.get_param(
+            "~sweep_motion_topic", "/sweep_motion"
+        )
 
         self.robot_frame = rospy.get_param("~robot_frame", "base_footprint")
 
         self.transform_listener = TransformListener()
 
         self.new_path_arrived = False
+
+        self.loop_rate = rospy.Rate(1000)
 
         time.sleep(2)  # wait for transforms to be available
 
@@ -68,6 +73,9 @@ class PathFollower:
         )
         self.goal_subscriber = rospy.Subscriber(
             self.goal_topic, PoseStamped, self.goal_callback, queue_size=10
+        )
+        self.sweep_motion = rospy.Subscriber(
+            self.sweep_motion_topic, Bool, self.sweep_motion, queue_size=10
         )
 
         #! Publishers
@@ -174,7 +182,6 @@ class PathFollower:
         vel_msg = Twist()
         vel_msg.linear.x = -self.max_trans_vel
         t0 = rospy.Time().now().to_sec()
-        loop_rate = rospy.Rate(1000)
 
         while current_distance < 0.4:
             if self.is_shutdown_initiated:
@@ -184,14 +191,13 @@ class PathFollower:
             self.velocity_publisher.publish(vel_msg)
             t1 = rospy.Time().now().to_sec()
             current_distance = self.max_trans_vel * (t1 - t0)
-            loop_rate.sleep()
+            self.loop_rate.sleep()
 
         self.is_obstacle_ahead = False
 
     def move_to_point(self, point: Node):
         vel_msg = Twist()
         vel_msg.linear.x = self.max_trans_vel
-        loop_rate = rospy.Rate(1000)
 
         while self.robot_position.calculate_distance(point) > move_tolerance:
             if (
@@ -214,14 +220,13 @@ class PathFollower:
                 vel_msg.linear.x = speed
 
             self.velocity_publisher.publish(vel_msg)
-            loop_rate.sleep()
+            self.loop_rate.sleep()
 
     def rotate_to_goal(self, goal: Node):
         if isinstance(goal, PoseStamped):
             goal = Node.from_pose(goal.pose)
 
         vel_msg = Twist()
-        loop_rate = rospy.Rate(1000)
 
         while abs(goal.theta - self.robot_position.theta) > rotate_tolerance:
             if self.is_shutdown_initiated:
@@ -231,9 +236,27 @@ class PathFollower:
             speed = self.max_rot_vel * (goal.theta - self.robot_position.theta)
             vel_msg.angular.z = min(self.max_rot_vel, speed)
             self.velocity_publisher.publish(vel_msg)
-            loop_rate.sleep()
+            self.loop_rate.sleep()
 
         self.velocity_publisher.publish(Twist())
+
+    def sweep_motion(self, msg):
+        time_sweep = 2 * math.pi / (self.max_rot_vel / 2)
+
+        rospy.logwarn(time_sweep)
+
+        vel_msg = Twist()
+        vel_msg.angular.z = self.max_rot_vel / 2
+
+        init_time = time.time()
+
+        while time.time() - init_time < time_sweep:
+            self.velocity_publisher.publish(vel_msg)
+            self.loop_rate.sleep()
+
+        vel_msg.angular.z = 0
+
+        self.velocity_publisher.publish(vel_msg)
 
     def angular_difference(self, point: Node) -> float:
         angle = (
