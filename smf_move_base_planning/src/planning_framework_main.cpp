@@ -1492,6 +1492,13 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                     // ROS_INFO("%s:\n\tpartial path sent\n", ros::this_node::getName().c_str());
                     // ROS_INFO_STREAM("partial path: " << solution_path_for_control);
+
+                    if (solution_path_for_control.poses.size() > 2)
+                    {
+                        solution_path_for_control.poses.pop_back();
+                        solution_path_for_control.poses.pop_back();
+                    }
+
                     visualizeRRTLocal(path_visualize);
                     solution_path_control_pub_.publish(solution_path_for_control);
                     // ros::spinOnce();
