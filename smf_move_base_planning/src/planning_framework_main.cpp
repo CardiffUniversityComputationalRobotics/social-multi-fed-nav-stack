@@ -262,18 +262,18 @@ OnlinePlannFramework::OnlinePlannFramework()
 void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req)
 {
 
-    if (!is_sweep_done_)
-    {
-        std_msgs::Bool make_sweep;
-        double sleep_time = 2 * M_PI / (max_rot_vel_ / 4);
+    // if (!is_sweep_done_)
+    // {
+    // std_msgs::Bool make_sweep;
+    // double sleep_time = 2 * M_PI / (max_rot_vel_ / 4);
 
-        make_sweep.data = true;
-        sweep_motion_pub_.publish(make_sweep);
+    // make_sweep.data = true;
+    // sweep_motion_pub_.publish(make_sweep);
 
-        ros::Duration(sleep_time).sleep();
+    // ros::Duration(sleep_time).sleep();
 
-        is_sweep_done_ = true;
-    }
+    // is_sweep_done_ = true;
+    // }
 
     goal_map_frame_[0] = goto_req->goal.x;
     goal_map_frame_[1] = goto_req->goal.y;
@@ -360,7 +360,7 @@ void OnlinePlannFramework::goToActionCallback(const smf_move_base_msgs::Goto2DGo
     std_msgs::Bool goal_reached;
     goal_reached.data = true;
     goal_reached_pub_.publish(goal_reached);
-    is_sweep_done_ = false;
+    // is_sweep_done_ = false;
 }
 
 //! Odometry callback.
@@ -481,6 +481,11 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::PoseStampedCon
  */
 void OnlinePlannFramework::planWithSimpleSetup()
 {
+
+    std_msgs::Bool make_sweep;
+    make_sweep.data = true;
+    sweep_motion_pub_.publish(make_sweep);
+
     //=======================================================================
     // Instantiate the state space
     //=======================================================================
@@ -990,7 +995,10 @@ void OnlinePlannFramework::planningTimerCallback()
 
                         local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
                         local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-                        local_goal[2] = double(goal_map_frame_[2]);                                                             // yaw
+
+                        double angle = calculateAngle(start[0], start[1], solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0], solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+
+                        local_goal[2] = angle; // yaw
 
                         simple_setup_local_->setGoalState(local_goal, goal_radius_);
                     }
