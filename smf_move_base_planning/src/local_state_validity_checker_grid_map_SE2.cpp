@@ -128,7 +128,7 @@ double LocalGridMapStateValidityCheckerSE2::checkExtendedSocialComfort(const ob:
 
         bool is_risk_zone = false;
 
-        for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.2);
+        for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.3);
              !iterator.isPastEnd(); ++iterator)
         {
             const grid_map::Index index(*iterator);
@@ -142,7 +142,26 @@ double LocalGridMapStateValidityCheckerSE2::checkExtendedSocialComfort(const ob:
 
         if (is_risk_zone)
         {
-            state_risk += 5;
+            state_risk += 10;
+        }
+        else
+        {
+            for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.15);
+                 !iterator.isPastEnd(); ++iterator)
+            {
+                const grid_map::Index index(*iterator);
+
+                if (obstacles_grid_map_(index(0), index(1)) > 20)
+                {
+                    is_risk_zone = true;
+                    break;
+                }
+            }
+
+            if (is_risk_zone)
+            {
+                state_risk += 5;
+            }
         }
     }
 
