@@ -648,8 +648,8 @@ void WorldModeler::laserScanCallback(
             catch (tf::TransformException &ex)
             {
 
-                ROS_WARN_STREAM("Transform error of sensor data: "
-                                << ex.what() << ". Getting the lastest obtained transform.");
+                // ROS_WARN_STREAM("Transform error of sensor data: "
+                //                 << ex.what() << ". Getting the lastest obtained transform.");
                 tf_listener_.lookupTransform(laser_scan_msg->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
                                              transform);
             }
@@ -804,8 +804,8 @@ void WorldModeler::pointCloudCallback(
             catch (tf::TransformException &ex)
             {
 
-                ROS_WARN_STREAM("Transform error of sensor data: "
-                                << ex.what() << ". Getting the lastest obtained transform.");
+                // ROS_WARN_STREAM("Transform error of sensor data: "
+                //                 << ex.what() << ". Getting the lastest obtained transform.");
                 tf_listener_.lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
                                              transform);
             }
