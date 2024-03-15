@@ -118,7 +118,7 @@ public:
     //! Periodic callback to publish the map for visualization.
     void timerCallback(const ros::TimerEvent &e);
     void insertScan(const tf::Point &sensorOriginTf, const PCLPointCloud &ground,
-                    const PCLPointCloud &nonground);
+                    const PCLPointCloud &nonground, const double &max_range, const double &min_range);
     //! Service to save a binary Octomap (.bt)
     bool saveBinaryOctomapSrv(std_srvs::Empty::Request &req,
                               std_srvs::Empty::Response &res);
@@ -735,7 +735,7 @@ void WorldModeler::laserScanCallback(
 
     // ROS_INFO_STREAM("INSERT SCAN START");
 
-    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, mapping_max_range_, minimum_range_);
 
     // =====================================
 
@@ -893,7 +893,7 @@ void WorldModeler::pointCloudCallback(
 
     // ROS_INFO_STREAM("INSERT SCAN START");
 
-    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, mapping_max_range_, 0);
     //
     //    double total_elapsed = (ros::WallTime::now() - startTime).toSec();
     //    ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts
@@ -985,7 +985,7 @@ void WorldModeler::pointCloudCallback(
 
 void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
                               const PCLPointCloud &ground,
-                              const PCLPointCloud &nonground)
+                              const PCLPointCloud &nonground, const double &max_range, const double &min_range)
 {
     octomap::point3d sensorOrigin = octomap::pointTfToOctomap(sensorOriginTf);
 
@@ -1003,14 +1003,16 @@ void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
     octomap::KeySet free_cells, occupied_cells;
 
     // all other points: free on ray, occupied on endpoint:
-    double m_maxRange(mapping_max_range_); // TODO
+    double m_maxRange(max_range); // TODO
+    double m_minRange(min_range);
     for (PCLPointCloud::const_iterator it = nonground.begin();
          it != nonground.end(); ++it)
     {
         octomap::point3d point(it->x, it->y, it->z); // TODO
         // maxrange check
-        if ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange))
+        if ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange && (point - sensorOrigin).norm() >= m_minRange))
         {
+
             // free cells
             if (octree_->computeRayKeys(sensorOrigin, point, m_keyRay))
             {
