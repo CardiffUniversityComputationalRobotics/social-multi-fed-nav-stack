@@ -487,15 +487,23 @@ WorldModeler::WorldModeler()
     {
 
         // POINTCLOUD
+        std::vector<std::string> pc_need_frames;
+        pc_need_frames.push_back(point_cloud_frame_);
+        pc_need_frames.push_back(fixed_frame_);
+        pc_need_frames.push_back(robot_frame_);
         point_cloud_sub_.subscribe(nh_, point_cloud_topic_, 1);
         point_cloud_mn_.reset(new tf::MessageFilter<sensor_msgs::PointCloud2>(point_cloud_sub_, tf_listener_, "", 1));
-        point_cloud_mn_->setTargetFrame(point_cloud_frame_);
+        point_cloud_mn_->setTargetFrames(pc_need_frames);
         point_cloud_mn_->registerCallback(boost::bind(&WorldModeler::pointCloudCallback, this, _1));
 
         // LASERSCAN
+        std::vector<std::string> laser_need_frames;
+        laser_need_frames.push_back(point_cloud_frame_);
+        laser_need_frames.push_back(fixed_frame_);
+        laser_need_frames.push_back(robot_frame_);
         laser_scan_sub_.subscribe(nh_, laser_scan_topic_, 1);
         laser_scan_mn_.reset(new tf::MessageFilter<sensor_msgs::LaserScan>(laser_scan_sub_, tf_listener_, "", 1));
-        laser_scan_mn_->setTargetFrame(laser_scan_frame_);
+        laser_scan_mn_->setTargetFrames(laser_need_frames);
         laser_scan_mn_->registerCallback(boost::bind(&WorldModeler::laserScanCallback, this, _1));
     }
 
