@@ -59,10 +59,10 @@ WorldModeler::WorldModeler()
                     visualize_free_space_);
     local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
     local_nh_.param("rviz_timer", rviz_timer_, rviz_timer_);
-    local_nh_.param("point_cloud_topics", point_cloud_topics_,
-                    point_cloud_topics_);
-    local_nh_.param("point_cloud_frames", point_cloud_frames_,
-                    point_cloud_frames_);
+    local_nh_.param("point_cloud_topic", point_cloud_topic_,
+                    point_cloud_topic_);
+    local_nh_.param("point_cloud_frame", point_cloud_frame_,
+                    point_cloud_frame_);
     local_nh_.param("mapping_max_range", mapping_max_range_,
                     mapping_max_range_);
     local_nh_.param("robot_distance_view_max", robot_distance_view_max_, robot_distance_view_max_);
@@ -83,59 +83,48 @@ WorldModeler::WorldModeler()
     // tf_listener_.setExtrapolationLimit(ros::Duration(0.2));
     int count(0);
     ros::Time t;
+    tf::StampedTransform transform;
     std::string err = "";
 
-    if (point_cloud_frames_.size() == point_cloud_topics_.size())
+    // Get the corresponding tf
+    count = 0;
+    err = "cannot find tf from " + robot_frame_ + "to " +
+          point_cloud_frame_;
+
+    tf_listener_.getLatestCommonTime(robot_frame_, point_cloud_frame_, t,
+                                     &err);
+
+    initialized_ = false;
+    do
     {
-        for (unsigned int i = 0; i < point_cloud_frames_.size(); i++)
+        try
         {
-            PointCloudExtended *point_cloud_info = new PointCloudExtended();
-            point_cloud_info->frame = point_cloud_frames_[i];
-            point_cloud_info->topic = point_cloud_topics_[i];
-
-            // Get the corresponding tf
-            count = 0;
-            err = "cannot find tf from " + robot_frame_ + "to " +
-                  point_cloud_info->frame;
-
-            tf_listener_.getLatestCommonTime(robot_frame_, point_cloud_info->frame, t,
-                                             &err);
-
-            initialized_ = false;
-            do
-            {
-                try
-                {
-                    tf_listener_.lookupTransform(
-                        robot_frame_, point_cloud_info->frame, t,
-                        point_cloud_info->tf_robot_to_point_cloud);
-                    initialized_ = true;
-                }
-                catch (std::exception e)
-                {
-                    tf_listener_.waitForTransform(robot_frame_, point_cloud_info->frame,
-                                                  ros::Time::now(), ros::Duration(1.0));
-                    tf_listener_.getLatestCommonTime(robot_frame_,
-                                                     point_cloud_info->frame, t, &err);
-                    count++;
-                    ROS_WARN("%s:\n\tCannot find tf from %s to %s\n",
-                             ros::this_node::getName().c_str(), robot_frame_.c_str(),
-                             point_cloud_info->frame.c_str());
-                }
-                if (count > 10)
-                {
-                    ROS_ERROR("%s\n\tNo transform found. Aborting...",
-                              ros::this_node::getName().c_str());
-                    exit(-1);
-                }
-            } while (ros::ok() && !initialized_);
-            ROS_WARN("%s:\n\ttf from %s to %s OK\n",
-                     ros::this_node::getName().c_str(), robot_frame_.c_str(),
-                     point_cloud_info->frame.c_str());
-
-            point_clouds_info_.push_back(point_cloud_info);
+            tf_listener_.lookupTransform(
+                robot_frame_, point_cloud_frame_, t,
+                transform);
+            initialized_ = true;
         }
-    }
+        catch (std::exception e)
+        {
+            tf_listener_.waitForTransform(robot_frame_, point_cloud_frame_,
+                                          ros::Time::now(), ros::Duration(1.0));
+            tf_listener_.getLatestCommonTime(robot_frame_,
+                                             point_cloud_frame_, t, &err);
+            count++;
+            ROS_WARN("%s:\n\tCannot find tf from %s to %s\n",
+                     ros::this_node::getName().c_str(), robot_frame_.c_str(),
+                     point_cloud_frame_.c_str());
+        }
+        if (count > 10)
+        {
+            ROS_ERROR("%s\n\tNo transform found. Aborting...",
+                      ros::this_node::getName().c_str());
+            exit(-1);
+        }
+    } while (ros::ok() && !initialized_);
+    ROS_WARN("%s:\n\ttf from %s to %s OK\n",
+             ros::this_node::getName().c_str(), robot_frame_.c_str(),
+             point_cloud_frame_.c_str());
 
     //=======================================================================
     // Octree
@@ -197,15 +186,15 @@ WorldModeler::WorldModeler()
 
     if (offline_octomap_path_.size() == 0)
     {
-
-        for (std::vector<PointCloudExtended *>::iterator point_cloud_it =
-                 point_clouds_info_.begin();
-             point_cloud_it != point_clouds_info_.end(); point_cloud_it++)
-        {
-            PointCloudExtended *point_cloud_info = *point_cloud_it;
-            point_cloud_info->sub = nh_.subscribe(
-                point_cloud_info->topic, 10, &WorldModeler::pointCloudCallback, this);
-        }
+        // POINTCLOUD
+        std::vector<std::string> pc_need_frames;
+        pc_need_frames.push_back(point_cloud_frame_);
+        pc_need_frames.push_back(fixed_frame_);
+        pc_need_frames.push_back(robot_frame_);
+        point_cloud_sub_.subscribe(nh_, point_cloud_topic_, 1);
+        point_cloud_mn_.reset(new tf::MessageFilter<sensor_msgs::PointCloud2>(point_cloud_sub_, tf_listener_, "", 1));
+        point_cloud_mn_->setTargetFrames(pc_need_frames);
+        point_cloud_mn_->registerCallback(boost::bind(&WorldModeler::pointCloudCallback, this, _1));
     }
 
     //=======================================================================
@@ -307,7 +296,7 @@ void WorldModeler::pointCloudCallback(
         //        laser_scan_msg->header.frame_id, t,
         //                                     tf_robot_to_laser_scan);
 
-        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, t,
+        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, cloud->header.stamp,
                                      sensorToWorldTf);
     }
     catch (tf::TransformException &ex)
