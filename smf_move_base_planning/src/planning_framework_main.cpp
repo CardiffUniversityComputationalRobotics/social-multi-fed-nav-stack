@@ -1501,10 +1501,16 @@ void OnlinePlannFramework::planningTimerCallback()
                     // ROS_INFO("%s:\n\tpartial path sent\n", ros::this_node::getName().c_str());
                     // ROS_INFO_STREAM("partial path: " << solution_path_for_control);
 
-                    if (solution_path_for_control.poses.size() > 2)
+                    int partial_solution_size = solution_path_for_control.poses.size();
+
+                    for (int i = 0; i < partial_solution_size; i++)
                     {
                         solution_path_for_control.poses.pop_back();
-                        solution_path_for_control.poses.pop_back();
+
+                        if (i > 4)
+                        {
+                            break;
+                        }
                     }
 
                     visualizeRRTLocal(path_visualize);
