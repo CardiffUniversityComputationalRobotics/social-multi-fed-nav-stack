@@ -76,14 +76,6 @@ void stopNode(int sig)
     exit(0);
 }
 
-struct PointCloudExtended
-{
-    std::string topic;
-    std::string frame;
-    tf::StampedTransform tf_robot_to_point_cloud;
-    ros::Subscriber sub;
-};
-
 //!  WorldModeler class.
 /*!
  * Autopilot Laser WorldModeler.
@@ -134,9 +126,11 @@ private:
     ros::NodeHandle nh_, local_nh_;
     ros::Publisher octomap_marker_pub_, grid_map_pub_, relevant_agents_pub_;
     ros::Subscriber odom_sub_, agent_states_sub_;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> point_cloud_sub_;
     ros::ServiceServer save_binary_octomap_srv_, save_full_octomap_srv_,
         get_binary_octomap_srv_, get_grid_map_srv_;
     ros::Timer timer_;
+    boost::shared_ptr<tf::MessageFilter<sensor_msgs::PointCloud2>> point_cloud_mn_;
 
     // ROS tf
     tf::TransformListener tf_listener_;
@@ -146,8 +140,7 @@ private:
         odometry_topic_, social_agents_topic_;
 
     // Point Clouds
-    std::vector<std::string> point_cloud_topics_, point_cloud_frames_;
-    std::vector<PointCloudExtended *> point_clouds_info_;
+    std::string point_cloud_topic_, point_cloud_frame_;
 
     // ROS Messages
     sensor_msgs::PointCloud cloud_;
