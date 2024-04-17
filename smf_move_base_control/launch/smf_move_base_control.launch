@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="output" default="screen" />
+
+    <!-- Start control node -->
+    <node name="smf_move_base_controller" pkg="smf_move_base_control" type="base_controller.py" required="true">
+        <rosparam command="load" file="$(find smf_move_base_control)/config/smf_move_base_control.yaml" />
+    </node>
+
+</launch>

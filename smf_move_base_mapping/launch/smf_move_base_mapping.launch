@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="output" default="screen" />
+
+    <node name="smf_move_base_mapper" pkg="smf_move_base_mapping" type="smf_move_base_mapper" required="true" output="$(arg output)">
+        <rosparam command="load" file="$(find smf_move_base_mapping)/config/smf_move_base_mapping.yaml" />
+    </node>
+
+</launch>
