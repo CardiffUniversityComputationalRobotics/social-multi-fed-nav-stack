@@ -110,6 +110,7 @@ private:
   grid_map::Matrix full_grid_map_;
   grid_map::Matrix comfort_grid_map_;
   grid_map::Matrix social_heatmap_grid_map_;
+  grid_map::Matrix risk_zones_grid_map_;
 };
 
 #endif
