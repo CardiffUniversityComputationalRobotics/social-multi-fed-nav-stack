@@ -110,7 +110,7 @@ bool LocalGridMapStateValidityCheckerR2::isValid(const ob::State *state) const
     {
         const grid_map::Index index(*iterator);
 
-        if (full_grid_map_(index(0), index(1)) > 22)
+        if (full_grid_map_(index(0), index(1)) > 20)
         {
             return false;
         }
@@ -146,6 +146,25 @@ double LocalGridMapStateValidityCheckerR2::checkExtendedSocialComfort(const ob::
                 state_risk += social_heatmap_risk / 100;
             }
         }
+
+        bool is_risk_zone = false;
+
+        for (grid_map::CircleIterator iterator(grid_map_, query, robot_base_radius_ + 0.2);
+             !iterator.isPastEnd(); ++iterator)
+        {
+            const grid_map::Index index(*iterator);
+
+            if (obstacles_grid_map_(index(0), index(1)) > 20)
+            {
+                is_risk_zone = true;
+                break;
+            }
+        }
+
+        if (is_risk_zone)
+        {
+            state_risk += 5;
+        }
     }
 
     return state_risk;
@@ -162,7 +181,7 @@ bool LocalGridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) co
 
     if (grid_map_.getIndex(query, index))
     {
-        if (full_grid_map_(index(0), index(1)) > 22)
+        if (full_grid_map_(index(0), index(1)) > 20)
         {
             return false;
         }

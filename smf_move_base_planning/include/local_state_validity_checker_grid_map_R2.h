@@ -107,6 +107,7 @@ private:
 
   bool opport_collision_check_, local_use_social_heatmap_;
 
+  grid_map::Matrix obstacles_grid_map_;
   grid_map::Matrix full_grid_map_;
   grid_map::Matrix comfort_grid_map_;
   grid_map::Matrix social_heatmap_grid_map_;

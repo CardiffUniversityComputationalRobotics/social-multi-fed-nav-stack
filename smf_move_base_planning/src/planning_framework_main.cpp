@@ -808,7 +808,7 @@ void OnlinePlannFramework::planningTimerCallback()
         simple_setup_global_->setStartState(start);
         simple_setup_global_->setGoalState(goal, goal_radius_);
         //
-        simple_setup_global_->getStateSpace()->setValidSegmentCountFactor(5.0);
+        simple_setup_global_->getStateSpace()->setValidSegmentCountFactor(10.0);
 
         // local_solution_path_states_.clear();
 
@@ -863,7 +863,7 @@ void OnlinePlannFramework::planningTimerCallback()
         simple_setup_local_->setStartState(local_start);
 
         //
-        simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(15.0);
+        simple_setup_local_->getStateSpace()->setValidSegmentCountFactor(20.0);
 
         //=======================================================================
         // Set state validity checking for this space
