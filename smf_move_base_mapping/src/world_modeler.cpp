@@ -240,8 +240,8 @@ void WorldModeler::pointCloudCallback(
     PCLPointCloud pc; // input cloud for filtering and ground-detection
     pcl::fromROSMsg(*cloud, pc);
 
-    float minX = -0.6, minY = -12, minZ = -0.6;
-    float maxX = 0.6, maxY = 12, maxZ = 0.6;
+    float minX = -0.6, minY = -0.6, minZ = -12;
+    float maxX = 0.6, maxY = 0.6, maxZ = 12;
 
     // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS");
 
@@ -262,6 +262,15 @@ void WorldModeler::pointCloudCallback(
                 tf_listener_.lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id),
                                              t, transform);
 
+                tf::Quaternion q(
+                    transform.getRotation().x(),
+                    transform.getRotation().y(),
+                    transform.getRotation().z(),
+                    transform.getRotation().w());
+                tf::Matrix3x3 m(q);
+                double roll, pitch, yaw;
+                m.getRPY(roll, pitch, yaw);
+
                 // Z -> X
                 // X -> Y
                 // Y -> -Z
@@ -270,6 +279,7 @@ void WorldModeler::pointCloudCallback(
                 boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
                 boxFilter.setInputCloud(pc.makeShared());
                 boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
+                boxFilter.setRotation(Eigen::Vector3f(roll, pitch, yaw));
                 boxFilter.setNegative(true);
                 boxFilter.filter(pc);
             }
