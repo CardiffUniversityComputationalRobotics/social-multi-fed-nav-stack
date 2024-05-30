@@ -62,6 +62,7 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
         full_grid_map_ = grid_map_["full"];
         comfort_grid_map_ = grid_map_["comfort"];
         social_heatmap_grid_map_ = grid_map_["social_heatmap"];
+        obstacles_grid_map_ = grid_map_["obstacles"];
 
         grid_map::GridMapRosConverter::fromOccupancyGrid(*risk_zones_msg, "risk_zone", grid_map_);
 
