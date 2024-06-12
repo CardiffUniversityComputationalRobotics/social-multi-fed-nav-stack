@@ -11,19 +11,15 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
-
+find_package(pedsim_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Path2D.msg"
   "msg/RelevantAgentState.msg"
   "msg/RelevantAgentStates.msg"
-  DEPENDENCIES geometry_msgs
-)
-
-rosidl_generate_interfaces(${PROJECT_NAME}
   "action/Goto2D.action"
   "action/GotoRegion2D.action"
-  DEPENDENCIES geometry_msgs
+  DEPENDENCIES geometry_msgs pedsim_msgs
 )
 
 if(BUILD_TESTING)

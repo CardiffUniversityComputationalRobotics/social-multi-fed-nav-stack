@@ -1,4 +1,4 @@
-Header header
+std_msgs/Header header
 pedsim_msgs/AgentState agent_state
 int8 relevance
 uint64 last_time
