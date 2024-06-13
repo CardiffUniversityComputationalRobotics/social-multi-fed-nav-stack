@@ -94,6 +94,8 @@ WorldModeler::WorldModeler()
     this->get_parameter("max_z_pc", max_z_pc_);
     this->get_parameter("social_comfort_amplitude", social_comfort_amplitude_);
 
+    this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+
     //=======================================================================
     // Transforms TF and catch the static transform from vehicle to laser_scan
     // sensor
@@ -269,7 +271,7 @@ void WorldModeler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Share
 
             try
             {
-                transform = tf_buffer_->lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), tf2::TimePointZero);
+                transform = tf_buffer_->lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), this->get_clock()->now());
 
                 tf2::Quaternion q(
                     transform.transform.rotation.x,
