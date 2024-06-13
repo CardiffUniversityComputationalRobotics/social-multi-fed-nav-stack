@@ -30,7 +30,9 @@ find_package(OCTOMAP REQUIRED)
 find_package(octomap_server REQUIRED)
 find_package(pcl_ros REQUIRED)
 
-include_directories(include)
+include_directories(
+  include
+  SYSTEM)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -64,5 +66,9 @@ src/world_modeler.cpp
 )
 ament_target_dependencies(smf_move_base_mapper ${dependencies})
 target_link_libraries(smf_move_base_mapper ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
+
+install(TARGETS
+  smf_move_base_mapper
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
