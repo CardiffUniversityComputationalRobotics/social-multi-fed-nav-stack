@@ -16,14 +16,21 @@ find_package(tf2_ros REQUIRED)
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_cv REQUIRED)
 find_package(grid_map_filters REQUIRED)
-find_package(grid_map_loader REQUIRED)
+# find_package(grid_map_loader REQUIRED)
 find_package(grid_map_msgs REQUIRED)
 find_package(grid_map_octomap REQUIRED)
 find_package(grid_map_ros REQUIRED)
-find_package(grid_map_rviz_plugin REQUIRED)
+# find_package(grid_map_rviz_plugin REQUIRED)
 find_package(grid_map_sdf REQUIRED)
 find_package(grid_map_visualization REQUIRED)
 find_package(ompl REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(octomap_msgs REQUIRED)
+find_package(OCTOMAP REQUIRED)
+find_package(octomap_server REQUIRED)
+find_package(pcl_ros REQUIRED)
+
+include_directories(include)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -37,10 +44,25 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+set(dependencies
+    rclcpp
+    pedsim_msgs
+    nav_msgs
+    smf_move_base_msgs
+    grid_map_ros
+    grid_map_msgs
+    tf2_geometry_msgs
+    octomap_msgs
+    octomap_server
+    pcl_ros
+    grid_map_octomap
+)
+
 add_executable(smf_move_base_mapper
 src/social_heatmap.cpp
 src/world_modeler.cpp
 )
+ament_target_dependencies(smf_move_base_mapper ${dependencies})
 target_link_libraries(smf_move_base_mapper ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
 
 ament_package()

@@ -1,53 +1,53 @@
+#ifndef WORLD_MODELER_HPP
+#define WORLD_MODELER_HPP
+
 // SOCIAL HEATMAP
 #include "social_heatmap.hpp"
 
-// Boost
-#include <boost/shared_ptr.hpp>
+// ROS2
+#include <rclcpp/rclcpp.hpp>
 
-// ROS
-#include <ros/ros.h>
+// ROS2 messages
+#include <geometry_msgs/msg/pose.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
+#include <std_msgs/msg/int8.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
-// ROS LaserScan tools
-#include <laser_geometry/laser_geometry.h>
-#include <cmath>
-// ROS messages
-#include <geometry_msgs/Pose.h>
-#include <message_filters/subscriber.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/PointCloud.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/ColorRGBA.h>
-#include <std_msgs/Int8.h>
-#include <visualization_msgs/MarkerArray.h>
+// ROS2 services
+#include <std_srvs/srv/empty.hpp>
 
-// ROS services
-#include <std_srvs/Empty.h>
-
-// ROS tf
-#include <tf/message_filter.h>
-#include <tf/transform_listener.h>
+// tf2
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/message_filter.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/buffer.h>
+#include "message_filters/subscriber.h"
 
 // Octomap
 #include <octomap/octomap.h>
 #include <octomap_msgs/conversions.h>
-#include <octomap_msgs/GetOctomap.h>
-typedef octomap_msgs::GetOctomap OctomapSrv;
+#include <octomap_msgs/srv/get_octomap.hpp>
+typedef octomap_msgs::srv::GetOctomap OctomapSrv;
 #include <octomap/Pointcloud.h>
-#include <octomap_ros/conversions.h>
+#include <octomap_msgs/conversions.h>
 
 // grid map library
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <grid_map_octomap/grid_map_octomap.hpp>
-#include <grid_map_msgs/GetGridMap.h>
+#include <grid_map_msgs/srv/get_grid_map.hpp>
 #include <grid_map_cv/grid_map_cv.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 // PCL
-#include <pcl/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/io/pcd_io.h>
@@ -56,13 +56,12 @@ typedef octomap_msgs::GetOctomap OctomapSrv;
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/transforms.h>
+#include <pcl_ros/transforms.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/filters/crop_box.h>
-#include <sensor_msgs/PointCloud2.h>
 
 // PEDSIM
-#include <pedsim_msgs/AgentStates.h>
+#include <pedsim_msgs/msg/agent_states.hpp>
 
 #include <signal.h>
 
@@ -72,16 +71,16 @@ typedef octomap::OcTree OcTreeT;
 
 void stopNode(int sig)
 {
-    ros::shutdown();
+    rclcpp::shutdown();
     exit(0);
 }
 
 //!  WorldModeler class.
 /*!
  * Autopilot Laser WorldModeler.
- * Create an WorldModeler using information from laser scans.
+ * Create a WorldModeler using information from laser scans.
  */
-class WorldModeler
+class WorldModeler : public rclcpp::Node
 {
 public:
     //! Constructor
@@ -89,32 +88,32 @@ public:
     //! Destructor
     virtual ~WorldModeler();
     //! Callback for getting the point_cloud data
-    void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud);
+    void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr cloud);
     //! Callback for getting current vehicle odometry
-    void odomCallback(const nav_msgs::OdometryConstPtr &odom_msg);
+    void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom_msg);
     //! Callback for getting current agent states
-    void agentStatesCallback(const pedsim_msgs::AgentStatesConstPtr &agent_states_msg);
-    bool isAgentInRFOV(const pedsim_msgs::AgentState agent_state);
-    // ! Check if robot is in front of agent.
-    bool isRobotInFront(pedsim_msgs::AgentState agent_state, grid_map::Position position);
-    // ! Calculate comfort in specific position in gridmap
-    double getExtendedPersonalSpace(pedsim_msgs::AgentState agent_state, grid_map::Position position);
+    void agentStatesCallback(const pedsim_msgs::msg::AgentStates::SharedPtr agent_states_msg);
+    bool isAgentInRFOV(const pedsim_msgs::msg::AgentState agent_state);
+    //! Check if robot is in front of agent.
+    bool isRobotInFront(pedsim_msgs::msg::AgentState agent_state, grid_map::Position position);
+    //! Calculate comfort in specific position in gridmap
+    double getExtendedPersonalSpace(pedsim_msgs::msg::AgentState agent_state, grid_map::Position position);
     //! Periodic callback to publish the map for visualization.
-    void timerCallback(const ros::TimerEvent &e);
-    void insertScan(const tf::Point &sensorOriginTf, const PCLPointCloud &ground,
+    void timerCallback();
+    void insertScan(const geometry_msgs::msg::Vector3 &sensorOriginTf, const PCLPointCloud &ground,
                     const PCLPointCloud &nonground);
     //! Service to save a binary Octomap (.bt)
-    bool saveBinaryOctomapSrv(std_srvs::Empty::Request &req,
-                              std_srvs::Empty::Response &res);
+    bool saveBinaryOctomapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
+                              std::shared_ptr<std_srvs::srv::Empty::Response> res);
     //! Service to save a full Octomap (.ot)
-    bool saveFullOctomapSrv(std_srvs::Empty::Request &req,
-                            std_srvs::Empty::Response &res);
+    bool saveFullOctomapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
+                            std::shared_ptr<std_srvs::srv::Empty::Response> res);
     //! Service to get a binary Octomap
-    bool getBinaryOctomapSrv(OctomapSrv::Request &req,
-                             OctomapSrv::GetOctomap::Response &res);
+    bool getBinaryOctomapSrv(const std::shared_ptr<OctomapSrv::Request> req,
+                             std::shared_ptr<OctomapSrv::Response> res);
     //! Service to get grid map
-    bool getGridMapSrv(grid_map_msgs::GetGridMap::Request &req,
-                       grid_map_msgs::GetGridMap::Response &res);
+    bool getGridMapSrv(const std::shared_ptr<grid_map_msgs::srv::GetGridMap::Request> req,
+                       std::shared_ptr<grid_map_msgs::srv::GetGridMap::Response> res);
 
     //! Publish the WorldModeler
     void publishMap();
@@ -122,18 +121,23 @@ public:
     void defineSocialGridMap();
 
 private:
-    // ROS
-    ros::NodeHandle nh_, local_nh_;
-    ros::Publisher octomap_marker_pub_, grid_map_pub_, relevant_agents_pub_;
-    ros::Subscriber odom_sub_, agent_states_sub_;
-    message_filters::Subscriber<sensor_msgs::PointCloud2> point_cloud_sub_;
-    ros::ServiceServer save_binary_octomap_srv_, save_full_octomap_srv_,
-        get_binary_octomap_srv_, get_grid_map_srv_;
-    ros::Timer timer_;
-    boost::shared_ptr<tf::MessageFilter<sensor_msgs::PointCloud2>> point_cloud_mn_;
+    // ROS2
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr octomap_marker_pub_;
+    rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_pub_;
+    rclcpp::Publisher<pedsim_msgs::msg::AgentStates>::SharedPtr relevant_agents_pub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Subscription<pedsim_msgs::msg::AgentStates>::SharedPtr agent_states_sub_;
+    message_filters::Subscriber<sensor_msgs::msg::PointCloud2> point_cloud_sub_;
+    rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_binary_octomap_srv_;
+    rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_full_octomap_srv_;
+    rclcpp::Service<OctomapSrv>::SharedPtr get_binary_octomap_srv_;
+    rclcpp::Service<grid_map_msgs::srv::GetGridMap>::SharedPtr get_grid_map_srv_;
+    rclcpp::TimerBase::SharedPtr timer_;
+    std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>> point_cloud_mn_;
 
-    // ROS tf
-    tf::TransformListener tf_listener_;
+    // tf2
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
 
     // Names
     std::string map_frame_, fixed_frame_, robot_frame_, offline_octomap_path_,
@@ -143,18 +147,18 @@ private:
     std::string point_cloud_topic_, point_cloud_frame_;
 
     // ROS Messages
-    sensor_msgs::PointCloud cloud_;
+    sensor_msgs::msg::PointCloud cloud_;
 
-    nav_msgs::OdometryConstPtr robot_odometry_;
+    nav_msgs::msg::Odometry::SharedPtr robot_odometry_;
 
     SocialHeatmap social_heatmap_ = SocialHeatmap();
 
     // pedsim messages
-    pedsim_msgs::AgentStatesConstPtr agent_states_;
-    pedsim_msgs::AgentStates relevant_agent_states_;
+    pedsim_msgs::msg::AgentStates::SharedPtr agent_states_;
+    pedsim_msgs::msg::AgentStates relevant_agent_states_;
 
-    pedsim_msgs::AgentStates social_agents_in_radius_;
-    std::vector<pedsim_msgs::AgentState> social_agents_in_radius_vector_;
+    pedsim_msgs::msg::AgentStates social_agents_in_radius_;
+    std::vector<pedsim_msgs::msg::AgentState> social_agents_in_radius_vector_;
 
     double social_agent_radius_;
 
@@ -169,42 +173,18 @@ private:
     // grid map
     grid_map::GridMap grid_map_;
 
-    grid_map_msgs::GridMap grid_map_msg_;
+    grid_map_msgs::msg::GridMap grid_map_msg_;
 
     // social relevance validity checking constants
     double robot_distance_view_max_, robot_distance_view_min_, robot_velocity_threshold_, robot_angle_view_, actual_fov_distance_;
-
     double social_heatmap_decay_factor_;
 
-    //! basic social personal space parameters defined
-    /*
-     * amplitude of basic social personal space function
-     */
+    // Basic social personal space parameters defined
     double social_comfort_amplitude_ = 4;
-
-    /*
-     * standard deviation in X of gaussian basic social personal space function
-     */
     double sigma_x = 0.45;
-
-    /*
-     * standard deviation in X of gaussian basic social personal space function
-     */
     double sigma_y = 0.45;
-
-    /*
-     * normalization factor, multiplied by agent velocity
-     */
     double fv = 0.8;
-
-    /*
-     * frontal area factor, sums with rest of factors
-     */
     double fFront = 0.2;
-
-    /*
-     * field of view factor, sums with rest of factors
-     */
     double fFieldOfView = 0.0;
 
     // Flags
@@ -227,3 +207,5 @@ protected:
             max[i] = std::max(in[i], max[i]);
     };
 };
+
+#endif // WORLD_MODELER_HPP

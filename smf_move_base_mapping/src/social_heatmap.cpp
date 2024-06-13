@@ -1,4 +1,4 @@
-#include <social_heatmap.h>
+#include "social_heatmap.hpp"
 
 //! CONSTRUCTOR
 SocialHeatmap::SocialHeatmap()
@@ -7,14 +7,12 @@ SocialHeatmap::SocialHeatmap()
 
 SocialHeatmap::SocialHeatmap(grid_map::GridMap grid_map)
 {
-
     social_heatmap_ = grid_map;
 }
 
 //! FUNCTIONS
-void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs::AgentStates agent_states)
+void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs::msg::AgentStates agent_states)
 {
-
     updateAgentStatesRelevance(agent_states);
 
     addNewAgentStates(agent_states);
@@ -36,16 +34,14 @@ void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs:
         {
             try
             {
-
                 grid_map::Position temp_pos;
-
                 social_heatmap_.getPosition(*iterator, temp_pos);
 
                 grid_map::Index index(*iterator);
 
                 double last_val = social_heatmap_grid_map(index(0), index(1));
 
-                if (isnan(last_val))
+                if (std::isnan(last_val))
                 {
                     last_val = socialComfortCost(temp_pos[0], temp_pos[1], relevant_agent_state);
                 }
@@ -63,15 +59,14 @@ void SocialHeatmap::updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs:
             }
             catch (const std::out_of_range &oor)
             {
-                ROS_ERROR("TRIED TO DEFINE COMFORT OF SOCIAL HEATMAP OUT OF RANGE");
+                RCLCPP_ERROR(rclcpp::get_logger("SocialHeatmap"), "TRIED TO DEFINE COMFORT OF SOCIAL HEATMAP OUT OF RANGE");
             }
         }
     }
 }
 
-void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentStates)
+void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::msg::AgentStates agentStates)
 {
-
     std::vector<int> irrelevant_agents;
 
     for (auto &agentItem : agent_states_record_)
@@ -91,13 +86,15 @@ void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentSta
     {
         auto &relevant_agent_state = agentItem.second;
 
-        smf_move_base_msgs::RelevantAgentState new_relevant_agent_state;
+        smf_move_base_msgs::msg::RelevantAgentState new_relevant_agent_state;
         new_relevant_agent_state.header = relevant_agent_state.header;
         new_relevant_agent_state.agent_state = relevant_agent_state.agent_state;
-
         new_relevant_agent_state.last_time = relevant_agent_state.last_time;
 
-        new_relevant_agent_state.relevance = 100 * exp(double(-time_decay_factor_ * (ros::Time::now().sec - relevant_agent_state.last_time) / 60));
+        auto now = rclcpp::Clock().now();
+        auto duration = now.seconds() - relevant_agent_state.last_time;
+
+        new_relevant_agent_state.relevance = 100 * exp(double(-time_decay_factor_ * duration / 60));
 
         if (new_relevant_agent_state.relevance < 0)
         {
@@ -108,20 +105,15 @@ void SocialHeatmap::updateAgentStatesRelevance(pedsim_msgs::AgentStates agentSta
     }
 }
 
-void SocialHeatmap::addNewAgentStates(pedsim_msgs::AgentStates agent_state)
+void SocialHeatmap::addNewAgentStates(pedsim_msgs::msg::AgentStates agent_state)
 {
-
     for (int i = 0; i < agent_state.agent_states.size(); i++)
     {
-
-        smf_move_base_msgs::RelevantAgentState relevant_agent_state;
-
+        smf_move_base_msgs::msg::RelevantAgentState relevant_agent_state;
         relevant_agent_state.header = agent_state.header;
 
-        relevant_agent_state.last_time = ros::Time::now().sec;
-
+        relevant_agent_state.last_time = rclcpp::Clock().now().seconds();
         relevant_agent_state.agent_state = agent_state.agent_states[i];
-
         relevant_agent_state.relevance = 100;
 
         agent_states_record_[agent_state.agent_states[i].id] = relevant_agent_state;

@@ -12,7 +12,7 @@
  * of Girona)
  */
 
-#include <world_modeler.h>
+#include <world_modeler.hpp>
 
 //!  Constructor.
 /*!
@@ -21,8 +21,7 @@
  * Publishers to visualize the WorldModeler.
  */
 WorldModeler::WorldModeler()
-    : nh_(),
-      local_nh_("~"),
+    : Node("world_modeler_node"),
       fixed_frame_("/fixed_frame"),
       robot_frame_("/robot_frame"),
       map_frame_("/map"),
@@ -49,82 +48,85 @@ WorldModeler::WorldModeler()
     //=======================================================================
     // Get parameters
     //=======================================================================
-    local_nh_.param("resolution", octree_resol_, octree_resol_);
-    local_nh_.param("map_frame", map_frame_, map_frame_);
-    local_nh_.param("fixed_frame", fixed_frame_, fixed_frame_);
-    local_nh_.param("robot_frame", robot_frame_, robot_frame_);
-    local_nh_.param("offline_octomap_path", offline_octomap_path_,
-                    offline_octomap_path_);
-    local_nh_.param("visualize_free_space", visualize_free_space_,
-                    visualize_free_space_);
-    local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
-    local_nh_.param("rviz_timer", rviz_timer_, rviz_timer_);
-    local_nh_.param("point_cloud_topic", point_cloud_topic_,
-                    point_cloud_topic_);
-    local_nh_.param("point_cloud_frame", point_cloud_frame_,
-                    point_cloud_frame_);
-    local_nh_.param("mapping_max_range", mapping_max_range_,
-                    mapping_max_range_);
-    local_nh_.param("robot_distance_view_max", robot_distance_view_max_, robot_distance_view_max_);
-    local_nh_.param("robot_distance_view_min", robot_distance_view_min_, robot_distance_view_min_);
-    local_nh_.param("robot_angle_view", robot_angle_view_, robot_angle_view_);
-    local_nh_.param("robot_velocity_threshold", robot_velocity_threshold_, robot_velocity_threshold_);
-    local_nh_.param("social_agent_radius", social_agent_radius_, social_agent_radius_);
-    local_nh_.param("social_agents_topic", social_agents_topic_, social_agents_topic_);
-    local_nh_.param("social_relevance_validity_checking", social_relevance_validity_checking_, social_relevance_validity_checking_);
-    local_nh_.param("social_heatmap_decay_factor", social_heatmap_decay_factor_,
-                    social_heatmap_decay_factor_);
-    local_nh_.param("min_z_pc", min_z_pc_, min_z_pc_);
-    local_nh_.param("max_z_pc", max_z_pc_, max_z_pc_);
-    local_nh_.param("social_comfort_amplitude", social_comfort_amplitude_, social_comfort_amplitude_);
+    this->declare_parameter("resolution", octree_resol_);
+    this->declare_parameter("map_frame", map_frame_);
+    this->declare_parameter("fixed_frame", fixed_frame_);
+    this->declare_parameter("robot_frame", robot_frame_);
+    this->declare_parameter("offline_octomap_path", offline_octomap_path_);
+    this->declare_parameter("visualize_free_space", visualize_free_space_);
+    this->declare_parameter("odometry_topic", odometry_topic_);
+    this->declare_parameter("rviz_timer", rviz_timer_);
+    this->declare_parameter("point_cloud_topic", point_cloud_topic_);
+    this->declare_parameter("point_cloud_frame", point_cloud_frame_);
+    this->declare_parameter("mapping_max_range", mapping_max_range_);
+    this->declare_parameter("robot_distance_view_max", robot_distance_view_max_);
+    this->declare_parameter("robot_distance_view_min", robot_distance_view_min_);
+    this->declare_parameter("robot_angle_view", robot_angle_view_);
+    this->declare_parameter("robot_velocity_threshold", robot_velocity_threshold_);
+    this->declare_parameter("social_agent_radius", social_agent_radius_);
+    this->declare_parameter("social_agents_topic", social_agents_topic_);
+    this->declare_parameter("social_relevance_validity_checking", social_relevance_validity_checking_);
+    this->declare_parameter("social_heatmap_decay_factor", social_heatmap_decay_factor_);
+    this->declare_parameter("min_z_pc", min_z_pc_);
+    this->declare_parameter("max_z_pc", max_z_pc_);
+    this->declare_parameter("social_comfort_amplitude", social_comfort_amplitude_);
 
+    this->get_parameter("resolution", octree_resol_);
+    this->get_parameter("map_frame", map_frame_);
+    this->get_parameter("fixed_frame", fixed_frame_);
+    this->get_parameter("robot_frame", robot_frame_);
+    this->get_parameter("offline_octomap_path", offline_octomap_path_);
+    this->get_parameter("visualize_free_space", visualize_free_space_);
+    this->get_parameter("odometry_topic", odometry_topic_);
+    this->get_parameter("rviz_timer", rviz_timer_);
+    this->get_parameter("point_cloud_topic", point_cloud_topic_);
+    this->get_parameter("point_cloud_frame", point_cloud_frame_);
+    this->get_parameter("mapping_max_range", mapping_max_range_);
+    this->get_parameter("robot_distance_view_max", robot_distance_view_max_);
+    this->get_parameter("robot_distance_view_min", robot_distance_view_min_);
+    this->get_parameter("robot_angle_view", robot_angle_view_);
+    this->get_parameter("robot_velocity_threshold", robot_velocity_threshold_);
+    this->get_parameter("social_agent_radius", social_agent_radius_);
+    this->get_parameter("social_agents_topic", social_agents_topic_);
+    this->get_parameter("social_relevance_validity_checking", social_relevance_validity_checking_);
+    this->get_parameter("social_heatmap_decay_factor", social_heatmap_decay_factor_);
+    this->get_parameter("min_z_pc", min_z_pc_);
+    this->get_parameter("max_z_pc", max_z_pc_);
+    this->get_parameter("social_comfort_amplitude", social_comfort_amplitude_);
+
+    //=======================================================================
     // Transforms TF and catch the static transform from vehicle to laser_scan
     // sensor
-    // tf_listener_.setExtrapolationLimit(ros::Duration(0.2));
+    //=======================================================================
     int count(0);
-    ros::Time t;
-    tf::StampedTransform transform;
-    std::string err = "";
-
-    // Get the corresponding tf
-    count = 0;
-    err = "cannot find tf from " + robot_frame_ + "to " +
-          point_cloud_frame_;
-
-    tf_listener_.getLatestCommonTime(robot_frame_, point_cloud_frame_, t,
-                                     &err);
+    rclcpp::Time t;
+    geometry_msgs::msg::TransformStamped transform;
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     initialized_ = false;
     do
     {
         try
         {
-            tf_listener_.lookupTransform(
-                robot_frame_, point_cloud_frame_, t,
-                transform);
+            transform = tf_buffer_->lookupTransform(robot_frame_, point_cloud_frame_, tf2::TimePointZero);
             initialized_ = true;
         }
-        catch (std::exception e)
+        catch (tf2::TransformException &ex)
         {
-            tf_listener_.waitForTransform(robot_frame_, point_cloud_frame_,
-                                          ros::Time::now(), ros::Duration(1.0));
-            tf_listener_.getLatestCommonTime(robot_frame_,
-                                             point_cloud_frame_, t, &err);
+
             count++;
-            ROS_WARN("%s:\n\tCannot find tf from %s to %s\n",
-                     ros::this_node::getName().c_str(), robot_frame_.c_str(),
-                     point_cloud_frame_.c_str());
+            RCLCPP_WARN(this->get_logger(), "Cannot find tf from %s to %s: %s",
+                        robot_frame_.c_str(), point_cloud_frame_.c_str(), ex.what());
         }
         if (count > 10)
         {
-            ROS_ERROR("%s\n\tNo transform found. Aborting...",
-                      ros::this_node::getName().c_str());
+            RCLCPP_ERROR(this->get_logger(), "No transform found. Aborting...");
             exit(-1);
         }
-    } while (ros::ok() && !initialized_);
-    ROS_WARN("%s:\n\ttf from %s to %s OK\n",
-             ros::this_node::getName().c_str(), robot_frame_.c_str(),
-             point_cloud_frame_.c_str());
+    } while (rclcpp::ok() && !initialized_);
+
+    RCLCPP_WARN(this->get_logger(), "tf from %s to %s OK", robot_frame_.c_str(), point_cloud_frame_.c_str());
 
     //=======================================================================
     // Octree
@@ -133,7 +135,8 @@ WorldModeler::WorldModeler()
         octree_ = new octomap::OcTree(offline_octomap_path_);
     else
         octree_ = new octomap::OcTree(octree_resol_);
-    ROS_WARN("%s:\n\tLoaded\n", ros::this_node::getName().c_str());
+    RCLCPP_WARN(this->get_logger(), "Loaded octree");
+
     octree_->setProbHit(0.7);
     octree_->setProbMiss(0.4);
     octree_->setClampingThresMin(0.1192);
@@ -156,33 +159,33 @@ WorldModeler::WorldModeler()
     //=======================================================================
     // Publishers
     //=======================================================================
-    octomap_marker_pub_ = local_nh_.advertise<visualization_msgs::MarkerArray>(
-        "octomap_map", 2, true);
-    grid_map_pub_ = local_nh_.advertise<grid_map_msgs::GridMap>("social_grid_map", 1, true);
-    relevant_agents_pub_ = local_nh_.advertise<pedsim_msgs::AgentStates>("relevant_agents", 1, true);
+    octomap_marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("octomap_map", 2);
+    grid_map_pub_ = this->create_publisher<grid_map_msgs::msg::GridMap>("social_grid_map", 1);
+    relevant_agents_pub_ = this->create_publisher<pedsim_msgs::msg::AgentStates>("relevant_agents", 1);
 
     //=======================================================================
     // Subscribers
     //=======================================================================
 
     // Agent states callback
-    agent_states_sub_ = nh_.subscribe(social_agents_topic_, 1,
-                                      &WorldModeler::agentStatesCallback, this);
+    agent_states_sub_ = this->create_subscription<pedsim_msgs::msg::AgentStates>(
+        social_agents_topic_, 1, std::bind(&WorldModeler::agentStatesCallback, this, std::placeholders::_1));
 
     // Odometry data (feedback)
-    odom_sub_ =
-        nh_.subscribe(odometry_topic_, 1, &WorldModeler::odomCallback, this);
+    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+        odometry_topic_, 1, std::bind(&WorldModeler::odomCallback, this, std::placeholders::_1));
+
     nav_sts_available_ = false;
     if (!nav_sts_available_)
-        ROS_WARN("%s:\n\tWaiting for odometry\n",
-                 ros::this_node::getName().c_str());
-    ros::Rate loop_rate(10);
-    while (ros::ok() && !nav_sts_available_)
+        RCLCPP_WARN(this->get_logger(), "Waiting for odometry.");
+
+    rclcpp::Rate loop_rate(10);
+    while (rclcpp::ok() && !nav_sts_available_)
     {
-        ros::spinOnce();
+        rclcpp::spin_some(this->get_node_base_interface());
         loop_rate.sleep();
     }
-    ROS_WARN("%s:\n\tOdometry received\n", ros::this_node::getName().c_str());
+    RCLCPP_WARN(this->get_logger(), "Odometry received.");
 
     if (offline_octomap_path_.size() == 0)
     {
@@ -191,37 +194,42 @@ WorldModeler::WorldModeler()
         pc_need_frames.push_back(point_cloud_frame_);
         pc_need_frames.push_back(fixed_frame_);
         pc_need_frames.push_back(robot_frame_);
-        point_cloud_sub_.subscribe(nh_, point_cloud_topic_, 1);
-        point_cloud_mn_.reset(new tf::MessageFilter<sensor_msgs::PointCloud2>(point_cloud_sub_, tf_listener_, "", 1));
+        point_cloud_sub_.subscribe(this, point_cloud_topic_, rmw_qos_profile_sensor_data);
+        point_cloud_mn_ = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>>(
+            point_cloud_sub_,
+            *tf_buffer_,
+            fixed_frame_,
+            5,
+            this->get_node_logging_interface(),
+            this->get_node_clock_interface());
         point_cloud_mn_->setTargetFrames(pc_need_frames);
-        point_cloud_mn_->registerCallback(boost::bind(&WorldModeler::pointCloudCallback, this, _1));
+        point_cloud_mn_->registerCallback(&WorldModeler::pointCloudCallback, this);
     }
 
     //=======================================================================
     // Services
     //=======================================================================
-    save_binary_octomap_srv_ = local_nh_.advertiseService(
-        "save_binary", &WorldModeler::saveBinaryOctomapSrv, this);
-    save_full_octomap_srv_ = local_nh_.advertiseService(
-        "save_full", &WorldModeler::saveFullOctomapSrv, this);
-    get_binary_octomap_srv_ = local_nh_.advertiseService(
-        "get_binary", &WorldModeler::getBinaryOctomapSrv, this);
-    get_grid_map_srv_ = local_nh_.advertiseService(
-        "get_grid_map", &WorldModeler::getGridMapSrv, this);
+    // save_binary_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
+    //     "save_binary", &WorldModeler::saveBinaryOctomapSrv);
+    // save_full_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
+    //     "save_full", &WorldModeler::saveFullOctomapSrv);
+    // get_binary_octomap_srv_ = this->create_service<octomap_msgs::srv::GetOctomap>(
+    //     "get_binary", &WorldModeler::getBinaryOctomapSrv);
+    // get_grid_map_srv_ = this->create_service<grid_map_msgs::srv::GetGridMap>(
+    //     "get_grid_map", &WorldModeler::getGridMapSrv);
 
     // Timer for publishing
     if (rviz_timer_ > 0.0)
     {
-        timer_ = nh_.createTimer(ros::Duration(rviz_timer_),
-                                 &WorldModeler::timerCallback, this);
+        timer_ = this->create_wall_timer(
+            std::chrono::duration<double>(rviz_timer_), std::bind(&WorldModeler::timerCallback, this));
     }
 }
 
 //! Destructor.
 WorldModeler::~WorldModeler()
 {
-    ROS_INFO("%s:\n\tOctree has been deleted\n",
-             ros::this_node::getName().c_str());
+    RCLCPP_INFO(this->get_logger(), "Octree has been deleted.");
     delete octree_;
 }
 
@@ -229,10 +237,8 @@ WorldModeler::~WorldModeler()
 /*!
  * Callback for receiving the laser scan data (taken from octomap_server)
  */
-void WorldModeler::pointCloudCallback(
-    const sensor_msgs::PointCloud2::ConstPtr &cloud)
+void WorldModeler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr cloud)
 {
-
     // ROS_INFO_STREAM("PROCESSING POINTCLOUD");
     //
     // ground filtering in base frame
@@ -249,25 +255,21 @@ void WorldModeler::pointCloudCallback(
     {
         for (int i = 0; i < social_agents_in_radius_.agent_states.size(); i++)
         {
-
             std::string err = "cannot find transform from agent to camera frame";
 
-            tf::StampedTransform transform;
-            ros::Time t;
+            geometry_msgs::msg::TransformStamped transform;
+            rclcpp::Time t;
 
             try
             {
-                tf_listener_.getLatestCommonTime(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), t,
-                                                 &err);
-                tf_listener_.lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id),
-                                             t, transform);
+                transform = tf_buffer_->lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), tf2::TimePointZero);
 
-                tf::Quaternion q(
-                    transform.getRotation().x(),
-                    transform.getRotation().y(),
-                    transform.getRotation().z(),
-                    transform.getRotation().w());
-                tf::Matrix3x3 m(q);
+                tf2::Quaternion q(
+                    transform.transform.rotation.x,
+                    transform.transform.rotation.y,
+                    transform.transform.rotation.z,
+                    transform.transform.rotation.w);
+                tf2::Matrix3x3 m(q);
                 double roll, pitch, yaw;
                 m.getRPY(roll, pitch, yaw);
 
@@ -278,41 +280,34 @@ void WorldModeler::pointCloudCallback(
                 boxFilter.setMin(Eigen::Vector4f(minX, minY, minZ, 0));
                 boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 0));
                 boxFilter.setInputCloud(pc.makeShared());
-                boxFilter.setTranslation(Eigen::Vector3f(transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z()));
+                boxFilter.setTranslation(Eigen::Vector3f(transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z));
                 boxFilter.setRotation(Eigen::Vector3f(roll, pitch, yaw));
                 boxFilter.setNegative(true);
                 boxFilter.filter(pc);
             }
-            catch (tf::TransformException &ex)
+            catch (tf2::TransformException &ex)
             {
-
-                ROS_ERROR_STREAM("Transform error of sensor data: "
-                                 << ex.what() << ", quitting callback");
+                RCLCPP_ERROR(this->get_logger(), "Transform error of sensor data: %s, quitting callback", ex.what());
                 return;
             }
         }
     }
     // ROS_INFO_STREAM("ABOUT TO PROCESS AGENTS FINISHED");
 
-    ros::Time t;
+    rclcpp::Time t;
     std::string err = "cannot find transform from robot_frame to scan frame";
 
-    tf::StampedTransform sensorToWorldTf;
+    geometry_msgs::msg::TransformStamped sensorToWorldTf;
     try
     {
-        tf_listener_.getLatestCommonTime(fixed_frame_, cloud->header.frame_id, t,
-                                         &err);
         //        tf_listener_.lookupTransform(robot_frame_,
         //        laser_scan_msg->header.frame_id, t,
         //                                     tf_robot_to_laser_scan);
-
-        tf_listener_.lookupTransform(fixed_frame_, cloud->header.frame_id, cloud->header.stamp,
-                                     sensorToWorldTf);
+        sensorToWorldTf = tf_buffer_->lookupTransform(fixed_frame_, cloud->header.frame_id, cloud->header.stamp);
     }
-    catch (tf::TransformException &ex)
+    catch (tf2::TransformException &ex)
     {
-        ROS_ERROR_STREAM("Transform error of sensor data: "
-                         << ex.what() << ", quitting callback");
+        RCLCPP_ERROR(this->get_logger(), "Transform error of sensor data: %s, quitting callback", ex.what());
         return;
     }
 
@@ -352,7 +347,7 @@ void WorldModeler::pointCloudCallback(
 
     // ROS_INFO_STREAM("INSERT SCAN START");
 
-    insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+    insertScan(sensorToWorldTf.transform.translation, pc_ground, pc_nonground);
     //
     //    double total_elapsed = (ros::WallTime::now() - startTime).toSec();
     //    ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts
@@ -364,16 +359,18 @@ void WorldModeler::pointCloudCallback(
     defineSocialGridMap();
 }
 
-void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
+void WorldModeler::insertScan(const geometry_msgs::msg::Vector3 &sensorOriginTf,
                               const PCLPointCloud &ground,
                               const PCLPointCloud &nonground)
 {
-    octomap::point3d sensorOrigin = octomap::pointTfToOctomap(sensorOriginTf);
+
+    octomap::point3d sensorOrigin(sensorOriginTf.x, sensorOriginTf.y, sensorOriginTf.z);
 
     if (!octree_->coordToKeyChecked(sensorOrigin, m_updateBBXMin) ||
         !octree_->coordToKeyChecked(sensorOrigin, m_updateBBXMax))
     {
-        ROS_ERROR_STREAM("Could not generate Key for origin " << sensorOrigin);
+        RCLCPP_ERROR(this->get_logger(), "Could not generate Key for origin %f %f %f",
+                     sensorOrigin.x(), sensorOrigin.y(), sensorOrigin.z());
     }
 
 #ifdef COLOR_OCTOMAP_SERVER
@@ -425,7 +422,8 @@ void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
                 }
                 else
                 {
-                    ROS_ERROR_STREAM("Could not generate Key for endpoint " << new_end);
+                    RCLCPP_ERROR(this->get_logger(), "Could not generate Key for endpoint %f %f %f",
+                                 new_end.x(), new_end.y(), new_end.z());
                 }
             }
         }
@@ -455,7 +453,7 @@ void WorldModeler::insertScan(const tf::Point &sensorOriginTf,
 /*!
  * Callback for getting updated vehicle odometry.
  */
-void WorldModeler::odomCallback(const nav_msgs::OdometryConstPtr &odom_msg)
+void WorldModeler::odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom_msg)
 {
     if (!nav_sts_available_)
         nav_sts_available_ = true;
@@ -467,14 +465,13 @@ void WorldModeler::odomCallback(const nav_msgs::OdometryConstPtr &odom_msg)
 /*!
  * Callback for getting updated agent states.
  */
-void WorldModeler::agentStatesCallback(const pedsim_msgs::AgentStatesConstPtr &agent_states_msg)
+void WorldModeler::agentStatesCallback(const pedsim_msgs::msg::AgentStates::SharedPtr agent_states_msg)
 {
-
     if (nav_sts_available_)
     {
         agent_states_ = agent_states_msg;
 
-        std::vector<pedsim_msgs::AgentState> agent_state_vector;
+        std::vector<pedsim_msgs::msg::AgentState> agent_state_vector;
 
         social_agents_in_radius_vector_.clear();
 
@@ -504,14 +501,13 @@ void WorldModeler::agentStatesCallback(const pedsim_msgs::AgentStatesConstPtr &a
 
         social_agents_in_radius_.agent_states = social_agents_in_radius_vector_;
 
-        relevant_agent_states_.header.stamp = ros::Time::now();
+        relevant_agent_states_.header.stamp = rclcpp::Clock().now();
         relevant_agent_states_.header.frame_id = map_frame_;
     }
-
-    relevant_agents_pub_.publish(relevant_agent_states_);
+    relevant_agents_pub_->publish(relevant_agent_states_);
 }
 
-bool WorldModeler::isAgentInRFOV(const pedsim_msgs::AgentState agent_state)
+bool WorldModeler::isAgentInRFOV(const pedsim_msgs::msg::AgentState agent_state)
 {
     if (!social_relevance_validity_checking_)
     {
@@ -539,10 +535,10 @@ bool WorldModeler::isAgentInRFOV(const pedsim_msgs::AgentState agent_state)
         tetha_robot_agent = 2 * M_PI + tetha_robot_agent;
     }
 
-    tf::Quaternion q(robot_odometry_->pose.pose.orientation.x, robot_odometry_->pose.pose.orientation.y,
-                     robot_odometry_->pose.pose.orientation.z, robot_odometry_->pose.pose.orientation.w);
+    tf2::Quaternion q(robot_odometry_->pose.pose.orientation.x, robot_odometry_->pose.pose.orientation.y,
+                      robot_odometry_->pose.pose.orientation.z, robot_odometry_->pose.pose.orientation.w);
 
-    tf::Matrix3x3 m(q);
+    tf2::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
@@ -563,10 +559,8 @@ bool WorldModeler::isAgentInRFOV(const pedsim_msgs::AgentState agent_state)
     return abs(tetha_robot_agent) < robot_angle_view_;
 }
 
-bool WorldModeler::isRobotInFront(pedsim_msgs::AgentState agent_state, grid_map::Position position)
-
+bool WorldModeler::isRobotInFront(const pedsim_msgs::msg::AgentState agent_state, const grid_map::Position position)
 {
-
     double tetha_agent_robot = atan2((position[1] - agent_state.pose.position.y),
                                      (position[0] - agent_state.pose.position.x));
     if (tetha_agent_robot < 0)
@@ -574,10 +568,10 @@ bool WorldModeler::isRobotInFront(pedsim_msgs::AgentState agent_state, grid_map:
         tetha_agent_robot = 2 * M_PI + tetha_agent_robot;
     }
 
-    tf::Quaternion q(agent_state.pose.orientation.x, agent_state.pose.orientation.y,
-                     agent_state.pose.orientation.z, agent_state.pose.orientation.w);
+    tf2::Quaternion q(agent_state.pose.orientation.x, agent_state.pose.orientation.y,
+                      agent_state.pose.orientation.z, agent_state.pose.orientation.w);
 
-    tf::Matrix3x3 m(q);
+    tf2::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
@@ -603,9 +597,8 @@ bool WorldModeler::isRobotInFront(pedsim_msgs::AgentState agent_state, grid_map:
 
 // !CALCULATE COMFORT AT AN SPECIFIC POSITION IN THE GRIDMAP
 
-double WorldModeler::getExtendedPersonalSpace(pedsim_msgs::AgentState agent_state, grid_map::Position position)
+double WorldModeler::getExtendedPersonalSpace(const pedsim_msgs::msg::AgentState agent_state, const grid_map::Position position)
 {
-
     double distance_robot_agent = std::sqrt(std::pow(agent_state.pose.position.x - position[0], 2) +
                                             std::pow(agent_state.pose.position.y - position[1], 2));
 
@@ -624,10 +617,10 @@ double WorldModeler::getExtendedPersonalSpace(pedsim_msgs::AgentState agent_stat
     }
     else
     {
-        tf::Quaternion q(agent_state.pose.orientation.x, agent_state.pose.orientation.y,
-                         agent_state.pose.orientation.z, agent_state.pose.orientation.w);
+        tf2::Quaternion q(agent_state.pose.orientation.x, agent_state.pose.orientation.y,
+                          agent_state.pose.orientation.z, agent_state.pose.orientation.w);
 
-        tf::Matrix3x3 m(q);
+        tf2::Matrix3x3 m(q);
         double roll, pitch, yaw;
         m.getRPY(roll, pitch, yaw);
 
@@ -676,28 +669,27 @@ double WorldModeler::getExtendedPersonalSpace(pedsim_msgs::AgentState agent_stat
 /*!
  * Callback for publishing the map periodically using the WorldModeler RViz plugin.
  */
-void WorldModeler::timerCallback(const ros::TimerEvent &e)
+void WorldModeler::timerCallback()
 {
-
     if (offline_octomap_path_.size() != 0)
     {
         defineSocialGridMap();
     }
 
     // Declare message
-    octomap_msgs::Octomap msg;
+    octomap_msgs::msg::Octomap msg;
     octomap_msgs::binaryMapToMsg(*octree_, msg);
-    msg.header.stamp = ros::Time::now();
+    msg.header.stamp = this->get_clock()->now();
     msg.header.frame_id = fixed_frame_;
+
     if (visualize_free_space_)
     {
         publishMap();
 
-        grid_map_.setTimestamp(ros::Time::now().toNSec());
-        grid_map_msgs::GridMap message;
-        grid_map::GridMapRosConverter::toMessage(grid_map_, message);
-
-        grid_map_pub_.publish(message);
+        grid_map_.setTimestamp(this->get_clock()->now().nanoseconds());
+        std::shared_ptr<grid_map_msgs::msg::GridMap> message;
+        message = grid_map::GridMapRosConverter::toMessage(grid_map_);
+        grid_map_pub_->publish(*message);
     }
 }
 
@@ -705,8 +697,9 @@ void WorldModeler::timerCallback(const ros::TimerEvent &e)
 /*!
  * Service for saving the binary Octomap into the home folder
  */
-bool WorldModeler::saveBinaryOctomapSrv(std_srvs::Empty::Request &req,
-                                        std_srvs::Empty::Response &res)
+bool WorldModeler::saveBinaryOctomapSrv(
+    const std::shared_ptr<std_srvs::srv::Empty::Request> req,
+    std::shared_ptr<std_srvs::srv::Empty::Response> res)
 {
     // Saves current octree_ in home folder
     std::string fpath(getenv("HOME"));
@@ -718,8 +711,9 @@ bool WorldModeler::saveBinaryOctomapSrv(std_srvs::Empty::Request &req,
 /*!
  * Service for saving the full Octomap into the home folder
  */
-bool WorldModeler::saveFullOctomapSrv(std_srvs::Empty::Request &req,
-                                      std_srvs::Empty::Response &res)
+bool WorldModeler::saveFullOctomapSrv(
+    const std::shared_ptr<std_srvs::srv::Empty::Request> req,
+    std::shared_ptr<std_srvs::srv::Empty::Response> res)
 {
     // Saves current octree_ in home folder (full probabilities)
     std::string fpath(getenv("HOME"));
@@ -731,15 +725,16 @@ bool WorldModeler::saveFullOctomapSrv(std_srvs::Empty::Request &req,
 /*!
  * Service for getting the binary Octomap
  */
-bool WorldModeler::getBinaryOctomapSrv(OctomapSrv::Request &req,
-                                       OctomapSrv::GetOctomap::Response &res)
+bool WorldModeler::getBinaryOctomapSrv(
+    const std::shared_ptr<OctomapSrv::Request> req,
+    std::shared_ptr<OctomapSrv::GetOctomap::Response> res)
 {
-    ROS_INFO("%s:\n\tSending binary map data on service request\n",
-             ros::this_node::getName().c_str());
-    res.map.header.frame_id = fixed_frame_;
-    res.map.header.stamp = ros::Time::now();
+    RCLCPP_INFO(get_logger(), "Sending binary map data on service request");
 
-    if (!octomap_msgs::binaryMapToMsg(*octree_, res.map))
+    res->map.header.frame_id = fixed_frame_;
+    res->map.header.stamp = this->get_clock()->now();
+
+    if (!octomap_msgs::binaryMapToMsg(*octree_, res->map))
         return false;
 
     return true;
@@ -749,14 +744,15 @@ bool WorldModeler::getBinaryOctomapSrv(OctomapSrv::Request &req,
 /*!
  * Service for getting the binary Octomap
  */
-bool WorldModeler::getGridMapSrv(grid_map_msgs::GetGridMap::Request &req,
-                                 grid_map_msgs::GetGridMap::Response &res)
+bool WorldModeler::getGridMapSrv(
+    const std::shared_ptr<grid_map_msgs::srv::GetGridMap::Request> req,
+    std::shared_ptr<grid_map_msgs::srv::GetGridMap::Response> res)
 {
-    ROS_INFO("%s:\n\tSending grid map data on service\n",
-             ros::this_node::getName().c_str());
+    RCLCPP_INFO(get_logger(), "Sending grid map data on service");
 
-    grid_map_.setTimestamp(ros::Time::now().toNSec());
-    grid_map::GridMapRosConverter::toMessage(grid_map_, res.map);
+    grid_map_.setTimestamp(this->get_clock()->now().nanoseconds());
+
+    res->map = *grid_map::GridMapRosConverter::toMessage(grid_map_);
 
     return true;
 }
@@ -768,7 +764,7 @@ bool WorldModeler::getGridMapSrv(grid_map_msgs::GetGridMap::Request &req,
 void WorldModeler::publishMap()
 {
     // Declare message and resize
-    visualization_msgs::MarkerArray occupiedNodesVis;
+    visualization_msgs::msg::MarkerArray occupiedNodesVis;
     occupiedNodesVis.markers.resize(octree_->getTreeDepth() + 1);
 
     // Octree limits for height map
@@ -791,7 +787,7 @@ void WorldModeler::publishMap()
             unsigned idx = it.getDepth();
             assert(idx < occupiedNodesVis.markers.size());
 
-            geometry_msgs::Point cubeCenter;
+            geometry_msgs::msg::Point cubeCenter;
             cubeCenter.x = x;
             cubeCenter.y = y;
             cubeCenter.z = z;
@@ -799,7 +795,7 @@ void WorldModeler::publishMap()
             occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
         }
 
-        if (!ros::ok())
+        if (!rclcpp::ok())
             break;
     }
     // Finish Headers and options
@@ -808,10 +804,10 @@ void WorldModeler::publishMap()
         double size = octree_->getNodeSize(i);
 
         occupiedNodesVis.markers[i].header.frame_id = fixed_frame_;
-        occupiedNodesVis.markers[i].header.stamp = ros::Time::now();
+        occupiedNodesVis.markers[i].header.stamp = this->get_clock()->now();
         occupiedNodesVis.markers[i].ns = fixed_frame_;
         occupiedNodesVis.markers[i].id = i;
-        occupiedNodesVis.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+        occupiedNodesVis.markers[i].type = visualization_msgs::msg::Marker::CUBE_LIST;
         occupiedNodesVis.markers[i].scale.x = size;
         occupiedNodesVis.markers[i].scale.y = size;
         occupiedNodesVis.markers[i].scale.z = size;
@@ -821,16 +817,16 @@ void WorldModeler::publishMap()
         occupiedNodesVis.markers[i].color.a = 1.0;
 
         if (occupiedNodesVis.markers[i].points.size() > 0)
-            occupiedNodesVis.markers[i].action = visualization_msgs::Marker::ADD;
+            occupiedNodesVis.markers[i].action = visualization_msgs::msg::Marker::ADD;
         else
-            occupiedNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
+            occupiedNodesVis.markers[i].action = visualization_msgs::msg::Marker::DELETE;
 
-        if (!ros::ok())
+        if (!rclcpp::ok())
             break;
     }
 
     // Publish it
-    octomap_marker_pub_.publish(occupiedNodesVis);
+    octomap_marker_pub_->publish(occupiedNodesVis);
 }
 
 void WorldModeler::defineSocialGridMap()
@@ -868,7 +864,7 @@ void WorldModeler::defineSocialGridMap()
             }
             catch (const std::out_of_range &oor)
             {
-                ROS_ERROR("TRIED TO DEFINE AN AGENT OUT OF RANGE");
+                RCLCPP_ERROR(this->get_logger(), "TRIED TO DEFINE AN AGENT OUT OF RANGE");
             }
         }
 
@@ -886,7 +882,7 @@ void WorldModeler::defineSocialGridMap()
 
                 double last_val = comfort_grid_map(index(0), index(1));
 
-                if (isnan(last_val))
+                if (std::isnan(last_val))
                 {
                     last_val = getExtendedPersonalSpace(relevant_agent_states_.agent_states[i], temp_pos);
                 }
@@ -899,7 +895,7 @@ void WorldModeler::defineSocialGridMap()
             }
             catch (const std::out_of_range &oor)
             {
-                ROS_ERROR("TRIED TO DEFINE COMFORT OUT OF RANGE");
+                RCLCPP_ERROR(this->get_logger(), "TRIED TO DEFINE COMFORT OUT OF RANGE");
             }
         }
     }
@@ -920,14 +916,12 @@ int main(int argc, char **argv)
     signal(SIGINT, stopNode);
 
     // Init ROS node
-    ros::init(argc, argv, "octomap_laser_scan");
-    ros::NodeHandle private_nh("~");
-
-    // Constructor
-    WorldModeler mapper;
+    rclcpp::init(argc, argv);
 
     // Spin
-    ros::spin();
+    rclcpp::spin(std::make_shared<WorldModeler>());
+
+    rclcpp::shutdown();
 
     // Exit main function without errors
     return 0;

@@ -1,26 +1,25 @@
+#ifndef SOCIAL_HEATMAP_HPP
+#define SOCIAL_HEATMAP_HPP
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
-#include <nav_msgs/OccupancyGrid.h>
-#include <cstdlib>
-#include <cmath>
-#include <string>
-#include <geometry_msgs/Pose.h>
-#include <pedsim_msgs/AgentStates.h>
-#include <pedsim_msgs/AgentState.h>
-#include <map>
-#include <smf_move_base_msgs/RelevantAgentState.h>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <pedsim_msgs/msg/agent_states.hpp>
+#include <pedsim_msgs/msg/agent_state.hpp>
+#include <smf_move_base_msgs/msg/relevant_agent_state.hpp>
 
-// grid map library
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <grid_map_octomap/grid_map_octomap.hpp>
-#include <grid_map_msgs/GetGridMap.h>
+#include <grid_map_msgs/srv/get_grid_map.hpp>
 #include <grid_map_cv/grid_map_cv.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include <tf/tf.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 class SocialHeatmap
 {
@@ -29,7 +28,7 @@ private:
 
     unsigned int resolution_factor_ = 5;
 
-    std::map<unsigned int, smf_move_base_msgs::RelevantAgentState> agent_states_record_;
+    std::map<unsigned int, smf_move_base_msgs::msg::RelevantAgentState> agent_states_record_;
 
     grid_map::GridMap social_heatmap_;
 
@@ -42,11 +41,11 @@ public:
 
     //! FUNCTIONS
 
-    void updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs::AgentStates agentStates);
+    void updateSocialHeatmap(grid_map::GridMap grid_map, pedsim_msgs::msg::AgentStates agentStates);
 
-    void addNewAgentStates(pedsim_msgs::AgentStates agent_states);
+    void addNewAgentStates(pedsim_msgs::msg::AgentStates agent_states);
 
-    void updateAgentStatesRelevance(pedsim_msgs::AgentStates agent_states);
+    void updateAgentStatesRelevance(pedsim_msgs::msg::AgentStates agent_states);
 
     //! GETTERS
     grid_map::Matrix getSocialHeatmap()
@@ -55,12 +54,10 @@ public:
     }
 
     //! SETTERS
-
     void setTimeDecayFactor(double time_decay_factor);
 
     // ! EXTERNAL FUNCTIONS
-
-    double socialComfortCost(double x, double y, smf_move_base_msgs::RelevantAgentState relevant_agent_state)
+    double socialComfortCost(double x, double y, smf_move_base_msgs::msg::RelevantAgentState relevant_agent_state)
     {
         double distance = std::sqrt(std::pow(relevant_agent_state.agent_state.pose.position.x - x, 2) +
                                     std::pow(relevant_agent_state.agent_state.pose.position.y - y, 2));
@@ -80,10 +77,10 @@ public:
         }
         else
         {
-            tf::Quaternion q(relevant_agent_state.agent_state.pose.orientation.x, relevant_agent_state.agent_state.pose.orientation.y,
-                             relevant_agent_state.agent_state.pose.orientation.z, relevant_agent_state.agent_state.pose.orientation.w);
+            tf2::Quaternion q(relevant_agent_state.agent_state.pose.orientation.x, relevant_agent_state.agent_state.pose.orientation.y,
+                              relevant_agent_state.agent_state.pose.orientation.z, relevant_agent_state.agent_state.pose.orientation.w);
 
-            tf::Matrix3x3 m(q);
+            tf2::Matrix3x3 m(q);
             double roll, pitch, yaw;
             m.getRPY(roll, pitch, yaw);
 
@@ -106,3 +103,5 @@ public:
         return basic_personal_space_val;
     }
 };
+
+#endif // SOCIAL_HEATMAP_HPP
