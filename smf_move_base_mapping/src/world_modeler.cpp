@@ -101,8 +101,15 @@ WorldModeler::WorldModeler()
     int count(0);
     rclcpp::Time t;
     geometry_msgs::msg::TransformStamped transform;
-    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_buffer_->setUsingDedicatedThread(true);
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    auto create_timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+        this->get_node_base_interface(),
+        this->get_node_timers_interface());
+
+    tf_buffer_->setCreateTimerInterface(create_timer_interface);
 
     initialized_ = false;
     do
@@ -194,14 +201,14 @@ WorldModeler::WorldModeler()
         pc_need_frames.push_back(point_cloud_frame_);
         pc_need_frames.push_back(fixed_frame_);
         pc_need_frames.push_back(robot_frame_);
-        point_cloud_sub_.subscribe(this, point_cloud_topic_, rmw_qos_profile_sensor_data);
+        point_cloud_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(this, point_cloud_topic_);
         point_cloud_mn_ = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>>(
-            point_cloud_sub_,
             *tf_buffer_,
             fixed_frame_,
             5,
             this->get_node_logging_interface(),
             this->get_node_clock_interface());
+        point_cloud_mn_->connectInput(*point_cloud_sub_);
         point_cloud_mn_->setTargetFrames(pc_need_frames);
         point_cloud_mn_->registerCallback(&WorldModeler::pointCloudCallback, this);
     }

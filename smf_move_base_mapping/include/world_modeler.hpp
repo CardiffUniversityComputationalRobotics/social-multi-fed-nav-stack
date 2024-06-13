@@ -28,6 +28,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/buffer.h>
 #include "message_filters/subscriber.h"
+#include <tf2_ros/create_timer_ros.h>
 
 // Octomap
 #include <octomap/octomap.h>
@@ -127,7 +128,7 @@ private:
     rclcpp::Publisher<pedsim_msgs::msg::AgentStates>::SharedPtr relevant_agents_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<pedsim_msgs::msg::AgentStates>::SharedPtr agent_states_sub_;
-    message_filters::Subscriber<sensor_msgs::msg::PointCloud2> point_cloud_sub_;
+    std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>> point_cloud_sub_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_binary_octomap_srv_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_full_octomap_srv_;
     rclcpp::Service<OctomapSrv>::SharedPtr get_binary_octomap_srv_;
@@ -137,7 +138,7 @@ private:
 
     // tf2
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
 
     // Names
     std::string map_frame_, fixed_frame_, robot_frame_, offline_octomap_path_,
