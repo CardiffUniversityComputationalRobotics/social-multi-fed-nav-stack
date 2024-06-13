@@ -1,51 +1,40 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(smf_move_base_planning)
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  sensor_msgs
-  std_msgs
-  tf
-  tf2
-  tf2_ros
-  tf2_eigen
-  actionlib
-  actionlib_msgs
-  smf_move_base_msgs
-  pedsim_msgs
-  roslib
-  grid_map_core
-  grid_map_cv
-  grid_map_filters
-  grid_map_loader
-  grid_map_msgs
-  grid_map_octomap
-  grid_map_ros
-  grid_map_rviz_plugin
-  grid_map_sdf
-  grid_map_visualization
-)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-find_package(Octomap REQUIRED)
-find_package(ompl REQUIRED)
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(smf_move_base_msgs REQUIRED)
+find_package(pedsim_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(grid_map_core REQUIRED)
+find_package(grid_map_cv REQUIRED)
+find_package(grid_map_filters REQUIRED)
+find_package(grid_map_loader REQUIRED)
+find_package(grid_map_msgs REQUIRED)
+find_package(grid_map_octomap REQUIRED)
+find_package(grid_map_ros REQUIRED)
+find_package(grid_map_rviz_plugin REQUIRED)
+find_package(grid_map_sdf REQUIRED)
+find_package(grid_map_visualization REQUIRED)
 
-catkin_package(
-  INCLUDE_DIRS include
-#  LIBRARIES
-  CATKIN_DEPENDS roscpp roslib rospy sensor_msgs std_msgs tf tf2 tf2_ros actionlib smf_move_base_msgs 
-  # pedsim_msgs
-  DEPENDS OMPL
-)
-
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${OMPL_INCLUDE_DIRS}
-)
-link_directories(${OCTOMAP_LIBRARY_DIRS} ${ompl_LIBRARY_DIRS} ${CCD_LIBRARY_DIRS})
-
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
 
 add_executable(smf_move_base_planner
 src/planner/RRTstarMod.cpp
@@ -58,5 +47,6 @@ src/new_state_sampler.cpp
 src/informed_new_state_sampler.cpp
 src/state_cost_objective.cpp
 )
-target_link_libraries(smf_move_base_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES} ccd ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
-add_dependencies(smf_move_base_planner ${catkin_EXPORTED_TARGETS} smf_move_base_msgs_generate_messages_cpp ${smf_move_base_msgs_EXPORTED_TARGETS})
+target_link_libraries(smf_move_base_planner ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
+
+ament_package()

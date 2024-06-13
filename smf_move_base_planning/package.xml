@@ -1,39 +1,25 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>smf_move_base_planning</name>
   <version>0.0.0</version>
   <description>The smf_move_base_planning package</description>
+  <maintainer email="silvas1@cardiff.ac.uk">Steven Silva</maintainer>
+  <license>MIT</license>
 
-  <maintainer email="sasm@todo.todo">sasm</maintainer>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
-  <license>TODO</license>
-
-
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>rospy</build_depend>
+  <build_depend>rclcpp</build_depend>
   <build_depend>std_msgs</build_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>rclcpp</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>rospy</exec_depend>
+  <exec_depend>rclcpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
-  <depend>actionlib</depend>
-  <depend>actionlib_msgs</depend>
-
-  <depend>roslib</depend>
-
-  <!-- msgs -->
-  <depend>sensor_msgs</depend>
-
-  <!-- tf/tf2 -->
-  <depend>tf</depend>
-  <depend>tf2</depend>
   <depend>tf2_ros</depend>
-
 
   <!-- smf nav stack -->
   <depend>smf_move_base_msgs</depend>
@@ -42,14 +28,11 @@
 
 
   <!-- pedsim messages dependency -->
-  <depend>pedsim_ros</depend>
+  <depend>pedsim_msgs</depend>
 
   <!-- OMPL -->
   <depend>ompl</depend>
-
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
-
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
