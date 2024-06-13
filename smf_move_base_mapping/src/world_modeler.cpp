@@ -22,14 +22,14 @@
  */
 WorldModeler::WorldModeler()
     : Node("world_modeler_node"),
-      fixed_frame_("/fixed_frame"),
-      robot_frame_("/robot_frame"),
-      map_frame_("/map"),
+      fixed_frame_("fixed_frame"),
+      robot_frame_("robot_frame"),
+      map_frame_("map"),
       odometry_topic_("/odometry_topic"),
       offline_octomap_path_(""),
       octree_(NULL),
       octree_resol_(1.0),
-      mapping_max_range_(5),
+      mapping_max_range_(5.0),
       initialized_(false),
       visualize_free_space_(false),
       rviz_timer_(0.0),
@@ -40,10 +40,10 @@ WorldModeler::WorldModeler()
       social_agent_radius_(0.4),
       social_agents_topic_("/pedsim_simulator/simulated_agents"),
       social_relevance_validity_checking_(false),
-      social_heatmap_decay_factor_(65),
+      social_heatmap_decay_factor_(65.0),
       min_z_pc_(0.05),
       max_z_pc_(1.0),
-      social_comfort_amplitude_(6)
+      social_comfort_amplitude_(6.0)
 {
     //=======================================================================
     // Get parameters
@@ -101,7 +101,7 @@ WorldModeler::WorldModeler()
     int count(0);
     rclcpp::Time t;
     geometry_msgs::msg::TransformStamped transform;
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     initialized_ = false;
@@ -109,7 +109,7 @@ WorldModeler::WorldModeler()
     {
         try
         {
-            transform = tf_buffer_->lookupTransform(robot_frame_, point_cloud_frame_, tf2::TimePointZero);
+            transform = tf_buffer_->lookupTransform(robot_frame_, point_cloud_frame_, tf2::TimePointZero, tf2::durationFromSec(1.0));
             initialized_ = true;
         }
         catch (tf2::TransformException &ex)

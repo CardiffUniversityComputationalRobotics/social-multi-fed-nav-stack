@@ -136,8 +136,8 @@ private:
     std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>> point_cloud_mn_;
 
     // tf2
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
     // Names
     std::string map_frame_, fixed_frame_, robot_frame_, offline_octomap_path_,
