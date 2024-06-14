@@ -19,7 +19,6 @@
 #include <math.h>
 
 // standard OMPL
-// #include <ompl/control/SpaceInformation.h>
 #include <ompl/base/MotionValidator.h>
 #include <ompl/base/SpaceInformation.h>
 #include <ompl/base/objectives/PathLengthOptimizationObjective.h>
@@ -37,23 +36,19 @@
 #include <planner/RRTstarMod.h>
 #include <planner/InformedRRTstarMod.h>
 
-// ROS
-#include <ros/ros.h>
-#include <ros/package.h>
-// ROS services
-#include <std_srvs/Empty.h>
-// ROS markers rviz
-#include <visualization_msgs/Marker.h>
-#include <nav_msgs/Odometry.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Int32.h>
-#include <geometry_msgs/PoseArray.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Pose2D.h>
-// ROS tf
-#include <tf/message_filter.h>
-#include <tf/transform_listener.h>
-// action server
+// ROS2
+#include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose2d.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/message_filter.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <actionlib/server/simple_action_server.h>
 
 // Planner
@@ -64,17 +59,17 @@
 #include <local_state_validity_checker_grid_map_R2.h>
 
 // smf base controller
-#include <smf_move_base_msgs/Path2D.h>
-#include <smf_move_base_msgs/Goto2DAction.h>
+#include <smf_move_base_msgs/msg/path2d.hpp>
+#include <smf_move_base_msgs/action/goto2d.hpp>
 
 // pedsim msgs
-#include <pedsim_msgs/AgentStates.h>
-#include <pedsim_msgs/AgentState.h>
+#include <pedsim_msgs/msg/agent_states.hpp>
+#include <pedsim_msgs/msg/agent_state.hpp>
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> SmfBaseGoToActionServer;
+typedef actionlib::SimpleActionServer<smf_move_base_msgs::action::Goto2D> SmfBaseGoToActionServer;
 
 //!  OnlinePlannFramework class.
 /*!
@@ -83,7 +78,7 @@ typedef actionlib::SimpleActionServer<smf_move_base_msgs::Goto2DAction> SmfBaseG
  * C-Space: R2
  * Workspace is represented with Octomaps
  */
-class OnlinePlannFramework
+class OnlinePlannFramework : public rclcpp::Node
 {
 public:
     //! Constructor
@@ -93,42 +88,50 @@ public:
     //! Periodic callback to solve the query.
     void planningTimerCallback();
     //! Callback for getting current vehicle odometry
-    void odomCallback(const nav_msgs::OdometryConstPtr &odom_msg);
+    void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom_msg);
     //! Callback for getting the 2D navigation goal
-    void queryGoalCallback(const geometry_msgs::PoseStampedConstPtr &nav_goal_msg);
+    void queryGoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr nav_goal_msg);
     //! Callback for getting the 2D navigation goal
-    void goToActionCallback(const smf_move_base_msgs::Goto2DGoalConstPtr &goto_req);
+    void goToActionCallback(const std::shared_ptr<smf_move_base_msgs::action::Goto2D::Goal> goto_req);
     //! Procedure to visualize the resulting path
     void visualizeRRT(og::PathGeometric &geopath);
     //! Procedure to visualize the resulting local path
     void visualizeRRTLocal(og::PathGeometric &geopath);
     //! Callback for getting the state of the Smf base controller.
-    void controlActiveCallback(const std_msgs::BoolConstPtr &control_active_msg);
+    void controlActiveCallback(const std_msgs::msg::Bool::SharedPtr control_active_msg);
     //! check if goal candidate is valid
     bool validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
     //! calculate angle between to points XY
     double calculateAngle(double x1, double y1, double x2, double y2);
-    //! get a new valid goal candidate according to the provided goal
     ob::GoalStates *findNewGoalCandidate(const ob::ScopedState<> &goal_candidate);
 
 private:
-    // ROS
-    ros::NodeHandle nh_, local_nh_;
-    ros::Timer timer_;
-    ros::Subscriber odom_sub_, nav_goal_sub_, control_active_sub_;
-    ros::Publisher solution_path_rviz_pub_, solution_local_path_rviz_pub_, solution_path_control_pub_, query_goal_pose_rviz_pub_, query_goal_radius_rviz_pub_, num_nodes_pub_, goal_reached_pub_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-    // ROS action server
+    // ! SUBSCRIBERS
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr nav_goal_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr control_active_sub_;
+
+    // ! PUBLISHERS
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr solution_path_rviz_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr solution_local_path_rviz_pub_;
+    rclcpp::Publisher<smf_move_base_msgs::msg::Path2D>::SharedPtr solution_path_control_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr query_goal_pose_rviz_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr query_goal_radius_rviz_pub_;
+    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr num_nodes_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr goal_reached_pub_;
+
+    // ROS2 action server
     SmfBaseGoToActionServer *goto_action_server_;
     std::string goto_action_;
-    smf_move_base_msgs::Goto2DAction goto_action_feedback_;
-    smf_move_base_msgs::Goto2DAction goto_action_result_;
+    smf_move_base_msgs::action::Goto2D::Feedback goto_action_feedback_;
+    smf_move_base_msgs::action::Goto2D::Result goto_action_result_;
 
-    // ROS TF
-    tf::Pose last_robot_pose_;
-    tf::TransformListener tf_listener_;
+    // ROS2 TF
+    tf2_ros::Buffer tf_buffer_;
+    tf2_ros::TransformListener tf_listener_;
 
-    // OMPL, online planner
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
     bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
@@ -141,17 +144,11 @@ private:
         solution_path_topic_, world_frame_, octomap_service_, control_active_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
-    geometry_msgs::Twist current_robot_velocity;
-    // smf_move_base_msgs::Path2D last_local_path;
+    geometry_msgs::msg::Twist current_robot_velocity;
 };
 
-//!  Constructor.
-/*!
- * Load planner parameters from configuration file.
- * Publishers to visualize the resulting path.
- */
 OnlinePlannFramework::OnlinePlannFramework()
-    : local_nh_("~"), dynamic_bounds_(false), goto_action_server_(NULL), control_active_(false)
+    : Node("online_planning_framework"), dynamic_bounds_(false), goto_action_server_(NULL), control_active_(false)
 {
     //=======================================================================
     // Get parameters
@@ -162,37 +159,69 @@ OnlinePlannFramework::OnlinePlannFramework()
     goal_map_frame_.resize(3);
     goal_odom_frame_.resize(3);
 
-    local_nh_.param("world_frame", world_frame_, world_frame_);
-    local_nh_.param("planning_bounds_x", planning_bounds_x_, planning_bounds_x_);
-    local_nh_.param("planning_bounds_y", planning_bounds_y_, planning_bounds_y_);
-    local_nh_.param("start_state", start_state_, start_state_);
-    local_nh_.param("goal_state", goal_map_frame_, goal_map_frame_);
-    local_nh_.param("timer_period", timer_period_, timer_period_);
-    local_nh_.param("solving_time", solving_time_, solving_time_);
-    local_nh_.param("opport_collision_check", opport_collision_check_, opport_collision_check_);
-    local_nh_.param("planner_name", planner_name_, planner_name_);
-    local_nh_.param("reuse_last_best_solution", reuse_last_best_solution_, reuse_last_best_solution_);
-    local_nh_.param("local_reuse_last_best_solution", local_reuse_last_best_solution_, local_reuse_last_best_solution_);
-    local_nh_.param("optimization_objective", optimization_objective_, optimization_objective_);
-    local_nh_.param("motion_cost_interpolation", motion_cost_interpolation_, motion_cost_interpolation_);
-    local_nh_.param("odometry_topic", odometry_topic_, odometry_topic_);
-    local_nh_.param("query_goal_topic", query_goal_topic_, query_goal_topic_);
-    local_nh_.param("goto_action", goto_action_, goto_action_);
-    local_nh_.param("solution_path_topic", solution_path_topic_, solution_path_topic_);
-    local_nh_.param("dynamic_bounds", dynamic_bounds_, dynamic_bounds_);
-    local_nh_.param("xy_goal_tolerance", xy_goal_tolerance_, 0.2);
-    local_nh_.param("yaw_goal_tolerance", yaw_goal_tolerance_, 0.1);
-    local_nh_.param("visualize_tree", visualize_tree_, false);
-    local_nh_.param("robot_base_radius", robot_base_radius, robot_base_radius);
-    local_nh_.param("local_planner_name", local_planner_name_, local_planner_name_);
-    local_nh_.param("local_xy_goal_tolerance", local_xy_goal_tolerance_, local_xy_goal_tolerance_);
-    local_nh_.param("local_optimization_objective", local_optimization_objective_, local_optimization_objective_);
-    local_nh_.param("local_path_range", local_path_range_, local_path_range_);
-    local_nh_.param("global_time_percent", global_time_percent_, global_time_percent_);
-    local_nh_.param("turning_radius", turning_radius_, turning_radius_);
-    local_nh_.param("state_space", state_space_, state_space_);
+    // ! DECLARE PARAMETERS
+    this->declare_parameter("world_frame", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("planning_bounds_x", rclcpp::ParameterValue(std::vector<double>{50.0, 50.0}));
+    this->declare_parameter("planning_bounds_y", rclcpp::ParameterValue(std::vector<double>{50.0, 50.0}));
+    this->declare_parameter("start_state", rclcpp::ParameterValue(std::vector<double>{0.0, 0.0}));
+    this->declare_parameter("goal_state", rclcpp::ParameterValue(std::vector<double>{0.0, 0.0, 0.0}));
+    this->declare_parameter("timer_period", rclcpp::ParameterValue(1.0));
+    this->declare_parameter("solving_time", rclcpp::ParameterValue(1.0));
+    this->declare_parameter("opport_collision_check", rclcpp::ParameterValue(false));
+    this->declare_parameter("planner_name", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("reuse_last_best_solution", rclcpp::ParameterValue(false));
+    this->declare_parameter("local_reuse_last_best_solution", rclcpp::ParameterValue(false));
+    this->declare_parameter("optimization_objective", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("motion_cost_interpolation", rclcpp::ParameterValue(false));
+    this->declare_parameter("odometry_topic", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("query_goal_topic", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("goto_action", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("solution_path_topic", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("dynamic_bounds", rclcpp::ParameterValue(false));
+    this->declare_parameter("xy_goal_tolerance", rclcpp::ParameterValue(0.2));
+    this->declare_parameter("yaw_goal_tolerance", rclcpp::ParameterValue(0.1));
+    this->declare_parameter("visualize_tree", rclcpp::ParameterValue(false));
+    this->declare_parameter("robot_base_radius", rclcpp::ParameterValue(0.0));
+    this->declare_parameter("local_planner_name", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("local_xy_goal_tolerance", rclcpp::ParameterValue(0.2));
+    this->declare_parameter("local_optimization_objective", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("local_path_range", rclcpp::ParameterValue(0.0));
+    this->declare_parameter("global_time_percent", rclcpp::ParameterValue(0.0));
+    this->declare_parameter("turning_radius", rclcpp::ParameterValue(0.0));
+    this->declare_parameter("state_space", rclcpp::ParameterValue(std::string("")));
 
-    if (state_space_.compare("dubins") == 0)
+    // ! GET PARAMETERS
+    world_frame_ = this->get_parameter("world_frame").as_string();
+    planning_bounds_x_ = this->get_parameter("planning_bounds_x").as_double_array();
+    planning_bounds_y_ = this->get_parameter("planning_bounds_y").as_double_array();
+    start_state_ = this->get_parameter("start_state").as_double_array();
+    goal_map_frame_ = this->get_parameter("goal_state").as_double_array();
+    timer_period_ = this->get_parameter("timer_period").as_double();
+    solving_time_ = this->get_parameter("solving_time").as_double();
+    opport_collision_check_ = this->get_parameter("opport_collision_check").as_bool();
+    planner_name_ = this->get_parameter("planner_name").as_string();
+    reuse_last_best_solution_ = this->get_parameter("reuse_last_best_solution").as_bool();
+    local_reuse_last_best_solution_ = this->get_parameter("local_reuse_last_best_solution").as_bool();
+    optimization_objective_ = this->get_parameter("optimization_objective").as_string();
+    motion_cost_interpolation_ = this->get_parameter("motion_cost_interpolation").as_bool();
+    odometry_topic_ = this->get_parameter("odometry_topic").as_string();
+    query_goal_topic_ = this->get_parameter("query_goal_topic").as_string();
+    goto_action_ = this->get_parameter("goto_action").as_string();
+    solution_path_topic_ = this->get_parameter("solution_path_topic").as_string();
+    dynamic_bounds_ = this->get_parameter("dynamic_bounds").as_bool();
+    xy_goal_tolerance_ = this->get_parameter("xy_goal_tolerance").as_double();
+    yaw_goal_tolerance_ = this->get_parameter("yaw_goal_tolerance").as_double();
+    visualize_tree_ = this->get_parameter("visualize_tree").as_bool();
+    robot_base_radius = this->get_parameter("robot_base_radius").as_double();
+    local_planner_name_ = this->get_parameter("local_planner_name").as_string();
+    local_xy_goal_tolerance_ = this->get_parameter("local_xy_goal_tolerance").as_double();
+    local_optimization_objective_ = this->get_parameter("local_optimization_objective").as_string();
+    local_path_range_ = this->get_parameter("local_path_range").as_double();
+    global_time_percent_ = this->get_parameter("global_time_percent").as_double();
+    turning_radius_ = this->get_parameter("turning_radius").as_double();
+    state_space_ = this->get_parameter("state_space").as_string();
+
+    if (state_space_ == "dubins")
     {
         start_state_.resize(3);
     }
@@ -205,49 +234,43 @@ OnlinePlannFramework::OnlinePlannFramework()
     // Subscribers
     //=======================================================================
     // Odometry data
-    odom_sub_ = nh_.subscribe(odometry_topic_, 1, &OnlinePlannFramework::odomCallback, this);
+    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(odometry_topic_, 1, std::bind(&OnlinePlannFramework::odomCallback, this, std::placeholders::_1));
     odom_available_ = false;
 
     // 2D Nav Goal
-    nav_goal_sub_ = local_nh_.subscribe(query_goal_topic_, 1, &OnlinePlannFramework::queryGoalCallback, this);
+    nav_goal_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(query_goal_topic_, 1, std::bind(&OnlinePlannFramework::queryGoalCallback, this, std::placeholders::_1));
 
     // Controller active flag
-    control_active_sub_ =
-        local_nh_.subscribe(control_active_topic_, 1, &OnlinePlannFramework::controlActiveCallback, this);
+    control_active_sub_ = this->create_subscription<std_msgs::msg::Bool>(control_active_topic_, 1, std::bind(&OnlinePlannFramework::controlActiveCallback, this, std::placeholders::_1));
 
     //=======================================================================
     // Publishers
     //=======================================================================
-    solution_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("solution_path", 1, true);
-    solution_local_path_rviz_pub_ = local_nh_.advertise<visualization_msgs::Marker>("local_solution_path", 1, true);
-    solution_path_control_pub_ =
-        local_nh_.advertise<smf_move_base_msgs::Path2D>("smf_move_base_solution_path", 1, true);
-    query_goal_pose_rviz_pub_ =
-        local_nh_.advertise<geometry_msgs::PoseStamped>("query_goal_pose_rviz", 1, true);
-    query_goal_radius_rviz_pub_ =
-        local_nh_.advertise<visualization_msgs::Marker>("query_goal_radius_rviz", 1, true);
-
-    num_nodes_pub_ = local_nh_.advertise<std_msgs::Int32>("smf_num_nodes", 1, true);
-    goal_reached_pub_ = local_nh_.advertise<std_msgs::Bool>("goal_reached", 1, true);
+    solution_path_rviz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("solution_path", 1);
+    solution_local_path_rviz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("local_solution_path", 1);
+    solution_path_control_pub_ = this->create_publisher<smf_move_base_msgs::msg::Path2D>("smf_move_base_solution_path", 1);
+    query_goal_pose_rviz_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("query_goal_pose_rviz", 1);
+    query_goal_radius_rviz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("query_goal_radius_rviz", 1);
+    num_nodes_pub_ = this->create_publisher<std_msgs::msg::Int32>("smf_num_nodes", 1);
+    goal_reached_pub_ = this->create_publisher<std_msgs::msg::Bool>("goal_reached", 1);
 
     //=======================================================================
     // Action server
     //=======================================================================
     goto_action_server_ = new SmfBaseGoToActionServer(
-        ros::NodeHandle(), goto_action_, boost::bind(&OnlinePlannFramework::goToActionCallback, this, _1),
-        false);
+        this, goto_action_, std::bind(&OnlinePlannFramework::goToActionCallback, this, std::placeholders::_1), false);
 
     //=======================================================================
     // Waiting for odometry
     //=======================================================================
-    ros::Rate loop_rate(10);
-    while (ros::ok() && !odom_available_)
+    rclcpp::Rate loop_rate(10);
+    while (rclcpp::ok() && !odom_available_)
     {
-        ros::spinOnce();
+        rclcpp::spin_some(shared_from_this());
         loop_rate.sleep();
-        ROS_WARN("%s:\n\tWaiting for vehicle's odometry\n", ros::this_node::getName().c_str());
+        RCLCPP_WARN(this->get_logger(), "Waiting for vehicle's odometry");
     }
-    ROS_WARN("%s:\n\tOdometry received\n", ros::this_node::getName().c_str());
+    RCLCPP_WARN(this->get_logger(), "Odometry received");
 
     goto_action_server_->start();
 }
