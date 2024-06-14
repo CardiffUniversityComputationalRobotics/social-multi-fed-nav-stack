@@ -206,7 +206,7 @@ WorldModeler::WorldModeler()
         point_cloud_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(this, point_cloud_topic_);
         point_cloud_mn_ = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>>(
             *tf_buffer_,
-            fixed_frame_,
+            point_cloud_frame_,
             5,
             this->get_node_logging_interface(),
             this->get_node_clock_interface());
@@ -271,7 +271,7 @@ void WorldModeler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Share
 
             try
             {
-                transform = tf_buffer_->lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), this->get_clock()->now());
+                transform = tf_buffer_->lookupTransform(cloud->header.frame_id, "agent_" + std::to_string(social_agents_in_radius_.agent_states[i].id), cloud->header.stamp);
 
                 tf2::Quaternion q(
                     transform.transform.rotation.x,
