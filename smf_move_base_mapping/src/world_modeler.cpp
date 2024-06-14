@@ -218,14 +218,14 @@ WorldModeler::WorldModeler()
     //=======================================================================
     // Services
     //=======================================================================
-    // save_binary_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
-    //     "save_binary", &WorldModeler::saveBinaryOctomapSrv);
-    // save_full_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
-    //     "save_full", &WorldModeler::saveFullOctomapSrv);
-    // get_binary_octomap_srv_ = this->create_service<octomap_msgs::srv::GetOctomap>(
-    //     "get_binary", &WorldModeler::getBinaryOctomapSrv);
-    // get_grid_map_srv_ = this->create_service<grid_map_msgs::srv::GetGridMap>(
-    //     "get_grid_map", &WorldModeler::getGridMapSrv);
+    save_binary_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
+        "save_binary", std::bind(&WorldModeler::saveBinaryOctomapSrv, this, std::placeholders::_1, std::placeholders::_2));
+    save_full_octomap_srv_ = this->create_service<std_srvs::srv::Empty>(
+        "save_full", std::bind(&WorldModeler::saveFullOctomapSrv, this, std::placeholders::_1, std::placeholders::_2));
+    get_binary_octomap_srv_ = this->create_service<octomap_msgs::srv::GetOctomap>(
+        "get_binary", std::bind(&WorldModeler::getBinaryOctomapSrv, this, std::placeholders::_1, std::placeholders::_2));
+    get_grid_map_srv_ = this->create_service<grid_map_msgs::srv::GetGridMap>(
+        "get_grid_map", std::bind(&WorldModeler::getGridMapSrv, this, std::placeholders::_1, std::placeholders::_2));
 
     // Timer for publishing
     if (rviz_timer_ > 0.0)

@@ -129,10 +129,13 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<pedsim_msgs::msg::AgentStates>::SharedPtr agent_states_sub_;
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>> point_cloud_sub_;
+
+    // SERVICES
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_binary_octomap_srv_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_full_octomap_srv_;
     rclcpp::Service<OctomapSrv>::SharedPtr get_binary_octomap_srv_;
     rclcpp::Service<grid_map_msgs::srv::GetGridMap>::SharedPtr get_grid_map_srv_;
+
     rclcpp::TimerBase::SharedPtr timer_;
     std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>> point_cloud_mn_;
 
