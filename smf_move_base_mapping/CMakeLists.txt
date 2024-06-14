@@ -65,7 +65,7 @@ src/social_heatmap.cpp
 src/world_modeler.cpp
 )
 ament_target_dependencies(smf_move_base_mapper ${dependencies})
-target_link_libraries(smf_move_base_mapper ${OCTOMAP_LIBRARIES} ${OMPL_LIBRARIES})
+target_link_libraries(smf_move_base_mapper ${OCTOMAP_LIBRARIES})
 
 install(TARGETS
   smf_move_base_mapper

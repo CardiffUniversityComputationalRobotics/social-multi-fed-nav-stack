@@ -17,40 +17,47 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
                                                                        const bool opport_collision_check,
                                                                        std::vector<double> planning_bounds_x,
                                                                        std::vector<double> planning_bounds_y)
-    : ob::StateValidityChecker(si), local_nh_("~"), robot_base_radius_(0.4)
+    : ob::StateValidityChecker(si), local_node_(), robot_base_radius_(0.4)
 {
-    GetGridMap::Request req;
-    GetGridMap::Response resp;
+    auto req = std::make_shared<GetGridMap::Request>();
 
     opport_collision_check_ = opport_collision_check;
     planning_bounds_x_ = planning_bounds_x;
     planning_bounds_y_ = planning_bounds_y;
 
-    local_nh_.param("robot_base_radius", robot_base_radius_, robot_base_radius_);
-    local_nh_.param("grid_map_service", grid_map_service_, grid_map_service_);
-    local_nh_.param("local_use_social_heatmap", local_use_social_heatmap_, local_use_social_heatmap_);
-    local_nh_.param("state_space", state_space_, state_space_);
+    local_node_->declare_parameter<std::string>("grid_map_service", "get_grid_map_service");
+    local_node_->declare_parameter<double>("robot_base_radius", 0.4);
+    local_node_->declare_parameter<bool>("local_use_social_heatmap", false);
+
+    local_node_->get_parameter("grid_map_service", grid_map_service_);
+    local_node_->get_parameter("robot_base_radius", robot_base_radius_);
+    local_node_->get_parameter("local_use_social_heatmap", local_use_social_heatmap_);
+
+    grid_map_client_ = local_node_->create_client<GetGridMap>(grid_map_service_);
 
     // ! GRID MAP REQUEST
-    ROS_DEBUG("%s: requesting the map to %s...", ros::this_node::getName().c_str(),
-              nh_.resolveName(grid_map_service_).c_str());
+    RCLCPP_DEBUG(local_node_->get_logger(), "requesting the GridMap to ", grid_map_service_);
 
-    ros::service::call(grid_map_service_, req, resp);
+    auto result = grid_map_client_->async_send_request(req);
 
-    if (grid_map::GridMapRosConverter::fromMessage(resp.map, grid_map_))
+    if (rclcpp::spin_until_future_complete(local_node_, result) ==
+        rclcpp::FutureReturnCode::SUCCESS)
     {
-        ROS_DEBUG("Obtained gridmap successfully");
-        grid_map_msgs_ = resp.map;
+        if (grid_map::GridMapRosConverter::fromMessage(result.get()->map, grid_map_))
+        {
+            RCLCPP_INFO(local_node_->get_logger(), "Obtained gridmap successfully");
+            grid_map_msgs_ = result.get()->map;
 
-        grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
-        grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);
+            grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
+            grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);
 
-        grid_map_max_y_ = grid_map_msgs_.info.pose.position.y + (grid_map_msgs_.info.length_y / 2);
-        grid_map_min_y_ = grid_map_msgs_.info.pose.position.y - (grid_map_msgs_.info.length_y / 2);
+            grid_map_max_y_ = grid_map_msgs_.info.pose.position.y + (grid_map_msgs_.info.length_y / 2);
+            grid_map_min_y_ = grid_map_msgs_.info.pose.position.y - (grid_map_msgs_.info.length_y / 2);
+        }
     }
     else
     {
-        ROS_ERROR("Error reading GridMap");
+        RCLCPP_ERROR(local_node_->get_logger(), "Error reading GridMap");
     }
 
     try

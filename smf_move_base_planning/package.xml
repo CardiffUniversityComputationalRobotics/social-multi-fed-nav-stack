@@ -23,7 +23,7 @@
 
   <!-- smf nav stack -->
   <depend>smf_move_base_msgs</depend>
-  <depend>smf_move_base_control</depend>
+  <!-- <depend>smf_move_base_control</depend> -->
   <depend>smf_move_base_mapping</depend>
 
 
