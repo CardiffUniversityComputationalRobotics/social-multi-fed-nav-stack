@@ -166,7 +166,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     goal_odom_frame_.resize(3);
 
     // ! DECLARE PARAMETERS
-    this->declare_parameter("world_frame", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("world_frame", rclcpp::ParameterValue(std::string("map")));
     this->declare_parameter("planning_bounds_x", rclcpp::ParameterValue(std::vector<double>{50.0, 50.0}));
     this->declare_parameter("planning_bounds_y", rclcpp::ParameterValue(std::vector<double>{50.0, 50.0}));
     this->declare_parameter("start_state", rclcpp::ParameterValue(std::vector<double>{0.0, 0.0}));
@@ -174,27 +174,27 @@ OnlinePlannFramework::OnlinePlannFramework()
     this->declare_parameter("timer_period", rclcpp::ParameterValue(1.0));
     this->declare_parameter("solving_time", rclcpp::ParameterValue(1.0));
     this->declare_parameter("opport_collision_check", rclcpp::ParameterValue(false));
-    this->declare_parameter("planner_name", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("planner_name", rclcpp::ParameterValue(std::string("RRT")));
     this->declare_parameter("reuse_last_best_solution", rclcpp::ParameterValue(false));
     this->declare_parameter("local_reuse_last_best_solution", rclcpp::ParameterValue(false));
-    this->declare_parameter("optimization_objective", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("optimization_objective", rclcpp::ParameterValue(std::string("PathLength")));
     this->declare_parameter("motion_cost_interpolation", rclcpp::ParameterValue(false));
-    this->declare_parameter("odometry_topic", rclcpp::ParameterValue(std::string("")));
-    this->declare_parameter("query_goal_topic", rclcpp::ParameterValue(std::string("")));
-    this->declare_parameter("goto_action", rclcpp::ParameterValue(std::string("")));
-    this->declare_parameter("solution_path_topic", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("odometry_topic", rclcpp::ParameterValue(std::string("odom")));
+    this->declare_parameter("query_goal_topic", rclcpp::ParameterValue(std::string("query_goal")));
+    this->declare_parameter("goto_action", rclcpp::ParameterValue(std::string("go_action")));
+    this->declare_parameter("solution_path_topic", rclcpp::ParameterValue(std::string("solution_path")));
     this->declare_parameter("dynamic_bounds", rclcpp::ParameterValue(false));
     this->declare_parameter("xy_goal_tolerance", rclcpp::ParameterValue(0.2));
     this->declare_parameter("yaw_goal_tolerance", rclcpp::ParameterValue(0.1));
     this->declare_parameter("visualize_tree", rclcpp::ParameterValue(false));
     this->declare_parameter("robot_base_radius", rclcpp::ParameterValue(0.0));
-    this->declare_parameter("local_planner_name", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("local_planner_name", rclcpp::ParameterValue(std::string("RRTstar")));
     this->declare_parameter("local_xy_goal_tolerance", rclcpp::ParameterValue(0.2));
-    this->declare_parameter("local_optimization_objective", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("local_optimization_objective", rclcpp::ParameterValue(std::string("PathLength")));
     this->declare_parameter("local_path_range", rclcpp::ParameterValue(0.0));
     this->declare_parameter("global_time_percent", rclcpp::ParameterValue(0.0));
     this->declare_parameter("turning_radius", rclcpp::ParameterValue(0.0));
-    this->declare_parameter("state_space", rclcpp::ParameterValue(std::string("")));
+    this->declare_parameter("state_space", rclcpp::ParameterValue(std::string("R2")));
 
     // ! GET PARAMETERS
     world_frame_ = this->get_parameter("world_frame").as_string();
@@ -247,8 +247,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     nav_goal_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(query_goal_topic_, 1, std::bind(&OnlinePlannFramework::queryGoalCallback, this, std::placeholders::_1));
 
     // Controller active flag
-    control_active_sub_ = this->create_subscription<std_msgs::msg::Bool>(control_active_topic_, 1, std::bind(&OnlinePlannFramework::controlActiveCallback, this, std::placeholders::_1));
-
+    // control_active_sub_ = this->create_subscription<std_msgs::msg::Bool>(control_active_topic_, 1, std::bind(&OnlinePlannFramework::controlActiveCallback, this, std::placeholders::_1));
     //=======================================================================
     // Publishers
     //=======================================================================
@@ -272,7 +271,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     rclcpp::Rate loop_rate(10);
     while (rclcpp::ok() && !odom_available_)
     {
-        rclcpp::spin_some(shared_from_this());
+        rclcpp::spin_some(this->get_node_base_interface());
         loop_rate.sleep();
         RCLCPP_WARN(this->get_logger(), "Waiting for vehicle's odometry");
     }
@@ -2001,6 +2000,7 @@ int main(int argc, char **argv)
 
     auto online_planning_framework = std::make_shared<OnlinePlannFramework>();
     online_planning_framework->planWithSimpleSetup();
+
     rclcpp::spin(online_planning_framework);
     return 0;
 }
