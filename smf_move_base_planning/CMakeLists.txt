@@ -22,6 +22,7 @@ find_package(grid_map_sdf REQUIRED)
 find_package(grid_map_visualization REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(ompl REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 include_directories(
   include
@@ -47,6 +48,7 @@ set(dependencies
     grid_map_ros
     grid_map_msgs
     tf2_geometry_msgs
+    geometry_msgs
     OMPL
 )
 
