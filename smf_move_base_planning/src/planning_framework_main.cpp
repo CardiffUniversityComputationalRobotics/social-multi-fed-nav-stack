@@ -128,16 +128,18 @@ private:
     smf_move_base_msgs::action::Goto2D::Feedback goto_action_feedback_;
     smf_move_base_msgs::action::Goto2D::Result goto_action_result_;
 
+    // GRIDMAP SERVICE
+    rclcpp::Client<GetGridMap>::SharedPtr grid_map_client_;
+    std::string grid_map_service_;
+
     // ROS2 TF
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     tf2::Transform last_robot_pose_;
 
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
-    double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius;
-    bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_,
-        goal_available_, dynamic_bounds_, visualize_tree_,
-        control_active_;
+    double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius_;
+    bool opport_collision_check_, reuse_last_best_solution_, local_reuse_last_best_solution_, motion_cost_interpolation_, odom_available_, goal_available_, dynamic_bounds_, visualize_tree_, control_active_, local_use_social_heatmap_;
     std::vector<double> planning_bounds_x_, planning_bounds_y_, start_state_, goal_map_frame_,
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, turning_radius_;
@@ -195,6 +197,8 @@ OnlinePlannFramework::OnlinePlannFramework()
     this->declare_parameter("global_time_percent", rclcpp::ParameterValue(0.0));
     this->declare_parameter("turning_radius", rclcpp::ParameterValue(0.0));
     this->declare_parameter("state_space", rclcpp::ParameterValue(std::string("R2")));
+    this->declare_parameter("grid_map_service", rclcpp::ParameterValue(std::string("grid_map_service")));
+    this->declare_parameter("local_use_social_heatmap", rclcpp::ParameterValue(true));
 
     // ! GET PARAMETERS
     world_frame_ = this->get_parameter("world_frame").as_string();
@@ -218,7 +222,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     xy_goal_tolerance_ = this->get_parameter("xy_goal_tolerance").as_double();
     yaw_goal_tolerance_ = this->get_parameter("yaw_goal_tolerance").as_double();
     visualize_tree_ = this->get_parameter("visualize_tree").as_bool();
-    robot_base_radius = this->get_parameter("robot_base_radius").as_double();
+    robot_base_radius_ = this->get_parameter("robot_base_radius").as_double();
     local_planner_name_ = this->get_parameter("local_planner_name").as_string();
     local_xy_goal_tolerance_ = this->get_parameter("local_xy_goal_tolerance").as_double();
     local_optimization_objective_ = this->get_parameter("local_optimization_objective").as_string();
@@ -226,6 +230,8 @@ OnlinePlannFramework::OnlinePlannFramework()
     global_time_percent_ = this->get_parameter("global_time_percent").as_double();
     turning_radius_ = this->get_parameter("turning_radius").as_double();
     state_space_ = this->get_parameter("state_space").as_string();
+    grid_map_service_ = this->get_parameter("grid_map_service").as_string();
+    local_use_social_heatmap_ = this->get_parameter("local_use_social_heatmap").as_bool();
 
     if (state_space_ == "dubins")
     {
@@ -258,6 +264,18 @@ OnlinePlannFramework::OnlinePlannFramework()
     query_goal_radius_rviz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("query_goal_radius_rviz", 1);
     num_nodes_pub_ = this->create_publisher<std_msgs::msg::Int32>("smf_num_nodes", 1);
     goal_reached_pub_ = this->create_publisher<std_msgs::msg::Bool>("goal_reached", 1);
+
+    // SERVICE CLIENT
+    grid_map_client_ = this->create_client<GetGridMap>(grid_map_service_);
+
+    while (!grid_map_client_->wait_for_service(1s))
+    {
+        if (!rclcpp::ok())
+        {
+            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+        }
+        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+    }
 
     //=======================================================================
     // Action server
@@ -652,6 +670,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
         local_goal[2] = double(goal_map_frame_[2]); // yaw
     }
 
+    RCLCPP_INFO(this->get_logger(), "GOAL SETUP");
+
     //=======================================================================
     // Set the start and goal states
     //=======================================================================
@@ -663,22 +683,45 @@ void OnlinePlannFramework::planWithSimpleSetup()
     simple_setup_local_->setStartState(local_start);
     simple_setup_local_->setGoalState(local_goal, local_goal_radius_);
 
+    // ! GRID MAP REQUEST
+    auto req = std::make_shared<GetGridMap::Request>();
+    RCLCPP_INFO(this->get_logger(), "requesting the GridMap to ", grid_map_service_.c_str());
+
+    auto result = grid_map_client_->async_send_request(req);
+
+    RCLCPP_WARN(this->get_logger(), "REQUEST SENT");
+
+    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
+        rclcpp::FutureReturnCode::SUCCESS)
+    {
+        RCLCPP_WARN(this->get_logger(), "Obtained GridMap");
+    }
+    else
+    {
+        RCLCPP_ERROR(this->get_logger(), "Error reading GridMap");
+    }
+
+    // =======================
+
     //=======================================================================
     // Set state validity checking for this space
     //=======================================================================
+    RCLCPP_WARN(this->get_logger(), "ABOUT TO PUT VALIDITY CHECKER");
     ob::StateValidityCheckerPtr om_stat_val_check;
+    RCLCPP_INFO(this->get_logger(), "VALIDITY CHECKER PUT");
     om_stat_val_check = ob::StateValidityCheckerPtr(
         new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                          planning_bounds_x_, planning_bounds_y_));
+                                          planning_bounds_x_, planning_bounds_y_, result.get()->map, robot_base_radius_));
+    RCLCPP_INFO(this->get_logger(), "VALIDITY CHECKER INIT");
     simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
     // !VALIDITY CHECKING FOR LOCAL PLANNER
     ob::StateValidityCheckerPtr local_om_stat_val_check;
     local_om_stat_val_check = ob::StateValidityCheckerPtr(
         new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                               planning_bounds_x_, planning_bounds_y_));
+                                               planning_bounds_x_, planning_bounds_y_, result.get()->map, robot_base_radius_, local_use_social_heatmap_));
     simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
-
+    RCLCPP_INFO(this->get_logger(), "VALIDITY CHECKER");
     //=======================================================================
     // Set optimization objective
     //=======================================================================
@@ -691,6 +734,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
         simple_setup_global_->getProblemDefinition()->setOptimizationObjective(getPathLengthObjective(si_global));
 
     // !OPTIMIZATION OBJECTIVE FOR LOCAL PLANNER
+
+    RCLCPP_INFO(this->get_logger(), "LOCAL OPTIMIZATION");
 
     std::vector<const ob::State *> dummy_global_path_feedback;
 
@@ -712,25 +757,11 @@ void OnlinePlannFramework::planWithSimpleSetup()
 
     simple_setup_local_->setup();
 
-    //=======================================================================
-    // Print information
-    //=======================================================================
-    // planner->printProperties(//std::cout);// print planner properties
-    // si->printSettings(//std::cout);// print the settings for this space
+    RCLCPP_INFO(this->get_logger(), "SETUP DONE");
 
-    //=======================================================================
-    // Activate a timer for incremental planning
-    //=======================================================================
-    //	timer_ = nh_.createTimer(ros::Duration(timer_period_), &OnlinePlannFramework::planningTimerCallback,
-    // this);
-    //
-    //	ros::spin();
     rclcpp::Rate loop_rate(1.0 / (timer_period_ - solving_time_)); // 10 hz
     // goal_available_ = true;
-
-    //	ros::AsyncSpinner spinner(4); // Use 4 threads
-    //	spinner.start();
-    // ros::waitForShutdown();
+    RCLCPP_INFO(this->get_logger(), "READY TO PLAN");
     while (rclcpp::ok())
     {
         if (goal_available_)
@@ -872,6 +903,24 @@ void OnlinePlannFramework::planningTimerCallback()
 
         // !==================================
 
+        // ! GRID MAP REQUEST
+        auto req = std::make_shared<GetGridMap::Request>();
+        RCLCPP_INFO(this->get_logger(), "requesting the GridMap to ", grid_map_service_);
+
+        auto result = grid_map_client_->async_send_request(req);
+
+        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
+            rclcpp::FutureReturnCode::SUCCESS)
+        {
+            RCLCPP_WARN(this->get_logger(), "Obtained GridMap");
+        }
+        else
+        {
+            RCLCPP_ERROR(this->get_logger(), "Error reading GridMap");
+        }
+
+        // =======================
+
         //=======================================================================
         // Set a modified sampler
         //=======================================================================
@@ -888,7 +937,7 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::StateValidityCheckerPtr om_stat_val_check;
         om_stat_val_check = ob::StateValidityCheckerPtr(
             new GridMapStateValidityCheckerR2(simple_setup_global_->getSpaceInformation(), opport_collision_check_,
-                                              planning_bounds_x_, planning_bounds_y_));
+                                              planning_bounds_x_, planning_bounds_y_, result.get()->map, robot_base_radius_));
         simple_setup_global_->setStateValidityChecker(om_stat_val_check);
 
         //=======================================================================
@@ -929,7 +978,7 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::StateValidityCheckerPtr local_om_stat_val_check;
         local_om_stat_val_check = ob::StateValidityCheckerPtr(
             new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                   planning_bounds_x_, planning_bounds_y_));
+                                                   planning_bounds_x_, planning_bounds_y_, result.get()->map, robot_base_radius_, local_use_social_heatmap_));
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
         //=======================================================================
@@ -1397,7 +1446,7 @@ void OnlinePlannFramework::planningTimerCallback()
             ob::StateValidityCheckerPtr local_om_stat_val_check;
             local_om_stat_val_check = ob::StateValidityCheckerPtr(
                 new LocalGridMapStateValidityCheckerR2(simple_setup_local_->getSpaceInformation(), opport_collision_check_,
-                                                       planning_bounds_x_, planning_bounds_y_));
+                                                       planning_bounds_x_, planning_bounds_y_, result.get()->map, robot_base_radius_, local_use_social_heatmap_));
             simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
             if (past_local_solution_path_states_.size() > 0)
@@ -1575,22 +1624,22 @@ void OnlinePlannFramework::planningTimerCallback()
                                 posEv[0] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::DubinsStateSpace::StateType>()
                                                       ->getX() +
-                                                  counter * robot_base_radius * std::cos(angle)); // x
+                                                  counter * robot_base_radius_ * std::cos(angle)); // x
                                 posEv[1] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::DubinsStateSpace::StateType>()
                                                       ->getY() +
-                                                  counter * robot_base_radius * std::sin(angle)); // y
+                                                  counter * robot_base_radius_ * std::sin(angle)); // y
                             }
                             else
                             {
                                 posEv[0] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[0] +
-                                                  counter * robot_base_radius * std::cos(angle)); // x
+                                                  counter * robot_base_radius_ * std::cos(angle)); // x
                                 posEv[1] = double(local_solution_path_states_copy_[i]
                                                       ->as<ob::RealVectorStateSpace::StateType>()
                                                       ->values[1] +
-                                                  counter * robot_base_radius * std::sin(angle)); // y
+                                                  counter * robot_base_radius_ * std::sin(angle)); // y
                             }
 
                             if (!simple_setup_local_->getSpaceInformation()->checkMotion(
@@ -1605,22 +1654,22 @@ void OnlinePlannFramework::planningTimerCallback()
                                     posEv[0] = double(local_solution_path_states_copy_[i]
                                                           ->as<ob::DubinsStateSpace::StateType>()
                                                           ->getX() +
-                                                      (counter - 1) * robot_base_radius * std::cos(angle)); // x
+                                                      (counter - 1) * robot_base_radius_ * std::cos(angle)); // x
                                     posEv[1] = double(local_solution_path_states_copy_[i]
                                                           ->as<ob::DubinsStateSpace::StateType>()
                                                           ->getY() +
-                                                      (counter - 1) * robot_base_radius * std::sin(angle));
+                                                      (counter - 1) * robot_base_radius_ * std::sin(angle));
                                 }
                                 else
                                 {
                                     posEv[0] = double(local_solution_path_states_copy_[i]
                                                           ->as<ob::RealVectorStateSpace::StateType>()
                                                           ->values[0] +
-                                                      (counter - 1) * robot_base_radius * std::cos(angle)); // x
+                                                      (counter - 1) * robot_base_radius_ * std::cos(angle)); // x
                                     posEv[1] = double(local_solution_path_states_copy_[i]
                                                           ->as<ob::RealVectorStateSpace::StateType>()
                                                           ->values[1] +
-                                                      (counter - 1) * robot_base_radius * std::sin(angle));
+                                                      (counter - 1) * robot_base_radius_ * std::sin(angle));
                                 }
 
                                 geometry_msgs::msg::Pose2D p;

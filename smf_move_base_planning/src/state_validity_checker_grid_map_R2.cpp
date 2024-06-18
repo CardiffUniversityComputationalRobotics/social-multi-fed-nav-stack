@@ -16,46 +16,24 @@
 GridMapStateValidityCheckerR2::GridMapStateValidityCheckerR2(const ob::SpaceInformationPtr &si,
                                                              const bool opport_collision_check,
                                                              std::vector<double> planning_bounds_x,
-                                                             std::vector<double> planning_bounds_y)
-    : ob::StateValidityChecker(si), local_node_(), robot_base_radius_(0.4)
+                                                             std::vector<double> planning_bounds_y, grid_map_msgs::msg::GridMap grid_map_msg, const double robot_radius)
+    : ob::StateValidityChecker(si), robot_base_radius_(0.4)
 {
-    auto req = std::make_shared<GetGridMap::Request>();
 
     opport_collision_check_ = opport_collision_check;
     planning_bounds_x_ = planning_bounds_x;
     planning_bounds_y_ = planning_bounds_y;
 
-    local_node_->declare_parameter<std::string>("grid_map_service", "get_grid_map_service");
-    local_node_->declare_parameter<double>("robot_base_radius", 0.4);
+    robot_base_radius_ = robot_radius;
 
-    local_node_->get_parameter("grid_map_service", grid_map_service_);
-    local_node_->get_parameter("robot_base_radius", robot_base_radius_);
-
-    grid_map_client_ = local_node_->create_client<GetGridMap>(grid_map_service_);
-
-    // ! GRID MAP REQUEST
-    RCLCPP_DEBUG(local_node_->get_logger(), "requesting the GridMap to ", grid_map_service_);
-
-    auto result = grid_map_client_->async_send_request(req);
-
-    if (rclcpp::spin_until_future_complete(local_node_, result) ==
-        rclcpp::FutureReturnCode::SUCCESS)
+    if (grid_map::GridMapRosConverter::fromMessage(grid_map_msg, grid_map_))
     {
-        if (grid_map::GridMapRosConverter::fromMessage(result.get()->map, grid_map_))
-        {
-            RCLCPP_INFO(local_node_->get_logger(), "Obtained gridmap successfully");
-            grid_map_msgs_ = result.get()->map;
 
-            grid_map_max_x_ = grid_map_msgs_.info.pose.position.x + (grid_map_msgs_.info.length_x / 2);
-            grid_map_min_x_ = grid_map_msgs_.info.pose.position.x - (grid_map_msgs_.info.length_x / 2);
+        grid_map_max_x_ = grid_map_msg.info.pose.position.x + (grid_map_msg.info.length_x / 2);
+        grid_map_min_x_ = grid_map_msg.info.pose.position.x - (grid_map_msg.info.length_x / 2);
 
-            grid_map_max_y_ = grid_map_msgs_.info.pose.position.y + (grid_map_msgs_.info.length_y / 2);
-            grid_map_min_y_ = grid_map_msgs_.info.pose.position.y - (grid_map_msgs_.info.length_y / 2);
-        }
-    }
-    else
-    {
-        RCLCPP_ERROR(local_node_->get_logger(), "Error reading GridMap");
+        grid_map_max_y_ = grid_map_msg.info.pose.position.y + (grid_map_msg.info.length_y / 2);
+        grid_map_min_y_ = grid_map_msg.info.pose.position.y - (grid_map_msg.info.length_y / 2);
     }
 
     try
