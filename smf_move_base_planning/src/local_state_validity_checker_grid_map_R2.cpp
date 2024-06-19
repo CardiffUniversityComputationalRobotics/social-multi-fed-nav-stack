@@ -24,6 +24,7 @@ LocalGridMapStateValidityCheckerR2::LocalGridMapStateValidityCheckerR2(const ob:
     planning_bounds_x_ = planning_bounds_x;
     planning_bounds_y_ = planning_bounds_y;
     robot_base_radius_ = robot_radius;
+    local_use_social_heatmap_ = local_use_social_heatmap;
 
     if (grid_map::GridMapRosConverter::fromMessage(grid_map_msg, grid_map_))
     {
