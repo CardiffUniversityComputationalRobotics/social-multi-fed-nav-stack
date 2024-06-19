@@ -1401,7 +1401,7 @@ void OnlinePlannFramework::planningTimerCallback()
                                 if (goal_available_)
                                 {
 
-                                    p.theta = goal_map_frame_[2] - yaw;
+                                    p.theta = goal_map_frame_[2];
                                 }
                             }
                             solution_path_for_control.waypoints.push_back(p);
@@ -1517,7 +1517,7 @@ void OnlinePlannFramework::planningTimerCallback()
                         if (goal_available_)
                         {
 
-                            p.theta = goal_map_frame_[2] - yaw;
+                            p.theta = goal_map_frame_[2];
                         }
                     }
                     solution_path_for_control.waypoints.push_back(p);
@@ -1561,7 +1561,7 @@ void OnlinePlannFramework::planningTimerCallback()
                             if (goal_available_)
                             {
 
-                                p.theta = goal_map_frame_[2] - yaw;
+                                p.theta = goal_map_frame_[2];
                             }
                         }
                         solution_path_for_control.waypoints.push_back(p);
@@ -1669,7 +1669,7 @@ void OnlinePlannFramework::planningTimerCallback()
                                 if (goal_available_)
                                 {
 
-                                    p.theta = goal_map_frame_[2] - yaw;
+                                    p.theta = goal_map_frame_[2];
                                 }
 
                                 lastNode = true;
