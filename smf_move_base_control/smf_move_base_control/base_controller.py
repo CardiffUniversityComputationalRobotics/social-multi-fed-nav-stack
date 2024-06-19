@@ -60,8 +60,8 @@ class Controller(Node):
         self.declare_parameter("control_path_topic", "control_path_topic")
         self.declare_parameter("control_output_topic", "control_output_topic")
         self.declare_parameter("control_active_topic", "control_active_topic")
-        self.declare_parameter("/smf_move_base_planner/xy_goal_tolerance", 0.2)
-        self.declare_parameter("/smf_move_base_planner/yaw_goal_tolerance", 0.2)
+        self.declare_parameter("xy_goal_tolerance", 0.2)
+        self.declare_parameter("yaw_goal_tolerance", 0.2)
 
         self.max_vel_ = self.get_parameter("max_vel").get_parameter_value().double_value
         self.min_vel_ = self.get_parameter("min_vel").get_parameter_value().double_value
@@ -309,7 +309,7 @@ class Controller(Node):
                             control_input.linear.x = -self.drift_turning_vel_
                         elif abs(yaw_error) < 0.2:
                             self.get_logger().debug(
-                                "final approach: moving towards a waypoint (fordward)"
+                                "final approach: moving towards a waypoint (forward)"
                             )
 
                             control_input.linear.x = 0.05
@@ -337,10 +337,10 @@ class Controller(Node):
                             control_input.angular.z = yaw_error * self.max_turn_rate_
                             if yaw_error < 0.0:
                                 control_input.linear.x = self.drift_turning_vel_
-                                control_input.angular.z = -self.min_turn_rate_
+                                control_input.angular.z = -self.min_turn_rate_ * 5
                             else:
                                 control_input.linear.x = -self.drift_turning_vel_
-                                control_input.angular.z = self.min_turn_rate_
+                                control_input.angular.z = self.min_turn_rate_ * 5
                             self.control_output_pub_.publish(control_input)
 
             # self.get_logger().debug("%s: yaw_error: %f", self.get_name(), yaw_error)
