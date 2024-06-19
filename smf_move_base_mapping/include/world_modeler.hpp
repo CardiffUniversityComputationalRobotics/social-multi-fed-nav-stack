@@ -36,7 +36,6 @@
 #include <octomap_msgs/srv/get_octomap.hpp>
 typedef octomap_msgs::srv::GetOctomap OctomapSrv;
 #include <octomap/Pointcloud.h>
-#include <octomap_msgs/conversions.h>
 
 // grid map library
 #include <grid_map_ros/grid_map_ros.hpp>

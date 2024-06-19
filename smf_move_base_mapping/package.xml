@@ -26,7 +26,6 @@
   <!-- more msgs deps -->
   <depend>nav_msgs</depend>
   <depend>smf_move_base_msgs</depend>
-  <!-- <depend>pedsim_msgs</depend> -->
   <depend>tf2_ros</depend>
 
   <depend>pedsim_msgs</depend>
