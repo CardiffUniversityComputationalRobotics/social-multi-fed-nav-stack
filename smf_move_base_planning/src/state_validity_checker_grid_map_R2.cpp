@@ -76,7 +76,7 @@ bool GridMapStateValidityCheckerR2::isValid(const ob::State *state) const
     {
         const grid_map::Index index(*iterator);
 
-        if (obstacles_grid_map_(index(0), index(1)) > 50)
+        if (obstacles_grid_map_(index(0), index(1)) > 20)
         {
             return false;
         }
@@ -121,7 +121,7 @@ bool GridMapStateValidityCheckerR2::isValidPoint(const ob::State *state) const
 
     if (grid_map_.getIndex(query, index))
     {
-        if (obstacles_grid_map_(index(0), index(1)) > 50)
+        if (obstacles_grid_map_(index(0), index(1)) > 20)
         {
             return false;
         }
