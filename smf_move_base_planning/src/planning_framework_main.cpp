@@ -147,14 +147,16 @@ private:
         solution_path_topic_, world_frame_, octomap_service_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
-    nav_msgs::msg::Odometry::SharedPtr odom_data;
-    geometry_msgs::msg::Twist current_robot_velocity;
+    nav_msgs::msg::Odometry::SharedPtr odom_data_;
+    geometry_msgs::msg::Twist current_robot_velocity_;
 };
 
 OnlinePlannFramework::OnlinePlannFramework()
     : Node("online_planning_framework"), dynamic_bounds_(false), control_active_(false)
 {
-
+    //=======================================================================
+    // TF LISTENER
+    //=======================================================================
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -435,8 +437,8 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::msg::Odometry::SharedPtr
         RCLCPP_WARN(this->get_logger(), "Goal reached");
     }
 
-    current_robot_velocity = odom_msg->twist.twist;
-    odom_data = odom_msg;
+    current_robot_velocity_ = odom_msg->twist.twist;
+    odom_data_ = odom_msg;
 }
 
 //! Control active callback.
@@ -637,8 +639,8 @@ void OnlinePlannFramework::planWithSimpleSetup()
     //=======================================================================
     double useless_pitch, useless_roll, yaw;
     last_robot_pose_.getBasis().getEulerYPR(yaw, useless_pitch, useless_roll);
-    start_state_[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
-    start_state_[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
+    start_state_[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity_.linear.x * (solving_time_ + 0.15))); // x
+    start_state_[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity_.linear.y * (solving_time_ + 0.15))); // y
 
     if (state_space_.compare("dubins") == 0)
     {
@@ -708,7 +710,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
     auto grid_map_msg = result.get()->map;
 
     //=======================================================================
-    // Set state validity checking for this space
+    // ! Set state validity checking for this space
     //=======================================================================
     // !VALIDITY CHECKING FOR GLOBAL PLANNER
     ob::StateValidityCheckerPtr om_stat_val_check;
@@ -764,7 +766,7 @@ void OnlinePlannFramework::planWithSimpleSetup()
             RCLCPP_INFO(this->get_logger(), "goal available");
         OnlinePlannFramework::planningTimerCallback();
         rclcpp::spin_some(this->get_node_base_interface());
-        loop_rate.sleep();
+        // loop_rate.sleep();
     }
 }
 
@@ -877,8 +879,8 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::ScopedState<> start(simple_setup_global_->getSpaceInformation()->getStateSpace());
         ob::ScopedState<> goal(simple_setup_global_->getSpaceInformation()->getStateSpace());
 
-        start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
-        start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
+        start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity_.linear.x * (solving_time_ + 0.15))); // x
+        start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity_.linear.y * (solving_time_ + 0.15))); // y
 
         goal[0] = double(goal_odom_frame_[0]); // x
         goal[1] = double(goal_odom_frame_[1]); // y
@@ -952,8 +954,8 @@ void OnlinePlannFramework::planningTimerCallback()
         ob::ScopedState<> local_start(simple_setup_local_->getSpaceInformation()->getStateSpace());
         ob::ScopedState<> local_goal(simple_setup_local_->getSpaceInformation()->getStateSpace());
 
-        local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity.linear.x * (solving_time_ + 0.15))); // x
-        local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity.linear.y * (solving_time_ + 0.15))); // y
+        local_start[0] = double(last_robot_pose_.getOrigin().getX() + double(current_robot_velocity_.linear.x * (solving_time_ + 0.15))); // x
+        local_start[1] = double(last_robot_pose_.getOrigin().getY() + double(current_robot_velocity_.linear.y * (solving_time_ + 0.15))); // y
         if (state_space_.compare("dubins") == 0)
         {
             local_start[2] = double(yaw); // yaw
@@ -1219,8 +1221,8 @@ void OnlinePlannFramework::planningTimerCallback()
                         ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
 
                         ob::ScopedState<> current_robot_state(simple_setup_local_->getSpaceInformation()->getStateSpace());
-                        current_robot_state[0] = odom_data->pose.pose.position.x;
-                        current_robot_state[1] = odom_data->pose.pose.position.y;
+                        current_robot_state[0] = odom_data_->pose.pose.position.x;
+                        current_robot_state[1] = odom_data_->pose.pose.position.y;
 
                         // !NEAREST POINT FROM PAST LOCAL PATH TO APPEND IN FINAL SOLUTION
                         if (past_local_solution_path_states_.size() > 0)
@@ -1235,13 +1237,13 @@ void OnlinePlannFramework::planningTimerCallback()
 
                                 if (state_space_.compare("dubins") == 0)
                                 {
-                                    current_distance_x = abs(odom_data->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                    current_distance_y = abs(odom_data->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                    current_distance_x = abs(odom_data_->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                                    current_distance_y = abs(odom_data_->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
                                 }
                                 else
                                 {
-                                    current_distance_x = abs(odom_data->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                                    current_distance_y = abs(odom_data->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                                    current_distance_x = abs(odom_data_->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                    current_distance_y = abs(odom_data_->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
                                 }
 
                                 if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
@@ -1296,13 +1298,13 @@ void OnlinePlannFramework::planningTimerCallback()
 
                             if (state_space_.compare("dubins") == 0)
                             {
-                                current_distance_x = abs(odom_data->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                                current_distance_y = abs(odom_data->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                                current_distance_x = abs(odom_data_->pose.pose.position.x - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                                current_distance_y = abs(odom_data_->pose.pose.position.y - local_path_states[i]->as<ob::DubinsStateSpace::StateType>()->getY());
                             }
                             else
                             {
-                                current_distance_x = abs(odom_data->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                                current_distance_y = abs(odom_data->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                                current_distance_x = abs(odom_data_->pose.pose.position.x - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                                current_distance_y = abs(odom_data_->pose.pose.position.y - local_path_states[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
                             }
 
                             if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
@@ -1434,8 +1436,8 @@ void OnlinePlannFramework::planningTimerCallback()
                 ob::StateSpacePtr space = simple_setup_local_->getStateSpace();
 
                 ob::ScopedState<> current_robot_state(simple_setup_local_->getSpaceInformation()->getStateSpace());
-                current_robot_state[0] = odom_data->pose.pose.position.x;
-                current_robot_state[1] = odom_data->pose.pose.position.y;
+                current_robot_state[0] = odom_data_->pose.pose.position.x;
+                current_robot_state[1] = odom_data_->pose.pose.position.y;
 
                 double init_x_distance = 10000;
                 double init_y_distance = 10000;
@@ -1448,13 +1450,13 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     if (state_space_.compare("dubins") == 0)
                     {
-                        current_distance_x = abs(odom_data->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
-                        current_distance_y = abs(odom_data->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
+                        current_distance_x = abs(odom_data_->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getX());
+                        current_distance_y = abs(odom_data_->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::DubinsStateSpace::StateType>()->getY());
                     }
                     else
                     {
-                        current_distance_x = abs(odom_data->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-                        current_distance_y = abs(odom_data->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+                        current_distance_x = abs(odom_data_->pose.pose.position.x - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+                        current_distance_y = abs(odom_data_->pose.pose.position.y - past_local_solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]);
                     }
 
                     if (current_distance_x < init_x_distance || current_distance_y < init_y_distance)
