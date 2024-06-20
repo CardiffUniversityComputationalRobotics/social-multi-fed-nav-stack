@@ -95,9 +95,9 @@ public:
         double basic_personal_space_val =
             relevant_agent_state.relevance *
             std::exp(-(
-                std::pow(distance * std::cos(tetha_robot_agent - tetha_orientation) / (std::sqrt(2) * 0.45),
-                         2) +
                 std::pow(distance * std::sin(tetha_robot_agent - tetha_orientation) / (std::sqrt(2) * 0.45),
+                         2) +
+                std::pow(distance * std::cos(tetha_robot_agent - tetha_orientation) / (std::sqrt(2) * 0.45),
                          2)));
 
         return basic_personal_space_val;
