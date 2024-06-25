@@ -136,6 +136,7 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     tf2::Transform last_robot_pose_;
 
+    // OMPL, online planner
     og::SimpleSetupPtr simple_setup_global_, simple_setup_local_;
     double timer_period_, solving_time_, xy_goal_tolerance_, local_xy_goal_tolerance_, yaw_goal_tolerance_, robot_base_radius_;
 
@@ -256,6 +257,7 @@ OnlinePlannFramework::OnlinePlannFramework()
 
     // Controller active flag
     // control_active_sub_ = this->create_subscription<std_msgs::msg::Bool>(control_active_topic_, 1, std::bind(&OnlinePlannFramework::controlActiveCallback, this, std::placeholders::_1));
+
     //=======================================================================
     // ! Publishers
     //=======================================================================
