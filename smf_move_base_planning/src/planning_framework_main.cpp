@@ -1025,14 +1025,8 @@ void OnlinePlannFramework::planningTimerCallback()
                     }
                 }
 
-                og::PathGeometric global_path_solution = og::PathGeometric(simple_setup_global_->getSpaceInformation());
-
-                for (int i = 0; i < solution_path_states_.size(); i++)
-                {
-                    global_path_solution.append(solution_path_states_[i]);
-                }
-
-                visualizeRRT(global_path_solution);
+                // ! GLOBAL PATH VISUALIZE
+                visualizeRRT(path);
 
                 //=======================================================================
                 // ! LOCAL PLANNER SOLVE
