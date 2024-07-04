@@ -863,15 +863,6 @@ void OnlinePlannFramework::planningTimerCallback()
             }
 
             simple_setup_global_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
-
-            if (state_space_.compare("dubins") == 0)
-            {
-                simple_setup_local_->getStateSpace()->as<ob::DubinsStateSpace>()->setBounds(bounds);
-            }
-            else
-            {
-                simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
-            }
         }
 
         //=======================================================================
@@ -1133,7 +1124,75 @@ void OnlinePlannFramework::planningTimerCallback()
                 {
 
                     ob::GoalStates *new_goal_local = findNewGoalCandidate(local_goal);
+                    new_goal_local->setThreshold(local_goal_radius_);
                     simple_setup_local_->setGoal(ob::GoalPtr(new_goal_local));
+                }
+
+                if (dynamic_bounds_)
+                {
+                    //=======================================================================
+                    // Set the bounds for the state space
+                    //=======================================================================
+                    ob::RealVectorBounds bounds(2);
+
+                    if (last_robot_pose_.getOrigin().getX() < local_goal[0])
+                    {
+                        if (last_robot_pose_.getOrigin().getX() - 2.5 < planning_bounds_x_[0])
+                            bounds.setLow(0, planning_bounds_x_[0]);
+                        else
+                            bounds.setLow(0, last_robot_pose_.getOrigin().getX() - 2.5);
+
+                        if (local_goal[0] + 5.0 > planning_bounds_x_[1])
+                            bounds.setHigh(0, planning_bounds_x_[1]);
+                        else
+                            bounds.setHigh(0, local_goal[0] + 2.5);
+                    }
+                    else
+                    {
+                        if (last_robot_pose_.getOrigin().getX() + 2.5 > planning_bounds_x_[1])
+                            bounds.setHigh(0, planning_bounds_x_[1]);
+                        else
+                            bounds.setHigh(0, last_robot_pose_.getOrigin().getX() + 2.5);
+
+                        if (local_goal[0] - 2.5 < planning_bounds_x_[0])
+                            bounds.setLow(0, planning_bounds_x_[0]);
+                        else
+                            bounds.setLow(0, local_goal[0] - 2.5);
+                    }
+
+                    if (last_robot_pose_.getOrigin().getY() < local_goal[1])
+                    {
+                        if (last_robot_pose_.getOrigin().getY() - 2.5 < planning_bounds_y_[0])
+                            bounds.setLow(1, local_goal[0]);
+                        else
+                            bounds.setLow(1, last_robot_pose_.getOrigin().getY() - 2.5);
+
+                        if (local_goal[1] + 2.5 > planning_bounds_y_[1])
+                            bounds.setHigh(1, planning_bounds_y_[1]);
+                        else
+                            bounds.setHigh(1, local_goal[1] + 2.5);
+                    }
+                    else
+                    {
+                        if (last_robot_pose_.getOrigin().getY() + 2.5 > planning_bounds_y_[1])
+                            bounds.setHigh(1, planning_bounds_y_[1]);
+                        else
+                            bounds.setHigh(1, last_robot_pose_.getOrigin().getY() + 2.5);
+
+                        if (local_goal[1] - 2.5 < planning_bounds_y_[0])
+                            bounds.setLow(1, planning_bounds_y_[0]);
+                        else
+                            bounds.setLow(1, local_goal[1] - 2.5);
+                    }
+
+                    if (state_space_.compare("dubins") == 0)
+                    {
+                        simple_setup_local_->getStateSpace()->as<ob::DubinsStateSpace>()->setBounds(bounds);
+                    }
+                    else
+                    {
+                        simple_setup_local_->getStateSpace()->as<ob::RealVectorStateSpace>()->setBounds(bounds);
+                    }
                 }
 
                 //=======================================================================
@@ -1982,10 +2041,10 @@ ob::GoalStates *OnlinePlannFramework::findNewGoalCandidate(const ob::ScopedState
         }
         i++;
     }
-    RCLCPP_WARN(this->get_logger(), "NO OPTIONAL GOAL FOUND!");
 
     if (j == 0)
     {
+        RCLCPP_WARN(this->get_logger(), "NO OPTIONAL GOAL FOUND!");
         goal_states->addState(goal_candidate);
     }
 
