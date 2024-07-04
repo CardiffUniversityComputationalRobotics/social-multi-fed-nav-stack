@@ -1026,16 +1026,17 @@ void OnlinePlannFramework::planningTimerCallback()
                 std::vector<const ob::State *> global_path_feedback;
                 ob::StateSpacePtr local_space = simple_setup_local_->getStateSpace();
 
-                int states_num_limit = solution_path_states_.size() - double(local_path_range_ / 0.5) - 4;
+                double local_path_distance = 0;
 
-                if (states_num_limit < 0)
-                {
-                    states_num_limit = 0;
-                }
+                local_goal[0] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                local_goal[1] = double(solution_path_states_[0]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
 
-                for (int i = solution_path_states_.size() - 1; i > states_num_limit; i--)
+                ob::SpaceInformationPtr si_global = simple_setup_global_->getSpaceInformation();
+
+                for (int i = solution_path_states_.size() - 1; i >= 1; i--)
                 {
-                    double local_path_distance = std::sqrt(std::pow(start[0] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0], 2) + std::pow(start[1] - solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1], 2));
+
+                    local_path_distance += si_global->distance(solution_path_states_[i - 1]->as<ob::RealVectorStateSpace::StateType>(), solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>());
 
                     ob::State *s = local_space->allocState();
 
@@ -1059,11 +1060,10 @@ void OnlinePlannFramework::planningTimerCallback()
 
                     global_path_feedback.push_back(s);
 
-                    local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
-                    local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
-
                     if (local_path_distance >= local_path_range_)
                     {
+                        local_goal[0] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[0]); // x
+                        local_goal[1] = double(solution_path_states_[i]->as<ob::RealVectorStateSpace::StateType>()->values[1]); // y
                         break;
                     }
                 }
