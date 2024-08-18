@@ -243,7 +243,7 @@ class Controller(Node):
             control_input.linear.y = 0.0
             control_input.linear.z = 0.0
 
-            if distance_to_goal >= 0.4:
+            if distance_to_goal >= 0.2:
                 self.controller_state = 0
                 self.desired_orientation_ = wrapAngle(math.atan2(inc_y, inc_x))
                 yaw_error = wrapAngle(

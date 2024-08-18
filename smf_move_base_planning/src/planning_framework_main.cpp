@@ -967,6 +967,8 @@ void OnlinePlannFramework::planningTimerCallback()
                                                    planning_bounds_x_, planning_bounds_y_, grid_map_msg, robot_base_radius_, local_use_social_heatmap_));
         simple_setup_local_->setStateValidityChecker(local_om_stat_val_check);
 
+        simple_setup_global_->getPlanner()->setup();
+
         //=======================================================================
         // ! Attempt to solve the problem of global planner
         //=======================================================================
@@ -1218,6 +1220,8 @@ void OnlinePlannFramework::planningTimerCallback()
                         simple_setup_local_->getProblemDefinition()->setOptimizationObjective(
                             getPathLengthObjective(simple_setup_local_->getSpaceInformation()));
                 }
+
+                simple_setup_local_->getPlanner()->setup();
 
                 //=======================================================================
                 // ! Attempt to solve the problem of the local planner
