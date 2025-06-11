@@ -7,12 +7,12 @@ offline_octomap_path: ""
 # offline_octomap_path: "/home/sasm/pepper_nav_ws/src/pepper_pipeline/map/offline_map_2.bt"
 visualize_free_space: True
 mapping_max_range: 8
-odometry_topic: "/pepper/odom_groundtruth"
+odometry_topic: "/walter/odom_groundtruth"
 
 rviz_timer: 1 # 0.0 if no visualization
 
-point_cloud_topics: ["/pepper/camera/depth/points"]
-point_cloud_frames: ["/CameraDepth_optical_frame"]
+point_cloud_topics: ["/intel_realsense_r200_depth/points"]
+point_cloud_frames: ["/camera_link_optical"]
 
 # social agents config
 social_agents_topic: "/pedsim_simulator/simulated_agents"

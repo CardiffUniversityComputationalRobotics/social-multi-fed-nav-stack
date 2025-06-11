@@ -62,6 +62,11 @@ src/new_state_sampler.cpp
 src/sampler/PathLengthDirectInfSamplerMod.cpp
 src/planner/InformedRRTstarMod.cpp
 src/planner/RRTstarMod.cpp
+src/planner/RRT.cpp
+src/planner/RRT_SMP.cpp
+src/planner/RRTMod.cpp
+src/goal_region_angle_tolerance.cpp
+
 )
 ament_target_dependencies(smf_move_base_planner ${dependencies})
 target_link_libraries(smf_move_base_planner ${OMPL_LIBRARIES})
@@ -69,5 +74,17 @@ target_link_libraries(smf_move_base_planner ${OMPL_LIBRARIES})
 install(TARGETS
   smf_move_base_planner
   DESTINATION lib/${PROJECT_NAME})
+
+# add_executable(test_rrt_smp
+# src/planner/RRT_SMP.cpp
+# )
+# ament_target_dependencies(test_rrt_smp ${dependencies})
+# target_link_libraries(test_rrt_smp ${OMPL_LIBRARIES})
+
+# install(TARGETS
+#   test_rrt_smp
+#   DESTINATION lib/${PROJECT_NAME})
+
+
 
 ament_package()

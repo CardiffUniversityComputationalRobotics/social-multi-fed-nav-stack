@@ -100,7 +100,7 @@ namespace ompl
             {
                 goalBias_ = goalBias;
             }
-
+           
             /** \brief Get the goal bias the planner is using */
             double getGoalBias() const
             {

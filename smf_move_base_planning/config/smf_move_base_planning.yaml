@@ -1,29 +1,29 @@
 # Path planning parameters
 world_frame: world
-planner_name: RRTstarMod # RRT, RRTstar
-local_planner_name: InformedRRTstarMod
+planner_name: RRT #RRTstarMod # # # RRTstar, RRT
+local_planner_name: RRTMod  #InformedRRTstarMod #RRT #RRTMod
 planning_bounds_x: [-50.0, 50.0] # [x_min, x_max]
 planning_bounds_y: [-50.0, 50.0] # [y_min, y_max]
 dynamic_bounds: True # the bounds of the planner will change according to the start and goal configurations
 start_state: [0.0, 0.0, 0.0] # [X, Y, Yaw]
 goal_state: [5.0, -1.0, 0.0] # [X, Y, Yaw]
 timer_period: 1.0
-solving_time: 0.3
+solving_time: 0.2
 opport_collision_check: True
 reuse_last_best_solution: True
 optimization_objective: SocialHeatmap
 local_optimization_objective: SocialComfort
-motion_cost_interpolation: False
+motion_cost_interpolation: True
 xy_goal_tolerance: 0.25
 local_xy_goal_tolerance: 1
-visualize_tree: False
-global_time_percent: 20
+visualize_tree: True
+global_time_percent: 99
 
 # Collision checking
 octomap_service: /octomap_binary
 robot_base_radius: 0.35
 
-odometry_topic: /pepper/odom_groundtruth
+odometry_topic: /walter/odom_groundtruth
 query_goal_topic: /smf_move_base_planner/query_goal
 solution_path_topic: /smf_move_base_planner/solution_path
 
@@ -33,3 +33,11 @@ local_path_range: 4
 local_reuse_last_best_solution: True
 local_use_social_heatmap: True
 grid_map_service: "/smf_move_base_mapper/get_grid_map"
+
+#SMF - Offset social forces
+pederastian_topic:  "/pedsim_simulator/simulated_agents"
+offset_goal_force: 1.0
+offset_robot_force: 1.0
+offset_person_force: 1.0
+pederastian_avg_mass: 60.0
+robot_avg_mass: 50.0
