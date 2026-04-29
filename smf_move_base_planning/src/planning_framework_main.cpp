@@ -119,6 +119,9 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr query_goal_radius_rviz_pub_;
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr num_nodes_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr goal_reached_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr erase_map_pub_;
+
+    void publishGoalReached();
 
     // ! action server
     // SmfBaseGoToActionServer *goto_action_server_;
@@ -145,15 +148,16 @@ private:
         goal_odom_frame_;
     double goal_radius_, local_goal_radius_, local_path_range_, global_time_percent_, turning_radius_;
     std::string planner_name_, local_planner_name_, optimization_objective_, local_optimization_objective_, odometry_topic_, query_goal_topic_, state_space_,
-        solution_path_topic_, world_frame_, octomap_service_;
+        solution_path_topic_, world_frame_, octomap_service_, erase_map_topic_;
     std::vector<const ob::State *> solution_path_states_, local_solution_path_states_, past_local_solution_path_states_;
 
     nav_msgs::msg::Odometry::SharedPtr odom_data_;
     geometry_msgs::msg::Twist current_robot_velocity_;
+    bool goal_reached_signal_sent_;
 };
 
 OnlinePlannFramework::OnlinePlannFramework()
-    : Node("online_planning_framework"), dynamic_bounds_(false), control_active_(false)
+    : Node("online_planning_framework"), dynamic_bounds_(false), control_active_(false), goal_reached_signal_sent_(false)
 {
     //=======================================================================
     // TF LISTENER
@@ -202,6 +206,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     this->declare_parameter("state_space", rclcpp::ParameterValue(std::string("R2")));
     this->declare_parameter("grid_map_service", rclcpp::ParameterValue(std::string("grid_map_service")));
     this->declare_parameter("local_use_social_heatmap", rclcpp::ParameterValue(true));
+    this->declare_parameter("erase_map_topic", rclcpp::ParameterValue(std::string("erase_map")));
 
     // ! GET PARAMETERS
     world_frame_ = this->get_parameter("world_frame").as_string();
@@ -235,6 +240,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     state_space_ = this->get_parameter("state_space").as_string();
     grid_map_service_ = this->get_parameter("grid_map_service").as_string();
     local_use_social_heatmap_ = this->get_parameter("local_use_social_heatmap").as_bool();
+    erase_map_topic_ = this->get_parameter("erase_map_topic").as_string();
 
     if (state_space_ == "dubins")
     {
@@ -268,6 +274,7 @@ OnlinePlannFramework::OnlinePlannFramework()
     query_goal_radius_rviz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("query_goal_radius_rviz", 1);
     num_nodes_pub_ = this->create_publisher<std_msgs::msg::Int32>("smf_num_nodes", 1);
     goal_reached_pub_ = this->create_publisher<std_msgs::msg::Bool>("goal_reached", 1);
+    erase_map_pub_ = this->create_publisher<std_msgs::msg::Bool>(erase_map_topic_, 1);
 
     // ! SERVICE CLIENT WAIT
     grid_map_client_ = this->create_client<GetGridMap>(grid_map_service_);
@@ -300,6 +307,21 @@ OnlinePlannFramework::OnlinePlannFramework()
     RCLCPP_WARN(this->get_logger(), "Odometry received");
 
     // goto_action_server_->start();
+}
+
+void OnlinePlannFramework::publishGoalReached()
+{
+    if (goal_reached_signal_sent_)
+    {
+        return;
+    }
+
+    std_msgs::msg::Bool goal_reached;
+    goal_reached.data = true;
+    goal_reached_pub_->publish(goal_reached);
+
+    goal_reached_signal_sent_ = true;
+    RCLCPP_WARN(this->get_logger(), "Goal reached.");
 }
 
 //! Goto action callback.
@@ -392,6 +414,7 @@ void OnlinePlannFramework::goToActionCallback(const std::shared_ptr<smf_move_bas
     solution_path_states_.clear();
     local_solution_path_states_.clear();
     goal_available_ = true;
+    goal_reached_signal_sent_ = false;
 
     rclcpp::Rate loop_rate(10);
     while (rclcpp::ok() && (goal_available_ || control_active_))
@@ -401,9 +424,7 @@ void OnlinePlannFramework::goToActionCallback(const std::shared_ptr<smf_move_bas
     result->success = true;
 
     // goto_action_server_->succeeded(result);
-    std_msgs::msg::Bool goal_reached;
-    goal_reached.data = true;
-    goal_reached_pub_->publish(goal_reached);
+    publishGoalReached();
 }
 
 //! Odometry callback.
@@ -433,10 +454,7 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::msg::Odometry::SharedPtr
         abs(yaw - goal_odom_frame_[2]) < (yaw_goal_tolerance_ + 0.2))
     {
         goal_available_ = false;
-        std_msgs::msg::Bool goal_reached;
-        goal_reached.data = true;
-        goal_reached_pub_->publish(goal_reached);
-        RCLCPP_WARN(this->get_logger(), "Goal reached");
+        publishGoalReached();
     }
 
     current_robot_velocity_ = odom_msg->twist.twist;
@@ -506,6 +524,7 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::msg::PoseStamp
     solution_path_states_.clear();
     local_solution_path_states_.clear();
     goal_available_ = true;
+    goal_reached_signal_sent_ = false;
 
     //=======================================================================
     // Publish RViz Maker
@@ -529,6 +548,10 @@ void OnlinePlannFramework::queryGoalCallback(const geometry_msgs::msg::PoseStamp
     radius_msg.pose.position.y = goal_map_frame_[1];
     radius_msg.pose.position.z = 0.0;
     query_goal_radius_rviz_pub_->publish(radius_msg);
+
+    std_msgs::msg::Bool erase_map;
+    erase_map.data = true;
+    erase_map_pub_->publish(erase_map);
 }
 
 //!  Planner setup.
