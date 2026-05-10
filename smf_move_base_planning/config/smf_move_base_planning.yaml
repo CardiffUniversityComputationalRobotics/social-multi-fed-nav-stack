@@ -26,6 +26,7 @@ robot_base_radius: 0.35
 odometry_topic: /pepper/odom_groundtruth
 query_goal_topic: /smf_move_base_planner/query_goal
 solution_path_topic: /smf_move_base_planner/solution_path
+erase_map_topic: /smf_move_base_mapper/erase_map
 
 goto_action: /smf_goto_action
 
