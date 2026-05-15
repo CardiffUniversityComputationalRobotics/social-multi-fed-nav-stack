@@ -99,6 +99,8 @@ public:
     void visualizeRRTLocal(og::PathGeometric &geopath);
     //! Callback for getting the state of the Smf base controller.
     void controlActiveCallback(const std_msgs::msg::Bool::SharedPtr control_active_msg);
+    //! Callback for clearing the active goal on stop motion.
+    void stopMotionCallback(const std_msgs::msg::Bool::SharedPtr stop_motion_msg);
     //! check if goal candidate is valid
     bool validateGoalCandidate(const ob::ScopedState<> &goal_candidate);
     //! calculate angle between to points XY
@@ -110,6 +112,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr nav_goal_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr control_active_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_motion_sub_;
 
     // ! PUBLISHERS
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr solution_path_rviz_pub_;
@@ -260,6 +263,13 @@ OnlinePlannFramework::OnlinePlannFramework()
 
     // 2D Nav Goal
     nav_goal_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(query_goal_topic_, 1, std::bind(&OnlinePlannFramework::queryGoalCallback, this, std::placeholders::_1));
+
+    // Stop motion
+    rclcpp::SubscriptionOptions stop_motion_options;
+    stop_motion_options.ignore_local_publications = true;
+    stop_motion_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        "stop_motion", 1, std::bind(&OnlinePlannFramework::stopMotionCallback, this, std::placeholders::_1),
+        stop_motion_options);
 
     // Controller active flag
     // control_active_sub_ = this->create_subscription<std_msgs::msg::Bool>(control_active_topic_, 1, std::bind(&OnlinePlannFramework::controlActiveCallback, this, std::placeholders::_1));
@@ -468,6 +478,48 @@ void OnlinePlannFramework::odomCallback(const nav_msgs::msg::Odometry::SharedPtr
 void OnlinePlannFramework::controlActiveCallback(const std_msgs::msg::Bool::SharedPtr control_active_msg)
 {
     control_active_ = control_active_msg->data;
+}
+
+//! Stop motion callback.
+/*!
+ * Callback for clearing the active goal and stopping planning.
+ */
+void OnlinePlannFramework::stopMotionCallback(const std_msgs::msg::Bool::SharedPtr stop_motion_msg)
+{
+    if (!stop_motion_msg->data)
+        return;
+
+    const bool had_goal = goal_available_ || control_active_ ||
+                          !solution_path_states_.empty() || !local_solution_path_states_.empty() ||
+                          !past_local_solution_path_states_.empty();
+
+    goal_available_ = false;
+    control_active_ = false;
+    goal_reached_signal_sent_ = true;
+
+    for (double &value : goal_map_frame_)
+        value = 0.0;
+    for (double &value : goal_odom_frame_)
+        value = 0.0;
+
+    solution_path_states_.clear();
+    local_solution_path_states_.clear();
+    past_local_solution_path_states_.clear();
+
+    if (simple_setup_global_)
+    {
+        simple_setup_global_->clear();
+        simple_setup_global_->clearStartStates();
+    }
+
+    if (simple_setup_local_)
+    {
+        simple_setup_local_->clear();
+        simple_setup_local_->clearStartStates();
+    }
+
+    if (had_goal)
+        RCLCPP_INFO(this->get_logger(), "Stop motion received; cleared current planning goal");
 }
 
 //! Navigation goal callback.
