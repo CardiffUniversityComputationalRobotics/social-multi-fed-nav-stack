@@ -67,6 +67,8 @@ typedef octomap_msgs::srv::GetOctomap OctomapSrv;
 #include <pedsim_msgs/msg/agent_states.hpp>
 
 #include <signal.h>
+#include <chrono>
+#include <mutex>
 
 typedef pcl::PointXYZ PCLPoint;
 typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
@@ -201,6 +203,8 @@ private:
 
     grid_map_msgs::msg::GridMap grid_map_msg_;
 
+    std::recursive_mutex map_state_mutex_;
+
     // social relevance validity checking constants
     double robot_distance_view_max_, robot_distance_view_min_, robot_velocity_threshold_, robot_angle_view_, actual_fov_distance_;
     double social_heatmap_decay_factor_;
@@ -223,8 +227,10 @@ private:
     bool apply_filter_;
     bool add_max_ranges_;
     bool add_rays_;
+    bool skip_sensor_callbacks_after_erase_;
 
     double orientation_drift_, prev_map_to_fixed_yaw_, position_drift_;
+    std::chrono::steady_clock::time_point skip_sensor_callbacks_until_;
 
     // LaserScan => (x,y,z)
     laser_geometry::LaserProjection laser_scan_projector_;
