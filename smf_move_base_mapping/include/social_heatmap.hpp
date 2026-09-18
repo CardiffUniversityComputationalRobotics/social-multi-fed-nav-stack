@@ -13,13 +13,12 @@
 #include <grid_map_octomap/grid_map_octomap.hpp>
 #include <grid_map_msgs/srv/get_grid_map.hpp>
 #include <grid_map_cv/grid_map_cv.hpp>
-#include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class SocialHeatmap
 {
