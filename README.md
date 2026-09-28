@@ -1,4 +1,4 @@
-# Fedback Social Comfort Robot Navigation Framework
+# Feedback Social Comfort Robot Navigation Framework
 
 This is an online social robot navigation framework for indoor social scenarios that uses a Social Heatmap to represent crowded areas in an environment and also uses a multilayer technique for the planning module.
 
@@ -9,11 +9,61 @@ It is composed of four different packages:
 - `smf_move_base_planning`: responsible for finding solution paths for the navigation query requested.
 - `smf_move_base_msgs`: contains the messages needed for the framework and the start-goal queries.
 
-To run the framework, there is a launch file example in every package with example configurations.
+Developed and tested on **ROS 2 Jazzy**. The `humble-devel` branch is the one that builds and runs on Jazzy; there is no `jazzy` branch.
+
+## Requirements
+
+- ROS 2 Jazzy on Ubuntu 24.04.
+- `pedsim_msgs`, from [`pedsim_ros`](https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros). It has no rosdep rule, so it has to be in the same workspace before `rosdep install` runs.
+- Everything else is resolved by rosdep: OMPL, `grid_map` (`grid_map_core`, `grid_map_cv`, `grid_map_filters`, `grid_map_msgs`, `grid_map_octomap`, `grid_map_ros`, `grid_map_sdf`, `grid_map_visualization`), OctoMap and `octomap_server`, `pcl_ros`, `laser_geometry`, `tf2_ros`.
+
+## Installation
+
+```bash
+source /opt/ros/jazzy/setup.bash
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+
+git clone -b humble-devel https://github.com/CardiffUniversityComputationalRobotics/social-multi-fed-nav-stack.git
+git clone -b jazzy https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros.git
+
+cd ~/ros2_ws
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
+
+Clone `pedsim_ros` before running `rosdep install`, otherwise it cannot resolve `pedsim_msgs`.
+
+## Usage
+
+The three nodes take their whole configuration from ROS 2 parameter files and have no defaults worth running with, so they are always started from a launch file that supplies one:
+
+| Package | Executable | Node name used downstream |
+| --- | --- | --- |
+| `smf_move_base_mapping` | `smf_move_base_mapper` | `smf_move_base_mapper` |
+| `smf_move_base_planning` | `smf_move_base_planner` | `smf_move_base_planner` |
+| `smf_move_base_control` | `base_controller` | `smf_move_base_controller` |
+
+This repository ships no runnable launch file. The `*.launch` files under each package are ROS 1 XML, are not installed, and `ros2 launch` cannot parse them. A complete, working launch file and parameter set for all three nodes lives in [`social_nav_benchmark`](https://github.com/CardiffUniversityComputationalRobotics/social_nav_benchmark), which is also how the stack is benchmarked:
+
+```bash
+ros2 launch social_nav_benchmark benchmark.launch.py nav_stack:=smf version:=small_house robot:=stretch
+```
+
+To run a node on its own, pass a parameter file explicitly:
+
+```bash
+ros2 run smf_move_base_mapping smf_move_base_mapper --ros-args \
+  --params-file /absolute/path/to/smf_move_base_mapping.yaml
+```
+
+The parameter files in `social_nav_benchmark/config/nav_stacks/smf_nav_stack/` are a working starting point.
+
+The planner needs a 3D map before it can plan, so start the mapper first, then the controller, then the planner. The planner also waits for the controller to report itself on `control_active_topic` before it starts following a solution.
 
 ![FrameworkConnections](https://i.imgur.com/JgMGqJW.png)
 
-- [Fedback Social Comfort Robot Navigation Framework](#fedback-social-comfort-robot-navigation-framework)
+- [Feedback Social Comfort Robot Navigation Framework](#feedback-social-comfort-robot-navigation-framework)
   - [World Modeling (`smf_move_base_mapping`)](#world-modeling-smf_move_base_mapping)
     - [Parameters](#parameters)
     - [Subscribers](#subscribers)
@@ -53,11 +103,11 @@ Alditionally, this package also provides an idea of the crowded areas in the soc
 
   Base frame considered from the robot for the mapping.
 
-- oflline_octomap_path (string, default: "")
+- offline_octomap_path (string, default: "")
 
-  If defined, then the given map is used and no ther mapping is done.
+  If set, that map is loaded and no live mapping is done: the laser and point cloud subscribers are never created.
 
-- visualize_free_space (bool, default: True)
+- visualize_free_space (bool, default: False)
 
   Wether you would like to see the 3D map and grid_map. If `False`, nothing is published at `/smf_move_base_mapping/social_grid_map` and `/smf_move_base_mapping/octomap_map`.
 
@@ -71,13 +121,37 @@ Alditionally, this package also provides an idea of the crowded areas in the soc
 
   The time delay to publish messages to RViz. Not used if `visualize_free_space` is `False`.
 
-- point_cloud_topics (list: string, default: empty)
+- point_cloud_topic (string, default: "")
 
-  List of pointcloud topics used to generate the 3D map.
+  Pointcloud topic used to generate the 3D map. Singular in ROS 2, unlike the ROS 1 version which took a list.
 
-- point_cloud_frames (list: string, default: empty)
+- point_cloud_frame (string, default: "")
 
-  List of frames from pointcloud topics in order respectively.
+  Frame of that pointcloud. It must exist in TF, otherwise nothing is mapped.
+
+- laser_scan_topic (string, default: "")
+
+  Laser scan topic used to generate the 3D map.
+
+- laser_scan_frame (string, default: "")
+
+  Frame of that laser scan.
+
+- minimum_range (double, default: -1.0)
+
+  Range below which scan returns are discarded. `-1.0` disables the filter.
+
+- min_z_pc (double, default: 0.05) / max_z_pc (double, default: 1.0)
+
+  Height band of the pointcloud that is inserted into the map.
+
+- social_comfort_amplitude (double, default: 6.0)
+
+  Amplitude of the social comfort layer of the grid map.
+
+- erase_map_topic (string, default: "erase_map")
+
+  A `True` message on this topic clears the map and skips sensor callbacks for 3 seconds. This is what resets the map between benchmark runs.
 
 - social_agents_topic (string, default: "/pedsim_simulator/simulated_agents")
 
@@ -107,7 +181,7 @@ Alditionally, this package also provides an idea of the crowded areas in the soc
 
   Maximum velocity that the robot can have.
 
-- social_heatmap_decay_factor (double, default: 65)
+- social_heatmap_decay_factor (double, default: 65.0)
 
   It is recommended a value in between 60 and 75.
 
@@ -115,15 +189,15 @@ Alditionally, this package also provides an idea of the crowded areas in the soc
 
 The name of the subscribers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /pedsim_simulator/simulated_agents ([pedsim_msgs/AgentStates](https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros/blob/noetic-devel/pedsim_msgs/msg/AgentStates.msg))
+- /pedsim_simulator/simulated_agents ([pedsim_msgs/AgentStates](https://github.com/CardiffUniversityComputationalRobotics/pedsim_ros/blob/jazzy/pedsim_msgs/msg/AgentStates.msg))
 
   Position, orientation, velocity and other states of the social agents.
 
-- /pepper/camera/depth/points ([sensor_msgs/PointCloud2](http://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/PointCloud2.html))
+- /pepper/camera/depth/points ([sensor_msgs/PointCloud2](https://docs.ros.org/en/jazzy/p/sensor_msgs/interfaces/msg/PointCloud2.html))
 
   Depth points from depth camera.
 
-- /pepper/odom_groundtruth ([nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html))
+- /pepper/odom_groundtruth ([nav_msgs/Odometry](https://docs.ros.org/en/jazzy/p/nav_msgs/interfaces/msg/Odometry.html))
 
   Robot odometry (in this case it was Pepper robot).
 
@@ -131,17 +205,17 @@ The name of the subscribers' topics are just defined as an example, but they may
 
 The name of the publishers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /smf_move_base_mapping/octomap_map ([visualization_msgs/MarkerArray](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/MarkerArray.html))
+- /smf_move_base_mapping/octomap_map ([visualization_msgs/MarkerArray](https://docs.ros.org/en/jazzy/p/visualization_msgs/interfaces/msg/MarkerArray.html))
 
   Visual representation of the 3D map created.
 
-- /smf_move_base_mapping/social_grid_map ([grid_map_msgs/GridMap](http://docs.ros.org/en/kinetic/api/grid_map_msgs/html/msg/GridMap.html))
+- /smf_move_base_mapping/social_grid_map ([grid_map_msgs/GridMap](https://docs.ros.org/en/jazzy/p/grid_map_msgs/interfaces/msg/GridMap.html))
 
   Grid map with 4 layers, one for obstacles and one including obstacles and social agents, one for comfort and another for social heatmap.
 
 ### Services
 
-- /smf_move_base_mapping/get_grid_map ([grid_map_msgs/GetGridMap](http://docs.ros.org/en/indigo/api/grid_map_msgs/html/srv/GetGridMap.html))
+- /smf_move_base_mapping/get_grid_map ([grid_map_msgs/GetGridMap](https://docs.ros.org/en/jazzy/p/grid_map_msgs/interfaces/srv/GetGridMap.html))
 
   Fetches the grid map from the World Modeling.
 
@@ -263,40 +337,40 @@ All of the following parameters have to be defined since they have no default va
 
 The name of the subscribers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /smf_move_base_planner/query_goal ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
-- /pepper/odom_groundtruth ([nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html))
+- /smf_move_base_planner/query_goal ([geometry_msgs/PoseStamped](https://docs.ros.org/en/jazzy/p/geometry_msgs/interfaces/msg/PoseStamped.html))
+- /pepper/odom_groundtruth ([nav_msgs/Odometry](https://docs.ros.org/en/jazzy/p/nav_msgs/interfaces/msg/Odometry.html))
 
   Robot odometry.
 
-- /control_active_topic ([std_msgs/Bool](http://docs.ros.org/en/noetic/api/std_msgs/html/msg/Bool.html))
+- /control_active_topic ([std_msgs/Bool](https://docs.ros.org/en/jazzy/p/std_msgs/interfaces/msg/Bool.html))
 
 ### Publishers
 
 The name of the publishers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/msg/Path2D.msg))
+- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/social-multi-fed-nav-stack/blob/humble-devel/smf_move_base_msgs/msg/Path2D.msg))
 
   Solution path found by the planner. It is passed to the control module.
 
-- /smf_move_base_planner/smf_num_nodes ([std_msgs/Int32](http://docs.ros.org/en/melodic/api/std_msgs/html/msg/Int32.html))
+- /smf_move_base_planner/smf_num_nodes ([std_msgs/Int32](https://docs.ros.org/en/jazzy/p/std_msgs/interfaces/msg/Int32.html))
 
   Number of valid nodes sampled by the local planner.
 
-- /smf_move_base_planner/query_goal_pose_rviz ([geometry_msgs/PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
+- /smf_move_base_planner/query_goal_pose_rviz ([geometry_msgs/PoseStamped](https://docs.ros.org/en/jazzy/p/geometry_msgs/interfaces/msg/PoseStamped.html))
 
   Shows in RViz the query pose requested to the planner.
 
-- /smf_move_base_planner/query_goal_radius_rviz ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
+- /smf_move_base_planner/query_goal_radius_rviz ([visualization_msgs/Marker](https://docs.ros.org/en/jazzy/p/visualization_msgs/interfaces/msg/Marker.html))
 
   Shows in RViz the radius of the query requested to the planner.
 
-- /smf_move_base_planner/solution_path ([visualization_msgs/Marker](http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html))
+- /smf_move_base_planner/solution_path ([visualization_msgs/Marker](https://docs.ros.org/en/jazzy/p/visualization_msgs/interfaces/msg/Marker.html))
 
   Visual solution path to be seen in RViz.
 
 ### Actions
 
-- `/goto_action` ([smf_move_base_msgs/GoTo2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/action/Goto2D.action))
+- `/goto_action` ([smf_move_base_msgs/GoTo2D](https://github.com/CardiffUniversityComputationalRobotics/social-multi-fed-nav-stack/blob/humble-devel/smf_move_base_msgs/action/Goto2D.action))
 
   Action to request navigation query. The name of the action server depends on the parameter `goto_action`.
 
@@ -330,7 +404,7 @@ This module is in charge of sending the velocities to the robot according to the
 
   Topic in which the desired path to follow is published.
 
-- control_output_topic (double, default: "/control_output_topic")
+- control_output_topic (string, default: "/control_output_topic")
 
   Topic in which the velocities are published.
 
@@ -340,12 +414,12 @@ This module is in charge of sending the velocities to the robot according to the
 
 The name of the subscribers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/smf-nav-stack/blob/world_modeling/smf_move_base_msgs/msg/Path2D.msg))
-- /pepper/odom_groundtruth ([nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html))
+- /smf_move_base_planner/smf_move_base_solution_path ([smf_move_base_msgs/Path2D](https://github.com/CardiffUniversityComputationalRobotics/social-multi-fed-nav-stack/blob/humble-devel/smf_move_base_msgs/msg/Path2D.msg))
+- /pepper/odom_groundtruth ([nav_msgs/Odometry](https://docs.ros.org/en/jazzy/p/nav_msgs/interfaces/msg/Odometry.html))
 
 ### Publishers
 
 The name of the publishers' topics are just defined as an example, but they may be configured using the parameters defined before.
 
-- /control_active_topic ([std_msgs/Bool](http://docs.ros.org/en/noetic/api/std_msgs/html/msg/Bool.html))
-- /pepper/cmd_vel ([geometry_msgs/Twist](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html))
+- /control_active_topic ([std_msgs/Bool](https://docs.ros.org/en/jazzy/p/std_msgs/interfaces/msg/Bool.html))
+- /pepper/cmd_vel ([geometry_msgs/Twist](https://docs.ros.org/en/jazzy/p/geometry_msgs/interfaces/msg/Twist.html))
